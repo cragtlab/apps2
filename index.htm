@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stumble Links</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            color: #333;
+            text-align: center;
+        }
+
+        .link-display {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .link-display.empty {
+            color: #999;
+        }
+
+        .title-edit {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            word-break: break-word;
+        }
+
+        .title-input {
+            font-size: 24px;
+            font-weight: 600;
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        .link-url {
+            font-size: 14px;
+            color: #666;
+            word-break: break-all;
+        }
+
+        .frequency-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            grid-column: 1 / -1;
+            padding: 16px;
+            font-size: 16px;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ee5a52;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+            border-top: 2px solid #e9ecef;
+        }
+
+        .form-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="url"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="url"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-add {
+            grid-column: 1 / -1;
+            background: #51cf66;
+            color: white;
+        }
+
+        .btn-add:hover {
+            background: #40c057;
+        }
+
+        .links-table-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .links-table-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .table-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn-small {
+            padding: 8px 12px;
+            font-size: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-small:hover {
+            background: #5568d3;
+        }
+
+        .btn-small.import {
+            background: #51cf66;
+        }
+
+        .btn-small.import:hover {
+            background: #40c057;
+        }
+
+        #linksTable {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #linksTable th {
+            background: #667eea;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            border-right: 1px solid #5568d3;
+        }
+
+        #linksTable th:last-child {
+            border-right: none;
+        }
+
+        #linksTable td {
+            padding: 10px;
+            border-bottom: 1px solid #e9ecef;
+            word-break: break-word;
+        }
+
+        #linksTable tr:last-child td {
+            border-bottom: none;
+        }
+
+        #linksTable tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        #linksTable a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        #linksTable a:hover {
+            text-decoration: underline;
+        }
+
+        .table-delete-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .table-delete-btn:hover {
+            background: #ee5a52;
+        }
+
+        .info-text {
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+            margin: 20px 0;
+        }
+
+        .snooze-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .snooze-options button {
+            padding: 10px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 Stumble Links</h1>
+
+        <div class="link-display empty" id="linkDisplay">
+            <p>No links available. Add one to get started!</p>
+        </div>
+
+        <div class="buttons" id="buttonContainer" style="display: none;">
+            <button class="btn-primary" onclick="openNext()">→ Next Link</button>
+            <button class="btn-secondary" onclick="toggleEditMode()">Edit Title</button>
+            <button class="btn-secondary" onclick="showSnoozeOptions()">😴 Snooze</button>
+            <button class="btn-danger" onclick="deleteCurrentLink()">Delete</button>
+        </div>
+
+        <div id="snoozeMenu" style="display: none;" class="snooze-options"></div>
+
+        <!-- Add Link Form -->
+        <div class="form-section">
+            <h3>➕ Add New Link</h3>
+            <div class="form-group">
+                <label>URL</label>
+                <input type="url" id="newUrl" placeholder="https://example.com">
+            </div>
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="newTitle" placeholder="Link title">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Frequency</label>
+                    <select id="newFrequency">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-add" onclick="addLink()">Add Link</button>
+        </div>
+
+        <!-- Links Table -->
+        <div class="links-table-section" id="linksTableSection" style="display: none;">
+            <h3>📚 Your Links</h3>
+            <div class="table-controls">
+                <button class="btn-small" onclick="exportToClipboard()">📋 Copy to Clipboard</button>
+                <button class="btn-small import" onclick="importFromClipboard()">📥 Paste from Clipboard</button>
+            </div>
+            <table id="linksTable">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>URL</th>
+                        <th>Frequency</th>
+                        <th>Snoozed Until</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="linksTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'stumble_links';
+        let links = [];
+        let currentIndex = 0;
+
+        // Initialize
+        function init() {
+            loadLinks();
+            displayNextAvailable();
+            updateLinksList();
+        }
+
+        // Load links from localStorage
+        function loadLinks() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            links = stored ? JSON.parse(stored) : [];
+        }
+
+        // Save links to localStorage
+        function saveLinks() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+        }
+
+        // Get links that are not snoozed
+        function getAvailableLinks() {
+            const today = new Date().toISOString().split('T')[0];
+            return links.filter(link => !link.snoozed_until || link.snoozed_until <= today);
+        }
+
+        // Display next available link
+        function displayNextAvailable() {
+            const available = getAvailableLinks();
+            
+            if (available.length === 0) {
+                document.getElementById('linkDisplay').innerHTML = '<p class="info-text">No links available right now. Check back later! 😴</p>';
+                document.getElementById('linkDisplay').classList.add('empty');
+                document.getElementById('buttonContainer').style.display = 'none';
+                document.getElementById('snoozeMenu').style.display = 'none';
+                return;
+            }
+
+            currentIndex = links.indexOf(available[0]);
+            displayLink(links[currentIndex]);
+        }
+
+        // Display a specific link
+        function displayLink(link) {
+            const display = document.getElementById('linkDisplay');
+            display.classList.remove('empty');
+            display.innerHTML = `
+                <div class="title-edit" id="titleDisplay">${escapeHtml(link.title)}</div>
+                <div class="link-url">${escapeHtml(link.link)}</div>
+                <span class="frequency-badge">${link.frequency}</span>
+            `;
+            document.getElementById('buttonContainer').style.display = 'grid';
+            document.getElementById('snoozeMenu').style.display = 'none';
+        }
+
+        // Open next link in new window
+        function openNext() {
+            const link = links[currentIndex];
+            window.open(link.link, '_blank');
+        }
+
+        // Toggle edit mode for title
+        function toggleEditMode() {
+            const link = links[currentIndex];
+            const display = document.getElementById('linkDisplay');
+            
+            if (document.getElementById('titleInput')) {
+                // Save mode
+                const input = document.getElementById('titleInput');
+                link.title = input.value;
+                saveLinks();
+                displayLink(link);
+            } else {
+                // Edit mode
+                display.innerHTML = `
+                    <input type="text" id="titleInput" class="title-input" value="${escapeHtml(link.title)}">
+                    <div class="link-url">${escapeHtml(link.link)}</div>
+                    <span class="frequency-badge">${link.frequency}</span>
+                `;
+                document.getElementById('titleInput').focus();
+                document.getElementById('titleInput').select();
+            }
+        }
+
+        // Show snooze options
+        function showSnoozeOptions() {
+            const link = links[currentIndex];
+            const menu = document.getElementById('snoozeMenu');
+            
+            menu.innerHTML = `
+                <button class="btn-secondary" onclick="snoozeLink('daily')">Snooze 1 day</button>
+                <button class="btn-secondary" onclick="snoozeLink('weekly')">Snooze 1 week</button>
+                <button class="btn-secondary" onclick="snoozeLink('monthly')">Snooze 1 month</button>
+                <button class="btn-secondary" onclick="snoozeLink('yearly')">Snooze 1 year</button>
+            `;
+            menu.style.display = 'grid';
+        }
+
+        // Snooze link
+        function snoozeLink(period) {
+            const link = links[currentIndex];
+            const date = new Date();
+
+            switch (period) {
+                case 'daily':
+                    date.setDate(date.getDate() + 1);
+                    break;
+                case 'weekly':
+                    date.setDate(date.getDate() + 7);
+                    break;
+                case 'monthly':
+                    date.setMonth(date.getMonth() + 1);
+                    break;
+                case 'yearly':
+                    date.setFullYear(date.getFullYear() + 1);
+                    break;
+            }
+
+            link.snoozed_until = date.toISOString().split('T')[0];
+            saveLinks();
+            displayNextAvailable();
+            updateLinksList();
+        }
+
+        // Delete current link
+        function deleteCurrentLink() {
+            if (confirm('Delete this link?')) {
+                links.splice(currentIndex, 1);
+                saveLinks();
+                displayNextAvailable();
+                updateLinksList();
+            }
+        }
+
+        // Add new link
+        function addLink() {
+            const url = document.getElementById('newUrl').value.trim();
+            const title = document.getElementById('newTitle').value.trim();
+            const frequency = document.getElementById('newFrequency').value;
+
+            if (!url || !title) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const link = {
+                id: Date.now(),
+                link: url,
+                title: title,
+                snoozed_until: null,
+                frequency: frequency
+            };
+
+            links.push(link);
+            saveLinks();
+
+            document.getElementById('newUrl').value = '';
+            document.getElementById('newTitle').value = '';
+            document.getElementById('newFrequency').value = 'daily';
+
+            displayNextAvailable();
+            updateLinksList();
+        }
+
+        // Update links table display
+        function updateLinksList() {
+            const tableBody = document.getElementById('linksTableBody');
+            const tableSection = document.getElementById('linksTableSection');
+            
+            if (links.length === 0) {
+                tableSection.style.display = 'none';
+                return;
+            }
+
+            tableSection.style.display = 'block';
+            
+            tableBody.innerHTML = links.map(link => {
+                const snoozedUntil = link.snoozed_until || '—';
+                return `
+                    <tr>
+                        <td>${escapeHtml(link.title)}</td>
+                        <td><a href="${escapeHtml(link.link)}" target="_blank" title="${escapeHtml(link.link)}">🔗 Open</a></td>
+                        <td>${link.frequency}</td>
+                        <td>${snoozedUntil}</td>
+                        <td><button class="table-delete-btn" onclick="deleteLink(${link.id})">Delete</button></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Delete link by ID
+        function deleteLink(id) {
+            if (confirm('Delete this link?')) {
+                links = links.filter(link => link.id !== id);
+                saveLinks();
+                displayNextAvailable();
+                updateLinksList();
+            }
+        }
+
+        // Export links to clipboard (TSV format for Google Sheets)
+        function exportToClipboard() {
+            if (links.length === 0) {
+                alert('No links to export');
+                return;
+            }
+
+            const rows = [
+                ['Title', 'URL', 'Frequency', 'Snoozed Until'].join('\t')
+            ];
+
+            links.forEach(link => {
+                const snoozedUntil = link.snoozed_until || '';
+                rows.push([
+                    link.title,
+                    link.link,
+                    link.frequency,
+                    snoozedUntil
+                ].join('\t'));
+            });
+
+            const tsvContent = rows.join('\n');
+            navigator.clipboard.writeText(tsvContent).then(() => {
+                alert('Copied to clipboard! Paste into Google Sheets.');
+            }).catch(err => {
+                alert('Failed to copy: ' + err);
+            });
+        }
+
+        // Import links from clipboard (TSV format)
+        function importFromClipboard() {
+            navigator.clipboard.readText().then(text => {
+                const lines = text.trim().split('\n');
+                if (lines.length < 2) {
+                    alert('Invalid format. Expected header row + data.');
+                    return;
+                }
+
+                const headers = lines[0].split('\t');
+                const titleIdx = headers.indexOf('Title');
+                const urlIdx = headers.indexOf('URL');
+                const freqIdx = headers.indexOf('Frequency');
+                const snoozeIdx = headers.indexOf('Snoozed Until');
+
+                if (titleIdx === -1 || urlIdx === -1 || freqIdx === -1) {
+                    alert('Missing required columns: Title, URL, Frequency');
+                    return;
+                }
+
+                const imported = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const cells = lines[i].split('\t');
+                    if (cells.length > urlIdx && cells[urlIdx].trim()) {
+                        imported.push({
+                            id: Date.now() + i,
+                            title: cells[titleIdx] ? cells[titleIdx].trim() : 'Untitled',
+                            link: cells[urlIdx].trim(),
+                            frequency: cells[freqIdx] ? cells[freqIdx].trim() : 'daily',
+                            snoozed_until: cells[snoozeIdx] ? cells[snoozeIdx].trim() || null : null
+                        });
+                    }
+                }
+
+                if (imported.length === 0) {
+                    alert('No valid links found in clipboard.');
+                    return;
+                }
+
+                links.push(...imported);
+                saveLinks();
+                displayNextAvailable();
+                updateLinksList();
+                alert(`Imported ${imported.length} link(s)!`);
+            }).catch(err => {
+                alert('Failed to read clipboard: ' + err);
+            });
+        }
+
+        // Utility function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
