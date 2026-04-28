@@ -13,7 +13,12 @@ button { padding:8px 12px; margin:3px; cursor:pointer; }
 .btn-add {    background:#28a745;color:white; }
 #linkFreqContainer { display:none; gap:10px; margin-bottom:10px; }
 #frequencyInput { width:60px; }
-
+#linkFreqContainer button {
+    background:#007bff;
+    color:white;
+    border:none;
+    border-radius:5px;
+}
 textarea { width:100%; height:80px; }
 
 table { width:100%; border-collapse:collapse; margin-top:10px; }
@@ -28,7 +33,8 @@ td, th { border:1px solid #ddd; padding:6px; }
 
 <!-- DISPLAY -->
 <div id="linkFreqContainer">
-    <input id="frequencyInput">
+    <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
+    <button onclick="updateCurrentURL()">Update URL</button>
     <a id="linkDisplay" target="_blank" style="flex:1;"></a>
 </div>
 
@@ -113,6 +119,40 @@ function displayLink(link){
 
     titleTextarea.value=link.title||'';
     frequencyInput.value=link.frequency;
+}
+async function updateCurrentURL(){
+    let clipboardText = '';
+
+    try{
+        clipboardText = (await navigator.clipboard.readText()).trim();
+    }catch(e){
+        // clipboard might fail (permissions)
+    }
+
+    let newUrl = clipboardText;
+
+    // validate clipboard
+    if(!newUrl || (!newUrl.startsWith('http') && !newUrl.startsWith('file'))){
+        newUrl = '';
+    }
+
+    // prompt user
+    const input = prompt(
+        'Update URL (OK to confirm, Cancel to abort):',
+        newUrl || links[currentIndex].link
+    );
+
+    if(input === null) return; // cancel
+
+    const finalUrl = input.trim();
+    if(!finalUrl) return;
+
+    // update
+    links[currentIndex].link = finalUrl;
+
+    saveLinks();
+    updateLinksList();
+    displayLink(links[currentIndex]);
 }
 
 function saveCurrent(){
