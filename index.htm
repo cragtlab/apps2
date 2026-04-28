@@ -2,244 +2,268 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stumble Links</title>
 
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:sans-serif; padding:20px; background:#f5f5f5; }
+.container { max-width:700px; margin:auto; background:white; padding:20px; border-radius:10px; }
 
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-    min-height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:20px;
-}
+button { padding:8px 12px; margin:3px; cursor:pointer; }
+.btn-danger { background:#ff4d4d; color:white; }
 
-.container {
-    background:white;
-    border-radius:12px;
-    box-shadow:0 20px 60px rgba(0,0,0,0.3);
-    max-width:600px;
-    width:100%;
-    padding:40px;
-}
+#linkFreqContainer { display:none; gap:10px; margin-bottom:10px; }
+#frequencyInput { width:60px; }
 
-h1 { text-align:center; margin-bottom:30px; }
+textarea { width:100%; height:80px; }
 
-.buttons { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
-
-button {
-    padding:12px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    font-weight:600;
-}
-
-.btn-secondary { background:#e9ecef; }
-.btn-danger { background:#ff6b6b; color:white; }
-
-.links-table-section {
-    margin-top:20px;
-}
-
-#linksTable {
-    width:100%;
-    border-collapse:collapse;
-    font-size:13px;
-}
-
-#linksTable th, #linksTable td {
-    padding:8px;
-    border:1px solid #ddd;
-}
-
-.btn-small {
-    padding:6px 10px;
-    font-size:12px;
-    background:#667eea;
-    color:white;
-    border:none;
-    border-radius:4px;
-    cursor:pointer;
-}
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+td, th { border:1px solid #ddd; padding:6px; }
 </style>
 </head>
 
 <body>
 <div class="container">
 
-<h1>🌍 Stumble Links</h1>
+<h2>🌍 Stumble Links</h2>
 
-<div id="linkFreqContainer" style="display:none; margin-bottom:20px; gap:10px; align-items:flex-start;">
-    <a id="linkDisplay" target="_blank" style="flex:1; font-weight:600;"></a>
-
-    <div style="width:120px;">
-        <label>Freq</label>
-        <input id="frequencyInput" style="width:100%;">
-    </div>
+<!-- DISPLAY -->
+<div id="linkFreqContainer">
+    <input id="frequencyInput">
+    <a id="linkDisplay" target="_blank" style="flex:1;"></a>
 </div>
 
-<div id="titleEditorContainer" style="display:none; margin-bottom:20px;">
-    <textarea id="titleTextarea" style="width:100%; height:80px;"></textarea>
+<div id="titleEditorContainer" style="display:none;">
+    <textarea id="titleTextarea" placeholder="enter remarks"></textarea>
 </div>
 
-<div class="buttons" id="buttonContainer" style="display:none;">
-    <button class="btn-secondary" onclick="laterLink()">Later</button>
-    <button class="btn-secondary" onclick="snoozeCurrentLink()">Snooze</button>
+<div id="buttonContainer" style="display:none;">
+    <button onclick="laterLink()">Later</button>
+    <button onclick="snoozeCurrentLink()">Snooze</button>
     <button class="btn-danger" onclick="deleteCurrentLink()">Delete</button>
 </div>
 
-<div class="links-table-section">
-    <button class="btn-small" onclick="exportToClipboard()">Copy</button>
-    <button class="btn-small" onclick="importFromClipboard()">Paste</button>
-
-    <table id="linksTable">
-        <thead>
-            <tr>
-                <th>Snoozed</th>
-                <th>Freq</th>
-                <th>URL</th>
-                <th>Title</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody id="linksTableBody"></tbody>
-    </table>
+<!-- CONTROLS -->
+ <hr>
+<div>
+    <button onclick="exportToClipboard()">Copy</button>
+    <button onclick="importFromClipboard()">Paste</button>
+    <button onclick="addFromClipboard()">Add</button>
 </div>
+
+<!-- TABLE -->
+<table>
+<thead>
+<tr>
+<th>Snoozed</th>
+<th>Freq</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody id="linksTableBody"></tbody>
+</table>
 
 </div>
 
 <script>
-const STORAGE_KEY = 'stumble_links';
+const STORAGE_KEY='stumble_links';
+let links=[];
+let currentIndex=0;
 
-let links = [];
-let currentIndex = 0;
-
-function init() {
+function init(){
     loadLinks();
     displayNextAvailable();
     updateLinksList();
 }
 
-function loadLinks() {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    links = stored ? JSON.parse(stored) : [];
+function loadLinks(){
+    links = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
 }
 
-function saveLinks() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+function saveLinks(){
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(links));
 }
 
-function getAvailableLinks() {
-    const today = new Date().toISOString().split('T')[0];
-    return links.filter(l => !l.snoozed_until || l.snoozed_until <= today);
+function getAvailableLinks(){
+    const today=new Date().toISOString().split('T')[0];
+    return links.filter(l=>!l.snoozed_until||l.snoozed_until<=today);
 }
 
-function displayNextAvailable() {
+function displayNextAvailable(){
+    const available=getAvailableLinks();
+    if(!available.length){
+        linkFreqContainer.style.display='none';
+        titleEditorContainer.style.display='none';
+        buttonContainer.style.display='none';
+        return;
+    }
+
+    const next=available[0];
+    currentIndex=links.findIndex(l=>l.id===next.id);
+    displayLink(next);
+}
+
+function displayLink(link){
+    linkFreqContainer.style.display='flex';
+    titleEditorContainer.style.display='block';
+    buttonContainer.style.display='block';
+
+    linkDisplay.href=link.link;
+    linkDisplay.textContent=link.link;
+
+    titleTextarea.value=link.title||'';
+    frequencyInput.value=link.frequency;
+}
+
+function saveCurrent(){
+    const l=links[currentIndex];
+    l.title=titleTextarea.value;
+    l.frequency=frequencyInput.value||'2';
+}
+
+function openLink(link){
+    window.open(link.link,'_blank');
+}
+
+/* FIXED FLOW */
+function laterLink(){
+    saveCurrent();
+
+    const current = links[currentIndex];
     const available = getAvailableLinks();
 
-    if (!available.length) {
-        document.getElementById('linkFreqContainer').style.display='none';
-        document.getElementById('buttonContainer').style.display='none';
-        document.getElementById('titleEditorContainer').style.display='none';
+    if (available.length === 0) return;
+
+    let next = current;
+
+    if (available.length > 1){
+        const idx = available.findIndex(x => x.id === current.id);
+        next = available[(idx + 1) % available.length];
+    }
+
+    // move UI FIRST
+    currentIndex = links.findIndex(x => x.id === next.id);
+    displayLink(next);
+
+    // THEN open NEXT (not current)
+    openLink(next);
+
+    saveLinks();
+}
+
+/* FIXED FLOW */
+function snoozeCurrentLink(){
+    saveCurrent();
+
+    const current = links[currentIndex];
+
+    // snooze current
+    const d = new Date();
+    const days = parseInt(current.frequency) || 1;
+    d.setDate(d.getDate() + days);
+    current.snoozed_until = d.toISOString().split('T')[0];
+
+    saveLinks();
+    updateLinksList();
+
+    // recompute available AFTER snooze
+    const available = getAvailableLinks();
+
+    if (available.length === 0){
+        displayNextAvailable();
         return;
     }
 
     const next = available[0];
-    currentIndex = links.findIndex(l => l.id === next.id);
 
+    // move UI FIRST
+    currentIndex = links.findIndex(x => x.id === next.id);
     displayLink(next);
+
+    // THEN open NEXT
+    openLink(next);
 }
 
-function displayLink(link) {
-    document.getElementById('linkFreqContainer').style.display='flex';
-    document.getElementById('buttonContainer').style.display='block';
-    document.getElementById('titleEditorContainer').style.display='block';
+/* DELETE CURRENT */
+function deleteCurrentLink(){
+    if(!confirm('Delete this link?')) return;
 
-    document.getElementById('linkDisplay').href = link.link;
-    document.getElementById('linkDisplay').textContent = link.link;
-
-    document.getElementById('titleTextarea').value = link.title;
-    document.getElementById('frequencyInput').value = link.frequency;
-}
-
-function saveTitleAndFreq() {
-    const link = links[currentIndex];
-    link.title = document.getElementById('titleTextarea').value;
-    link.frequency = document.getElementById('frequencyInput').value || '7';
-    saveLinks();
-}
-
-function snoozeCurrentLink() {
-    saveTitleAndFreq();
-
-    const link = links[currentIndex];
-    const d = new Date();
-
-    if (link.frequency === 'M') {
-        d.setMonth(d.getMonth()+1);
-    } else {
-        d.setDate(d.getDate() + (parseInt(link.frequency)||1));
-    }
-
-    link.snoozed_until = d.toISOString().split('T')[0];
-
-    saveLinks();
-    displayNextAvailable();
-    updateLinksList();
-}
-
-function laterLink() {
-    saveTitleAndFreq();
-
-    const available = getAvailableLinks();
-    if (available.length <= 1) return;
-
-    const idx = available.findIndex(l => l.id === links[currentIndex].id);
-    const next = available[(idx+1) % available.length];
-
-    currentIndex = links.findIndex(l => l.id === next.id);
-    displayLink(next);
-}
-
-function deleteCurrentLink() {
     links.splice(currentIndex,1);
     saveLinks();
     displayNextAvailable();
     updateLinksList();
 }
 
-function updateLinksList() {
-    const body = document.getElementById('linksTableBody');
+/* ADD */
+function addFromClipboard(){
+    navigator.clipboard.readText().then(text=>{
 
-    body.innerHTML = links.map(l => `
-        <tr>
-            <td>${l.snoozed_until || ''}</td>
-            <td>${l.frequency}</td>
-            <td><a href="${l.link}" target="_blank">Open</a></td>
-            <td>${l.title}</td>
-            <td><button onclick="deleteLink(${l.id})">X</button></td>
-        </tr>
-    `).join('');
+        let url=text.trim();
+
+        // validate
+        if(!url || (!url.startsWith('http') && !url.startsWith('file'))){
+            url=prompt('Enter URL or file path:');
+            if(!url) return;
+        }
+
+        const title=prompt('Enter title (optional):');
+        if(title===null) return;
+
+        links.push({
+            id:Date.now(),
+            link:url,
+            title:title||'',
+            frequency:'2',
+            snoozed_until:null
+        });
+
+        saveLinks();
+        displayNextAvailable();
+        updateLinksList();
+    });
 }
 
-function deleteLink(id) {
-    links = links.filter(l => l.id !== id);
-    saveLinks();
-    displayNextAvailable();
-    updateLinksList();
+/* IMPORT OVERWRITE */
+function importFromClipboard(){
+    navigator.clipboard.readText().then(text=>{
+        const lines=text.trim().split('\n');
+        if(lines.length<2) return;
+
+        const h=lines[0].split('\t');
+        const s=h.indexOf('Snoozed Until');
+        const f=h.indexOf('Frequency');
+        const u=h.indexOf('URL');
+        const t=h.indexOf('Title');
+
+        const imported=[];
+
+        for(let i=1;i<lines.length;i++){
+            const c=lines[i].split('\t');
+            if(c[u]){
+                imported.push({
+                    id:Date.now()+i,
+                    snoozed_until:c[s]||null,
+                    frequency:c[f]||'2',
+                    link:c[u],
+                    title:c[t]||''
+                });
+            }
+        }
+
+        links=imported;
+        currentIndex=0;
+
+        saveLinks();
+        displayNextAvailable();
+        updateLinksList();
+    });
 }
 
-function exportToClipboard() {
-    const rows = [['Snoozed Until','Frequency','URL','Title'].join('\t')];
+function exportToClipboard(){
+    const rows=[['Snoozed Until','Frequency','URL','Title'].join('\t')];
 
-    links.forEach(l => {
+    links.forEach(l=>{
         rows.push([
-            l.snoozed_until || '',
+            l.snoozed_until||'',
             l.frequency,
             l.link,
             l.title
@@ -249,47 +273,36 @@ function exportToClipboard() {
     navigator.clipboard.writeText(rows.join('\n'));
 }
 
-function importFromClipboard() {
-    navigator.clipboard.readText().then(text => {
+/* TABLE */
+function updateLinksList(){
+    linksTableBody.innerHTML=links.map(l=>`
+        <tr>
+            <td>
+                ${l.snoozed_until||''}
+                ${l.snoozed_until ? `<button onclick="clearSnooze(${l.id})">x</button>`:''}
+            </td>
+            <td>${l.frequency}</td>
+            <td>
+                <a href="${l.link}" target="_blank">
+                    ${l.title||'(no title)'}
+                </a><br>
+                <small>${l.link}</small>
+            </td>
+        </tr>
+    `).join('');
+}
 
-        const lines = text.trim().split('\n');
-        if (lines.length < 2) return;
-
-        const headers = lines[0].split('\t');
-
-        const snoozeIdx = headers.indexOf('Snoozed Until');
-        const freqIdx = headers.indexOf('Frequency');
-        const urlIdx = headers.indexOf('URL');
-        const titleIdx = headers.indexOf('Title');
-
-        const imported = [];
-
-        for (let i=1;i<lines.length;i++) {
-            const c = lines[i].split('\t');
-
-            if (c[urlIdx]) {
-                imported.push({
-                    id: Date.now()+i,
-                    snoozed_until: c[snoozeIdx] || null,
-                    frequency: c[freqIdx] || '7',
-                    link: c[urlIdx],
-                    title: c[titleIdx] || 'Untitled'
-                });
-            }
-        }
-
-        // 🔥 overwrite
-        links = imported;
-        currentIndex = 0;
-
+function clearSnooze(id){
+    const l=links.find(x=>x.id===id);
+    if(l){
+        l.snoozed_until=null;
         saveLinks();
         displayNextAvailable();
         updateLinksList();
-    });
+    }
 }
 
-window.onload = init;
+window.onload=init;
 </script>
-
 </body>
 </html>
