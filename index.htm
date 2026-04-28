@@ -121,7 +121,22 @@ function saveCurrent(){
 }
 
 function openLink(link){
-    window.open(link.link,'_blank');
+    const url = link.link?.trim() || '';
+
+    // detect file links
+    if (url.toLowerCase().startsWith('file://')){
+        alert(
+            'This is a local file link.\n\n' +
+            'Please open it manually:\n\n' +
+            url
+        );
+        return;
+    }
+
+    // normal web links
+    setTimeout(() => {
+        window.open(url, '_blank');
+    }, 50);
 }
 
 /* FIXED FLOW */
