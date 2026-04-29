@@ -307,10 +307,10 @@ function addFromClipboard(){
 /* IMPORT OVERWRITE */
 function importFromClipboard(){
     navigator.clipboard.readText().then(text=>{
-        const lines=text.trim().split('\n');
-        if(lines.length<2) return;
+        const rows = parseTSV(text);
+        if(rows.length < 2) return;
 
-       const h = lines[0].split('\t').map(x => x.trim());
+        const h = rows[0];
         const s=h.indexOf('Snoozed Until');
         const f=h.indexOf('Frequency');
         const u=h.indexOf('URL');
@@ -318,19 +318,20 @@ function importFromClipboard(){
 
         const imported=[];
 
-      for(let i=1;i<lines.length;i++){
-    const c = lines[i].split('\t').map(x => x.trim());
+        for(let i=1;i<rows.length;i++){
+            const c = rows[i];
 
-    if(c[u]){
-        imported.push({
-            id: Date.now()+i,
-            snoozed_until: c[s] ? c[s].trim() : null,
-            frequency: c[f] ? c[f].trim() : '2',
-            link: c[u].trim(),
-            title: c[t] ? c[t].trim() : ''
-        });
-    }
-}
+            if(c[u]){
+                imported.push({
+                    id: Date.now()+i,
+                    snoozed_until: s !== -1 ? decodeField(c[s]) : null,
+		frequency: f !== -1 ? decodeField(c[f]) : '2',
+		link: decodeField(c[u]),
+		title: t !== -1 ? decodeField(c[t]) : ''
+                });
+            }
+        }
+
         links=imported;
         currentIndex=0;
 
@@ -340,21 +341,98 @@ function importFromClipboard(){
     });
 }
 
+function decodeField(value){
+    try{
+        return JSON.parse(value);
+    }catch{
+        return value?.trim() || '';
+    }
+}
 function exportToClipboard(){
-    const rows=[['Snoozed Until','Frequency','URL','Title'].join('\t')];
+    const rows=[['Snoozed Until','Frequency','URL','Title']];
 
     links.forEach(l=>{
         rows.push([
             l.snoozed_until||'',
-            l.frequency,
-            l.link,
-            l.title
-        ].join('\t'));
+            l.frequency||'',
+            l.link||'',
+            l.title||''
+        ]);
     });
 
-    navigator.clipboard.writeText(rows.join('\n'));
+    const tsv = rows.map(r => r.map(escapeTSV).join('\t')).join('\n');
+    navigator.clipboard.writeText(tsv);
+}
+function parseTSV(text){
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+
+    for(let i=0;i<text.length;i++){
+        const char = text[i];
+        const next = text[i+1];
+
+        if(inQuotes){
+            if(char === '"' && next === '"'){
+                field += '"';
+                i++;
+            }else if(char === '"'){
+                inQuotes = false;
+            }else{
+                field += char;
+            }
+        }else{
+            if(char === '"'){
+                inQuotes = true;
+            }
+            else if(char === '\t'){
+                row.push(field);
+                field = '';
+            }
+            else if(char === '\n'){
+                row.push(field);
+                rows.push(row);
+                row = [];
+                field = '';
+            }
+            else if(char === '\r'){
+                // ignore (handles Windows \r\n)
+            }
+            else{
+                field += char;
+            }
+        }
+    }
+
+    // push last field/row safely
+    if(field !== '' || row.length){
+        row.push(field);
+        rows.push(row);
+    }
+
+    return rows;
 }
 
+function escapeTSV(value){
+    value = value ?? '';
+    value = value.toString();
+
+    // escape quotes
+    if(value.includes('"')){
+        value = value.replace(/"/g, '""');
+    }
+
+    // wrap if needed (tabs, newline, quotes)
+    if(value.includes('\t') || value.includes('\n') || value.includes('"')){
+        value = `"${value}"`;
+    }
+
+    return value;
+}
+function encodeField(value){
+    return JSON.stringify(value ?? '');
+}
 /* TABLE */
     function sortLinks(){
     links.sort((a,b)=>{
