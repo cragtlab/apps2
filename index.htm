@@ -55,6 +55,7 @@ small  {
 
 <!-- CONTROLS -->
  <hr>
+ <small>To import from Google Sheets, click top left empty to select all then hold on A1 to copy</small>
 <div>
     <button onclick="exportToClipboard()">Copy</button>
     <button onclick="importFromClipboard()">Paste</button>
@@ -225,11 +226,11 @@ if(!freq){
     d.setDate(d.getDate() + 1);
 }
 else if(!isNaN(freq)){
-    // numeric → days
+    // numeric â†’ days
     d.setDate(d.getDate() + parseInt(freq));
 }
 else if(freq === 'M'){
-    // monthly → same date next month
+    // monthly â†’ same date next month
     d.setMonth(d.getMonth() + 1);
 }
 else if(freq === 'W'){
@@ -241,7 +242,7 @@ else if(freq === 'Y'){
     d.setFullYear(d.getFullYear() + 1);
 }
 else{
-    // fallback → 1 day
+    // fallback â†’ 1 day
     d.setDate(d.getDate() + 1);
 }
     
@@ -446,7 +447,7 @@ function encodeField(value){
         if(!a.snoozed_until) return -1;
         if(!b.snoozed_until) return 1;
 
-        // both have dates → sort ascending
+        // both have dates â†’ sort ascending
         return new Date(a.snoozed_until) - new Date(b.snoozed_until);
     });
 
