@@ -92,12 +92,15 @@ function loadLinks(){
     links = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
 }
 
-function saveLinks(){
+function saveLinks(emptyExpected=false){
+    if(links.length===0 && !emptyExpected){
+        return;
+    }
+
     localStorage.setItem(STORAGE_KEY,JSON.stringify(links));
 }
 
 function getAvailableLinks(){
-    const today=new Date().toISOString().split('T')[0];
 	const today = new Date().setHours(0,0,0,0);
 
     return links.filter(l=>!l.snoozed_until||l.snoozed_until<=today);
@@ -279,7 +282,7 @@ function deleteCurrentLink(){
     if(!confirm('Delete this link?')) return;
 
     links.splice(currentIndex,1);
-    saveLinks();
+    saveLinks(links.length===0);
     displayNextAvailable();
     updateLinksList();
 }
