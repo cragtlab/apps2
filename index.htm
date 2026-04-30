@@ -98,6 +98,8 @@ function saveLinks(){
 
 function getAvailableLinks(){
     const today=new Date().toISOString().split('T')[0];
+	const today = new Date().setHours(0,0,0,0);
+
     return links.filter(l=>!l.snoozed_until||l.snoozed_until<=today);
 }
 
@@ -249,6 +251,7 @@ else{
     
     
     current.snoozed_until = d.toISOString().split('T')[0];
+	current.snoozed_until = d.setHours(0,0,0,0);
 
     saveLinks();
     updateLinksList();
