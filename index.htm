@@ -90,6 +90,17 @@ function init(){
 
 function loadLinks(){
     links = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+    const normalizedLinks = links.map(link => ({
+        ...link,
+        snoozed_until: normalizeSnoozedUntil(link.snoozed_until)
+    }));
+
+    const changed = normalizedLinks.some((link, index) => link.snoozed_until !== links[index]?.snoozed_until);
+    links = normalizedLinks;
+
+    if(changed){
+        saveLinks();
+    }
 }
 
 function saveLinks(emptyExpected=false){
@@ -100,8 +111,50 @@ function saveLinks(emptyExpected=false){
     localStorage.setItem(STORAGE_KEY,JSON.stringify(links));
 }
 
+function getLocalDateKey(date = new Date()){
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2,'0');
+    const day = String(date.getDate()).padStart(2,'0');
+    return `${year}-${month}-${day}`;
+}
+
+function normalizeSnoozedUntil(value){
+    if(value === null || value === undefined || value === ''){
+        return null;
+    }
+
+    if(typeof value === 'string'){
+        const trimmed = value.trim();
+
+        if(!trimmed){
+            return null;
+        }
+
+        if(/^\d{4}-\d{2}-\d{2}$/.test(trimmed)){
+            return trimmed;
+        }
+
+        if(/^\d+$/.test(trimmed)){
+            value = Number(trimmed);
+        }else{
+            const parsed = new Date(trimmed);
+            return Number.isNaN(parsed.getTime()) ? trimmed : getLocalDateKey(parsed);
+        }
+    }
+
+    if(typeof value === 'number'){
+        return Number.isFinite(value) ? getLocalDateKey(new Date(value)) : null;
+    }
+
+    if(value instanceof Date){
+        return Number.isNaN(value.getTime()) ? null : getLocalDateKey(value);
+    }
+
+    return null;
+}
+
 function getAvailableLinks(){
-	const today = new Date().setHours(0,0,0,0);
+	const today = getLocalDateKey();
 
     return links.filter(l=>!l.snoozed_until||l.snoozed_until<=today);
 }
@@ -250,11 +303,7 @@ else{
     // fallback â†’ 1 day
     d.setDate(d.getDate() + 1);
 }
-    
-    
-    
-    current.snoozed_until = d.toISOString().split('T')[0];
-	current.snoozed_until = d.setHours(0,0,0,0);
+    current.snoozed_until = getLocalDateKey(d);
 
     saveLinks();
     updateLinksList();
@@ -336,7 +385,7 @@ function importFromClipboard(){
             if(c[u]){
                 imported.push({
                     id: Date.now()+i,
-                    snoozed_until: s !== -1 ? decodeField(c[s]) : null,
+                    snoozed_until: s !== -1 ? normalizeSnoozedUntil(decodeField(c[s])) : null,
 		frequency: f !== -1 ? decodeField(c[f]) : '2',
 		link: decodeField(c[u]),
 		title: t !== -1 ? decodeField(c[t]) : ''
@@ -454,7 +503,7 @@ function encodeField(value){
         if(!b.snoozed_until) return 1;
 
         // both have dates â†’ sort ascending
-        return new Date(a.snoozed_until) - new Date(b.snoozed_until);
+        return a.snoozed_until.localeCompare(b.snoozed_until);
     });
 
     saveLinks();
