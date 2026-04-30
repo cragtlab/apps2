@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Video Compressor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    font-family: Arial;
+    background: #f5f5f5;
+    text-align: center;
+    padding: 20px;
+}
+.container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 500px;
+    margin: auto;
+}
+.dropzone {
+    border: 2px dashed #999;
+    padding: 30px;
+    margin: 10px 0;
+    cursor: pointer;
+}
+.dropzone.dragover {
+    background: #eef;
+}
+#log {
+    font-size: 12px;
+    text-align: left;
+    background: #eee;
+    padding: 10px;
+    height: 120px;
+    overflow: auto;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>🎬 Video Compressor</h2>
+
+    <div id="dropzone" class="dropzone">
+        Drag & Drop Video Here or Click
+    </div>
+
+    <input type="file" id="fileInput" accept="video/*" hidden>
+
+    <label>Quality (CRF):</label><br>
+    <input type="range" id="crf" min="18" max="35" value="28">
+    <span id="crfVal">28</span><br>
+
+    <button id="btn">Compress</button>
+
+    <p id="status"></p>
+    <a id="download" style="display:none;"></a>
+
+    <div id="log"></div>
+</div>
+
+<script type="module">
+import { createFFmpeg, fetchFile } from "https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.esm.js";
+
+const ffmpeg = createFFmpeg({ log: true });
+
+const logDiv = document.getElementById("log");
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
+let selectedFile = null;
+
+function log(msg) {
+    logDiv.innerHTML += msg + "<br>";
+    logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+document.getElementById("crf").oninput = function() {
+    document.getElementById("crfVal").innerText = this.value;
+};
+
+// Drag & Drop
+dropzone.onclick = () => fileInput.click();
+
+dropzone.ondragover = e => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+};
+
+dropzone.ondragleave = () => {
+    dropzone.classList.remove("dragover");
+};
+
+dropzone.ondrop = e => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+
+    selectedFile = e.dataTransfer.files[0];
+    dropzone.innerText = selectedFile.name;
+};
+
+fileInput.onchange = () => {
+    selectedFile = fileInput.files[0];
+    dropzone.innerText = selectedFile.name;
+};
+
+// Compress
+document.getElementById("btn").onclick = async () => {
+    if (!selectedFile) {
+        alert("Select a video first");
+        return;
+    }
+
+    const crf = document.getElementById("crf").value;
+
+    document.getElementById("status").innerText = "Loading FFmpeg...";
+    log("Loading FFmpeg...");
+
+    if (!ffmpeg.isLoaded()) {
+        await ffmpeg.load();
+    }
+
+    log("Writing file...");
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(selectedFile));
+
+    log("Compressing...");
+    await ffmpeg.run(
+        '-i', 'input.mp4',
+        '-vcodec', 'libx264',
+        '-crf', crf,
+        '-preset', 'veryfast',
+        'output.mp4'
+    );
+
+    log("Done!");
+
+    const data = ffmpeg.FS('readFile', 'output.mp4');
+    const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+
+    const download = document.getElementById("download");
+    download.href = url;
+    download.download = "compressed.mp4";
+    download.style.display = "block";
+    download.innerText = "⬇ Download";
+
+    document.getElementById("status").innerText = "Completed";
+};
+</script>
+
+</body>
+</html>
