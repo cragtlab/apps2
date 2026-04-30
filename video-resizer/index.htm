@@ -5,39 +5,14 @@
 <title>Simple Video Compressor</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script type="module">
-import { createFFmpeg, fetchFile } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.esm.js";
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.min.js"></script>
 
-const ffmpeg = createFFmpeg({
-    log: true,
-    corePath: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js"
-});
-</script>
 <style>
-body {
-    font-family: Arial;
-    background: #f5f5f5;
-    text-align: center;
-    padding: 20px;
-}
-.container {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    max-width: 500px;
-    margin: auto;
-}
-input, button {
-    margin: 10px;
-}
-#log {
-    font-size: 12px;
-    text-align: left;
-    background: #eee;
-    padding: 10px;
-    height: 120px;
-    overflow: auto;
-}
+body { font-family: Arial; background:#f5f5f5; text-align:center; padding:20px; }
+.container { background:white; padding:20px; border-radius:10px; max-width:500px; margin:auto; }
+.drop { border:2px dashed #aaa; padding:20px; margin:10px; cursor:pointer; }
+.drop.drag { background:#eef; }
+#log { font-size:12px; text-align:left; background:#eee; padding:10px; height:120px; overflow:auto; }
 </style>
 </head>
 
@@ -46,59 +21,88 @@ input, button {
 <div class="container">
     <h2>🎬 Video Compressor</h2>
 
-    <input type="file" id="fileInput" accept="video/*"><br>
+    <div id="drop" class="drop">Drag video here or click</div>
+    <input type="file" id="fileInput" accept="video/*" hidden>
 
-    <label>Quality (Lower = smaller file):</label><br>
+    <label>Quality:</label><br>
     <input type="range" id="crf" min="18" max="35" value="28">
     <span id="crfVal">28</span><br>
 
     <button onclick="compress()">Compress</button>
 
     <p id="status"></p>
-
-    <a id="download" style="display:none;">Download Compressed Video</a>
+    <a id="download" style="display:none;"></a>
 
     <div id="log"></div>
 </div>
 
 <script>
 const { createFFmpeg, fetchFile } = FFmpeg;
-const ffmpeg = createFFmpeg({ log: true });
+
+const ffmpeg = createFFmpeg({
+    log: true,
+    corePath: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js"
+});
 
 const logDiv = document.getElementById("log");
+const drop = document.getElementById("drop");
+const fileInput = document.getElementById("fileInput");
+
+let selectedFile = null;
 
 function log(msg) {
     logDiv.innerHTML += msg + "<br>";
     logDiv.scrollTop = logDiv.scrollHeight;
 }
 
-document.getElementById("crf").oninput = function() {
-    document.getElementById("crfVal").innerText = this.value;
+// slider
+document.getElementById("crf").oninput = e => {
+    document.getElementById("crfVal").innerText = e.target.value;
 };
 
+// drag drop
+drop.onclick = () => fileInput.click();
+
+drop.ondragover = e => {
+    e.preventDefault();
+    drop.classList.add("drag");
+};
+
+drop.ondragleave = () => drop.classList.remove("drag");
+
+drop.ondrop = e => {
+    e.preventDefault();
+    drop.classList.remove("drag");
+    selectedFile = e.dataTransfer.files[0];
+    drop.innerText = selectedFile.name;
+};
+
+fileInput.onchange = () => {
+    selectedFile = fileInput.files[0];
+    drop.innerText = selectedFile.name;
+};
+
+// main
 async function compress() {
-    const fileInput = document.getElementById("fileInput");
-    if (!fileInput.files.length) {
+    if (!selectedFile) {
         alert("Select a video first");
         return;
     }
 
-    const file = fileInput.files[0];
     const crf = document.getElementById("crf").value;
 
-    document.getElementById("status").innerText = "Loading FFmpeg...";
     log("Loading FFmpeg...");
+    document.getElementById("status").innerText = "Loading...";
 
     if (!ffmpeg.isLoaded()) {
         await ffmpeg.load();
     }
 
-    document.getElementById("status").innerText = "Processing...";
     log("Writing file...");
-
-    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(selectedFile));
 
     log("Compressing...");
+    document.getElementById("status").innerText = "Compressing...";
 
     await ffmpeg.run(
         '-i', 'input.mp4',
@@ -108,17 +112,15 @@ async function compress() {
         'output.mp4'
     );
 
-    log("Reading output...");
-
     const data = ffmpeg.FS('readFile', 'output.mp4');
 
     const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
 
-    const download = document.getElementById("download");
-    download.href = url;
-    download.download = "compressed.mp4";
-    download.style.display = "block";
-    download.innerText = "⬇ Download Compressed Video";
+    const dl = document.getElementById("download");
+    dl.href = url;
+    dl.download = "compressed.mp4";
+    dl.style.display = "block";
+    dl.innerText = "⬇ Download";
 
     document.getElementById("status").innerText = "Done!";
 }
