@@ -2,9 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Video Compressor</title>
+<title>Simple Video Compressor</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<script type="module">
+import { createFFmpeg, fetchFile } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.esm.js";
+
+const ffmpeg = createFFmpeg({
+    log: true,
+    corePath: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js"
+});
+</script>
 <style>
 body {
     font-family: Arial;
@@ -19,14 +27,8 @@ body {
     max-width: 500px;
     margin: auto;
 }
-.dropzone {
-    border: 2px dashed #999;
-    padding: 30px;
-    margin: 10px 0;
-    cursor: pointer;
-}
-.dropzone.dragover {
-    background: #eef;
+input, button {
+    margin: 10px;
 }
 #log {
     font-size: 12px;
@@ -44,34 +46,26 @@ body {
 <div class="container">
     <h2>🎬 Video Compressor</h2>
 
-    <div id="dropzone" class="dropzone">
-        Drag & Drop Video Here or Click
-    </div>
+    <input type="file" id="fileInput" accept="video/*"><br>
 
-    <input type="file" id="fileInput" accept="video/*" hidden>
-
-    <label>Quality (CRF):</label><br>
+    <label>Quality (Lower = smaller file):</label><br>
     <input type="range" id="crf" min="18" max="35" value="28">
     <span id="crfVal">28</span><br>
 
-    <button id="btn">Compress</button>
+    <button onclick="compress()">Compress</button>
 
     <p id="status"></p>
-    <a id="download" style="display:none;"></a>
+
+    <a id="download" style="display:none;">Download Compressed Video</a>
 
     <div id="log"></div>
 </div>
 
-<script type="module">
-import { createFFmpeg, fetchFile } from "https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.esm.js";
-
+<script>
+const { createFFmpeg, fetchFile } = FFmpeg;
 const ffmpeg = createFFmpeg({ log: true });
 
 const logDiv = document.getElementById("log");
-const dropzone = document.getElementById("dropzone");
-const fileInput = document.getElementById("fileInput");
-
-let selectedFile = null;
 
 function log(msg) {
     logDiv.innerHTML += msg + "<br>";
@@ -82,38 +76,14 @@ document.getElementById("crf").oninput = function() {
     document.getElementById("crfVal").innerText = this.value;
 };
 
-// Drag & Drop
-dropzone.onclick = () => fileInput.click();
-
-dropzone.ondragover = e => {
-    e.preventDefault();
-    dropzone.classList.add("dragover");
-};
-
-dropzone.ondragleave = () => {
-    dropzone.classList.remove("dragover");
-};
-
-dropzone.ondrop = e => {
-    e.preventDefault();
-    dropzone.classList.remove("dragover");
-
-    selectedFile = e.dataTransfer.files[0];
-    dropzone.innerText = selectedFile.name;
-};
-
-fileInput.onchange = () => {
-    selectedFile = fileInput.files[0];
-    dropzone.innerText = selectedFile.name;
-};
-
-// Compress
-document.getElementById("btn").onclick = async () => {
-    if (!selectedFile) {
+async function compress() {
+    const fileInput = document.getElementById("fileInput");
+    if (!fileInput.files.length) {
         alert("Select a video first");
         return;
     }
 
+    const file = fileInput.files[0];
     const crf = document.getElementById("crf").value;
 
     document.getElementById("status").innerText = "Loading FFmpeg...";
@@ -123,10 +93,13 @@ document.getElementById("btn").onclick = async () => {
         await ffmpeg.load();
     }
 
+    document.getElementById("status").innerText = "Processing...";
     log("Writing file...");
-    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(selectedFile));
+
+    ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
 
     log("Compressing...");
+
     await ffmpeg.run(
         '-i', 'input.mp4',
         '-vcodec', 'libx264',
@@ -135,19 +108,20 @@ document.getElementById("btn").onclick = async () => {
         'output.mp4'
     );
 
-    log("Done!");
+    log("Reading output...");
 
     const data = ffmpeg.FS('readFile', 'output.mp4');
+
     const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
 
     const download = document.getElementById("download");
     download.href = url;
     download.download = "compressed.mp4";
     download.style.display = "block";
-    download.innerText = "⬇ Download";
+    download.innerText = "⬇ Download Compressed Video";
 
-    document.getElementById("status").innerText = "Completed";
-};
+    document.getElementById("status").innerText = "Done!";
+}
 </script>
 
 </body>
