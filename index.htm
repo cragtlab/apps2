@@ -11,6 +11,7 @@ body { font-family:sans-serif; padding:0px; background:#f5f5f5; }
 
 button { padding:8px 12px; margin:3px; cursor:pointer;border-radius:2px; }
 .btn-danger { background:#ff4d4d; color:white; }
+.btn-snooze { background:orange; color:white; }
 .btn-add {    background:#28a745;color:white; }
 #linkFreqContainer { display:none; gap:10px; margin-bottom:10px; }
 #frequencyInput { width:60px; }
@@ -47,15 +48,14 @@ small  {
 </div>
 
 <div id="buttonContainer" style="display:none;">
-    <button onclick="laterLink()">Later</button>
-    <button onclick="snoozeCurrentLink()">Snooze</button>
+    <button class="btn-snooze" onclick="snoozeCurrentLink()">Snooze</button>
     <button class="btn-danger" onclick="deleteCurrentLink()">Delete</button>
     <button id="btn-update-url" onclick="updateCurrentURL()">Update URL</button>
 </div>
 
 <!-- CONTROLS -->
  <hr>
- <small>To import from Google Sheets, click top left empty to select all then hold on A1 to copy</small>
+ <small>To import from <a href="https://docs.google.com/spreadsheets/d/1U3TgM15sxkdGKnavT-LUGEFkLZGBOKKvTcOZ6EDPCB0/edit#gid=0">Google Sheets</a>, click top left empty to select all then hold to copy</small>
 <div>
     <button onclick="exportToClipboard()">Copy</button>
     <button onclick="importFromClipboard()">Paste</button>
@@ -244,7 +244,7 @@ function openLink(link){
     }, 50);
 }
 
-/* FIXED FLOW */
+/* removed as not really useful? FIXED FLOW */
 function laterLink(){
     saveCurrent();
 
