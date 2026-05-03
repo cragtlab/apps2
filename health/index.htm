@@ -304,12 +304,13 @@
             <button class="btn-primary" id="startBtn" onclick="startTimer()">Start</button>
             <button class="btn-primary" id="pauseBtn" onclick="pauseTimer()" disabled>Pause</button>
             <button class="btn-secondary" id="resetBtn" onclick="resetTimer()">Reset</button>
+            <button class="btn-secondary" id="resetDayBtn" onclick="resetDay()">Reset Stats</button>
         </div>
         
         <div class="stats">            <div class="health-tips">
                 <h3>📚 Learn</h3>
                 <div id="healthTips"></div>
-            </div>            <div class="stat-box">
+            </div>            <div class="stat-box"><b>Stats</b>
                 <div class="stat-value">
                     <button class="edit-btn" onclick="adjustWater(-1)">−</button>
                     <span id="waterCount">0</span>
@@ -562,6 +563,14 @@
         function adjustOutdoor(minutes) {
             let data = getTrackerData();
             data.outdoorMinutes = Math.max(0, Math.min(120, data.outdoorMinutes + minutes));
+            saveTrackerData(data);
+            loadTrackers();
+        }
+        
+        function resetDay() {
+            let data = getTrackerData();
+            data.waterGlasses = 0;
+            data.outdoorMinutes = 0;
             saveTrackerData(data);
             loadTrackers();
         }
