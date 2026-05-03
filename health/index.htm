@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>20-20-20 Eye Timer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 500px;
+            padding: 50px 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .timer-display {
+            font-size: 72px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 30px 0;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 3px;
+        }
+        
+        .progress-bar {
+            background: #e9ecef;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 25px 0;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            transition: width 0.3s ease;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            flex: 1;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+            flex: 1;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .edit-btn {
+            background: #e0e0e0;
+            border: none;
+            color: #666;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        
+        .edit-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .modal h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 22px;
+        }
+        
+        .modal p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .quick-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .quick-btn {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .quick-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .quick-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+        
+        .modal-buttons button {
+            flex: 1;
+            padding: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⏱️ 20-20-20 Timer</h1>
+        
+        <div class="timer-display" id="timerDisplay">20:00</div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="timerProgress" style="width: 0%;">0%</div>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-primary" id="startBtn" onclick="startTimer()">Start</button>
+            <button class="btn-primary" id="pauseBtn" onclick="pauseTimer()" disabled>Pause</button>
+            <button class="btn-secondary" id="resetBtn" onclick="resetTimer()">Reset</button>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value">
+                    <button class="edit-btn" onclick="adjustWater(-1)">−</button>
+                    <span id="waterCount">0</span>
+                    <button class="edit-btn" onclick="adjustWater(1)">+</button>
+                </div>
+                <div class="stat-label">💧 Glasses</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">
+                    <button class="edit-btn" onclick="adjustOutdoor(-10)">−</button>
+                    <span id="outdoorTime">0h</span>
+                    <button class="edit-btn" onclick="adjustOutdoor(10)">+</button>
+                </div>
+                <div class="stat-label">🌳 Outdoor</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Break Prompt Modal -->
+    <div id="breakModal" class="modal">
+        <div class="modal-content">
+            <h2>⏰ Time for a Break!</h2>
+            <p>👁️ Look at something 6 metres (20 feet) away for 20 seconds to rest your eyes.</p>
+            
+            <p style="margin-top: 30px; font-weight: 600; color: #333;">Time spent outside?</p>
+            <div class="quick-buttons">
+                <button class="quick-btn" onclick="setOutdoorTime(0)">No</button>
+                <button class="quick-btn" onclick="setOutdoorTime(10)">10 min</button>
+                <button class="quick-btn" onclick="setOutdoorTime(20)">20 min</button>
+                <button class="quick-btn" onclick="setOutdoorTime(30)">30 min</button>
+            </div>
+            
+            <p style="margin-top: 20px; font-weight: 600; color: #333;">Have some water?</p>
+            <div class="quick-buttons">
+                <button class="quick-btn" onclick="setWaterGlass(0)">No</button>
+                <button class="quick-btn active" onclick="setWaterGlass(1)">1 glass</button>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="btn-primary" onclick="closeBreakModal()">Continue Timer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let timerInterval = null;
+        let timerRunning = false;
+        let timeRemaining = 1200; // 20 minutes
+        const TIMER_DURATION = 1200;
+        let pendingOutdoorTime = 0;
+        let pendingWaterGlasses = 0;
+        
+        window.addEventListener('load', () => {
+            loadTrackers();
+            requestNotificationPermission();
+            setTimeout(() => startTimer(), 500);
+        });
+        
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        }
+        
+        function startTimer() {
+            if (timerRunning) return;
+            timerRunning = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+            
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    timerRunning = false;
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('pauseBtn').disabled = true;
+                    playSound();
+                    showBreakModal();
+                    timeRemaining = TIMER_DURATION;
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+        
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+        }
+        
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            timeRemaining = TIMER_DURATION;
+            updateTimerDisplay();
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+        }
+        
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            const percentage = ((TIMER_DURATION - timeRemaining) / TIMER_DURATION) * 100;
+            document.getElementById('timerProgress').style.width = percentage + '%';
+            document.getElementById('timerProgress').textContent = Math.round(percentage) + '%';
+        }
+        
+        function playSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.frequency.value = 800;
+                gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                osc.start(audioContext.currentTime);
+                osc.stop(audioContext.currentTime + 0.5);
+            } catch(e) {}
+        }
+        
+        function showBreakModal() {
+            pendingOutdoorTime = 0;
+            pendingWaterGlasses = 1;
+            document.querySelectorAll('.quick-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.quick-btn')[4].classList.add('active'); // 1 glass
+            document.getElementById('breakModal').classList.add('show');
+            
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Break Time! 👁️', { 
+                    body: 'Look 20 feet away for 20 seconds' 
+                });
+            }
+        }
+        
+        function closeBreakModal() {
+            // Save the selections
+            let data = getTrackerData();
+            data.outdoorMinutes += pendingOutdoorTime;
+            data.waterGlasses += pendingWaterGlasses;
+            if (data.outdoorMinutes > 120) data.outdoorMinutes = 120;
+            if (data.waterGlasses > 8) data.waterGlasses = 8;
+            saveTrackerData(data);
+            loadTrackers();
+            
+            document.getElementById('breakModal').classList.remove('show');
+            startTimer();
+        }
+        
+        function setOutdoorTime(minutes) {
+            pendingOutdoorTime = minutes;
+            document.querySelectorAll('.quick-buttons')[0].querySelectorAll('.quick-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+        
+        function setWaterGlass(count) {
+            pendingWaterGlasses = count;
+            document.querySelectorAll('.quick-buttons')[1].querySelectorAll('.quick-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+        
+        function getTrackerData() {
+            const today = new Date().toDateString();
+            let data = JSON.parse(localStorage.getItem('trackerData')) || {
+                date: today,
+                outdoorMinutes: 0,
+                waterGlasses: 0
+            };
+            
+            if (data.date !== today) {
+                data = { date: today, outdoorMinutes: 0, waterGlasses: 0 };
+            }
+            return data;
+        }
+        
+        function saveTrackerData(data) {
+            localStorage.setItem('trackerData', JSON.stringify(data));
+        }
+        
+        function loadTrackers() {
+            let data = getTrackerData();
+            document.getElementById('waterCount').textContent = data.waterGlasses;
+            document.getElementById('outdoorTime').textContent = data.outdoorMinutes + 'm';
+        }
+        
+        function adjustWater(amount) {
+            let data = getTrackerData();
+            data.waterGlasses = Math.max(0, Math.min(8, data.waterGlasses + amount));
+            saveTrackerData(data);
+            loadTrackers();
+        }
+        
+        function adjustOutdoor(minutes) {
+            let data = getTrackerData();
+            data.outdoorMinutes = Math.max(0, Math.min(120, data.outdoorMinutes + minutes));
+            saveTrackerData(data);
+            loadTrackers();
+        }
+    </script>
+</body>
+</html>
