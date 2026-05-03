@@ -112,7 +112,7 @@
         
         .stats {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 15px;
             margin-top: 25px;
         }
@@ -121,6 +121,44 @@
             background: #f8f9fa;
             padding: 15px;
             border-radius: 10px;
+        }
+        
+        .health-tips {
+            background: #f0f7ff;
+            padding: 12px;
+            border-radius: 10px;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .health-tips h3 {
+            color: #17a2b8;
+            font-size: 12px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .health-tips a {
+            display: block;
+            color: #17a2b8;
+            text-decoration: none;
+            font-size: 13px;
+            line-height: 1.4;
+            margin: 6px 0;
+            padding: 4px 0;
+            cursor: pointer;
+            border-bottom: 1px solid #e0f2f7;
+            transition: all 0.2s ease;
+        }
+        
+        .health-tips a:last-child {
+            border-bottom: none;
+        }
+        
+        .health-tips a:hover {
+            color: #0d8091;
+            font-weight: 600;
+            padding-left: 4px;
         }
         
         .stat-value {
@@ -268,8 +306,10 @@
             <button class="btn-secondary" id="resetBtn" onclick="resetTimer()">Reset</button>
         </div>
         
-        <div class="stats">
-            <div class="stat-box">
+        <div class="stats">            <div class="health-tips">
+                <h3>📚 Learn</h3>
+                <div id="healthTips"></div>
+            </div>            <div class="stat-box">
                 <div class="stat-value">
                     <button class="edit-btn" onclick="adjustWater(-1)">−</button>
                     <span id="waterCount">0</span>
@@ -322,8 +362,53 @@
         let pendingOutdoorTime = 0;
         let pendingWaterGlasses = 0;
         
+        // Health tips - 40 tips for ages 40-50
+        const healthTips = [
+            'How to manage presbyopia after 40',
+            'Benefits of sleeping 8 hours daily',
+            'How to reduce eye strain and fatigue',
+            'Best foods for eye health over 40',
+            'Effects of blue light on aging eyes',
+            'How to improve posture for back pain',
+            'Benefits of outdoor time daily',
+            'How to reduce screen time',
+            'Myopia prevention tips',
+            'Eye exercises for better vision',
+            'What is 20-20-20 rule',
+            'Benefits of drinking water',
+            'How much water should I drink',
+            'Effects of sunlight on vision',
+            'How to prevent digital eye strain',
+            'Nutrition for eye health',
+            'How to maintain healthy eyesight',
+            'Best eye care practices',
+            'How does sunlight prevent myopia',
+            'Effects of poor posture on health',
+            'Benefits of taking breaks from screens',
+            'Cardio exercises for heart health over 40',
+            'How to manage cholesterol naturally',
+            'Blood pressure management for 40+',
+            'Prevention of age-related vision loss',
+            'Best eye exams after 40',
+            'How to strengthen bones after 40',
+            'Benefits of strength training after 40',
+            'How to improve metabolism after 40',
+            'Stress management techniques for midlife',
+            'Sleep quality improvement tips',
+            'Cognitive health and memory exercises',
+            'Preventing Type 2 diabetes after 40',
+            'Joint health and arthritis prevention',
+            'Exercise routines for 40-50 year olds',
+            'How to lose weight after 40',
+            'Healthy eating habits for midlife',
+            'Cancer screening recommendations at 40',
+            'Mental health and midlife transitions',
+            'Work-life balance for better health'
+        ];
+        
         window.addEventListener('load', () => {
             loadTrackers();
+            refreshHealthTips();
             requestNotificationPermission();
             setTimeout(() => startTimer(), 500);
         });
@@ -404,6 +489,7 @@
             pendingWaterGlasses = 1;
             document.querySelectorAll('.quick-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.quick-btn')[4].classList.add('active'); // 1 glass
+            refreshHealthTips();
             document.getElementById('breakModal').classList.add('show');
             
             if ('Notification' in window && Notification.permission === 'granted') {
@@ -479,6 +565,24 @@
             data.outdoorMinutes = Math.max(0, Math.min(120, data.outdoorMinutes + minutes));
             saveTrackerData(data);
             loadTrackers();
+        }
+        
+        function getRandomHealthTips(count = 3) {
+            const shuffled = [...healthTips].sort(() => Math.random() - 0.5);
+            return shuffled.slice(0, count);
+        }
+        
+        function refreshHealthTips() {
+            const tips = getRandomHealthTips(3);
+            const container = document.getElementById('healthTips');
+            container.innerHTML = tips.map(tip => 
+                `<a onclick="searchHealth('${tip.replace(/'/g, "\\'")}')">${tip}</a>`
+            ).join('');
+        }
+        
+        function searchHealth(term) {
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(term)}`;
+            window.open(searchUrl, '_blank');
         }
     </script>
 </body>
