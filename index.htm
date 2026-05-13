@@ -60,7 +60,6 @@ small  {
     <button onclick="exportToClipboard()">Copy</button>
     <button onclick="importFromClipboard()">Paste</button>
     <button class="btn-add" onclick="addFromClipboard()">Add</button>
-    <button onclick="sortLinks()">Sort</button>
 </div>
 
 <!-- TABLE -->
@@ -495,32 +494,36 @@ function encodeField(value){
     return JSON.stringify(value ?? '');
 }
 /* TABLE */
-    function sortLinks(){
-    links.sort((a,b)=>{
-        // blank snooze goes first
+function updateLinksList(){
+
+    const sorted = [...links].sort((a,b)=>{
+
+        // blank snooze first
         if(!a.snoozed_until && !b.snoozed_until) return 0;
         if(!a.snoozed_until) return -1;
         if(!b.snoozed_until) return 1;
 
-        // both have dates â†’ sort ascending
+        // sort by date ascending
         return a.snoozed_until.localeCompare(b.snoozed_until);
     });
 
-    saveLinks();
-    updateLinksList();
-}
-function updateLinksList(){
-    linksTableBody.innerHTML=links.map(l=>`
+    linksTableBody.innerHTML = sorted.map(l=>`
         <tr>
             <td>
-                ${l.snoozed_until||''}
-                ${l.snoozed_until ? `<button onclick="clearSnooze(${l.id})">x</button>`:''}
+                ${l.snoozed_until || ''}
+                ${l.snoozed_until
+                    ? `<button onclick="clearSnooze(${l.id})">x</button>`
+                    : ''
+                }
             </td>
-            <td>${l.frequency}</td>
+
+            <td>${l.frequency || ''}</td>
+
             <td>
                 <a href="${l.link}" target="_blank">
-                    ${l.title||'(no title)'}
-                </a><br>
+                    ${l.title || '(no title)'}
+                </a>
+                <br>
                 <small>${l.link}</small>
             </td>
         </tr>
