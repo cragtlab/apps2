@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Block Math World</title>
+
+<style>
+body {
+  font-family: Arial;
+  background: #f5f7ff;
+  text-align: center;
+  padding: 20px;
+}
+
+h1 { color: #4b4bd6; }
+
+.board {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+}
+
+.box {
+  background: white;
+  border-radius: 12px;
+  padding: 15px;
+  width: 240px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+.big { font-size: 30px; }
+
+button {
+  padding: 8px;
+  margin: 4px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+}
+
+.add { background: #7bd88f; }
+.trash { background: #ff6b6b; color: white; }
+.check { background: #4b4bd6; color: white; padding: 12px 18px; }
+
+.blocks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 10px;
+  min-height: 60px;
+}
+
+/* ===== BLOCK CHARACTERS (original style) ===== */
+.block {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  animation: pop 0.2s ease;
+}
+
+.one { background: #8ecae6; }
+.two { background: #219ebc; }
+.three { background: #ffb703; }
+.four { background: #fb8500; }
+.five { background: #ff006e; }
+
+/* tens character */
+.ten {
+  background: #8338ec;
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  font-size: 18px;
+}
+
+/* pop animation */
+@keyframes pop {
+  from { transform: scale(0.6); }
+  to { transform: scale(1); }
+}
+
+/* trash bin */
+.trash-zone {
+  margin-top: 15px;
+}
+
+.bin {
+  width: 90px;
+  height: 80px;
+  margin: auto;
+  background: #333;
+  border-radius: 0 0 12px 12px;
+  position: relative;
+}
+
+.lid {
+  width: 100px;
+  height: 18px;
+  background: #555;
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 8px;
+}
+
+.shake { animation: shake 0.3s; }
+
+@keyframes shake {
+  0% { transform: rotate(0); }
+  25% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+  100% { transform: rotate(0); }
+}
+
+.feedback { font-size: 20px; margin-top: 10px; }
+</style>
+</head>
+
+<body>
+
+<h1>🧱 Block Math World</h1>
+
+<div>Make: <b id="targetNum"></b></div>
+
+<div class="board">
+
+  <div class="box">
+    <div class="big">Tens</div>
+    <div id="tensCount">0</div>
+
+    <button class="add" onclick="addTen()">+10</button>
+    <button class="trash" onclick="removeTen()">🗑 ten</button>
+
+    <div class="blocks" id="tensBox"></div>
+  </div>
+
+  <div class="box">
+    <div class="big">Ones</div>
+    <div id="onesCount">0</div>
+
+    <button class="add" onclick="addOne()">+1</button>
+    <button class="trash" onclick="removeOne()">🗑 one</button>
+
+    <div class="blocks" id="onesBox"></div>
+  </div>
+
+</div>
+
+<div class="trash-zone">
+  <div class="bin" id="bin">
+    <div class="lid"></div>
+  </div>
+</div>
+
+<br>
+<button class="check" onclick="check()">CHECK ✔</button>
+
+<div class="feedback" id="fb"></div>
+
+<script>
+let tens = 0;
+let ones = 0;
+let target = 0;
+
+/* ================= YOUR SPEAK FUNCTION ================= */
+function speak(text) {
+  const speechSynthesisApi = window.speechSynthesis;
+  const msg = new SpeechSynthesisUtterance(text);
+
+  function pickVoice() {
+    const voices = speechSynthesisApi.getVoices();
+
+    if (!voices || voices.length === 0) return null;
+
+    return (
+      voices.find(v =>
+        v.lang.toLowerCase().startsWith("en") &&
+        v.name.toLowerCase().includes("google")
+      ) ||
+      voices.find(v =>
+        v.lang.toLowerCase().startsWith("en")
+      ) ||
+      voices[0]
+    );
+  }
+
+  let voice = pickVoice();
+
+  if (!voice) {
+    speechSynthesisApi.onvoiceschanged = () => {
+      const v = pickVoice();
+      if (v) {
+        msg.voice = v;
+        msg.lang = v.lang || "en-US";
+        msg.rate = 0.9;
+        msg.pitch = 1.2;
+        speechSynthesisApi.speak(msg);
+      }
+    };
+    return;
+  }
+
+  msg.voice = voice;
+  msg.lang = voice.lang || "en-US";
+  msg.rate = 0.9;
+  msg.pitch = 1.2;
+
+  speechSynthesisApi.cancel();
+  speechSynthesisApi.speak(msg);
+}
+
+/* ================= SOUND EFFECTS ================= */
+function beep(freq = 400, time = 0.08) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+
+  o.type = "square";
+  o.frequency.value = freq;
+
+  o.connect(g);
+  g.connect(ctx.destination);
+
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + time);
+  o.stop(ctx.currentTime + time);
+}
+
+/* ================= GAME ================= */
+
+function newTarget() {
+  target = Math.floor(Math.random() * 101);
+  document.getElementById("targetNum").innerText = target;
+  speak("Make " + target);
+}
+
+function total() {
+  return tens * 10 + ones;
+}
+
+/* ===== AUTO REGROUP ===== */
+function regroup() {
+  if (ones >= 10) {
+    ones -= 10;
+    tens += 1;
+    speak("Ten ones became one ten!");
+    beep(800, 0.15);
+  }
+}
+
+function update() {
+  document.getElementById("tensCount").innerText = tens;
+  document.getElementById("onesCount").innerText = ones;
+
+  let tBox = document.getElementById("tensBox");
+  let oBox = document.getElementById("onesBox");
+
+  tBox.innerHTML = "";
+  oBox.innerHTML = "";
+
+  // tens blocks (character)
+  for (let i = 0; i < tens; i++) {
+    let d = document.createElement("div");
+    d.className = "block ten";
+    d.innerText = "TEN";
+    tBox.appendChild(d);
+  }
+
+  // ones blocks (cute numbered characters)
+  for (let i = 0; i < ones; i++) {
+    let d = document.createElement("div");
+    d.className = "block one";
+    d.innerText = "1";
+    oBox.appendChild(d);
+  }
+}
+
+function addOne() {
+  if (total() + 1 <= 100) {
+    ones++;
+    beep(500);
+    regroup();
+    update();
+  }
+}
+
+function addTen() {
+  if (total() + 10 <= 100) {
+    tens++;
+    beep(300);
+    update();
+  }
+}
+
+/* trash animation */
+function trashEffect(text) {
+  document.getElementById("bin").classList.add("shake");
+  speak(text);
+  beep(200);
+
+  setTimeout(() => {
+    document.getElementById("bin").classList.remove("shake");
+  }, 300);
+}
+
+function removeOne() {
+  if (ones > 0) {
+    ones--;
+    trashEffect("oops one gone!");
+    update();
+  }
+}
+
+function removeTen() {
+  if (tens > 0) {
+    tens--;
+    trashEffect("bye bye ten!");
+    update();
+  }
+}
+
+function check() {
+  let fb = document.getElementById("fb");
+
+  if (total() === target) {
+    fb.innerText = "🎉 Perfect!";
+    speak("Perfect!");
+
+    setTimeout(() => {
+      tens = 0;
+      ones = 0;
+      newTarget();
+      update();
+    }, 1200);
+  } else if (total() < target) {
+    fb.innerText = "🔼 Add more!";
+    speak("Try more");
+  } else {
+    fb.innerText = "🔽 Too many!";
+    speak("Too many");
+  }
+}
+
+newTarget();
+update();
+</script>
+
+</body>
+</html>
