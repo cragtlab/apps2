@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MRT Door Finder</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f5f5;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  background: white;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.line-buttons {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.line-btn {
+  border: none;
+  color: white;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.line-btn.active {
+  outline: 3px solid #00000033;
+}
+
+#stations {
+  padding: 10px;
+}
+
+.station {
+  background: white;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.station-name {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f7f7f7;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 6px;
+}
+
+.door {
+  background: #1976d2;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="line-buttons" id="lineButtons"></div>
+</div>
+
+<div id="stations"></div>
+
+<script>
+const mrtData = {
+  EW: {
+    color: '#2e9b43',
+    stations: [
+      {
+        name: 'Tanjong Pagar',
+        directions: [
+          { to: 'Pasir Ris', door: '2' },
+          { to: 'Tuas Link', door: '10' }
+        ]
+      },
+      {
+        name: 'City Hall',
+        directions: [
+          { to: 'Pasir Ris', door: '4' },
+          { to: 'Tuas Link', door: '8' }
+        ]
+      }
+    ]
+  },
+
+  NS: {
+    color: '#d32f2f',
+    stations: [
+      {
+        name: 'Orchard',
+        directions: [
+          { to: 'Jurong East', door: '3' },
+          { to: 'Marina South Pier', door: '8' }
+        ]
+      }
+    ]
+  },
+
+  CC: {
+    color: '#f59e0b',
+    stations: [
+      {
+        name: 'Paya Lebar',
+        directions: [
+          { to: 'HarbourFront', door: '2' },
+          { to: 'Dhoby Ghaut', door: '7' }
+        ]
+      }
+    ]
+  },
+
+  DT: {
+    color: '#005ec4',
+    stations: [
+      {
+        name: 'Chinatown',
+        directions: [
+          { to: 'Expo', door: '5' },
+          { to: 'Bukit Panjang', door: '9' }
+        ]
+      }
+    ]
+  }
+};
+
+let currentLine = 'EW';
+
+const lineButtons = document.getElementById('lineButtons');
+const stations = document.getElementById('stations');
+
+function render() {
+  lineButtons.innerHTML = '';
+
+  Object.entries(mrtData).forEach(([key, line]) => {
+    const btn = document.createElement('button');
+    btn.className = 'line-btn';
+    btn.textContent = key;
+    btn.style.background = line.color;
+
+    if (key === currentLine) {
+      btn.classList.add('active');
+    }
+
+    btn.onclick = () => {
+      currentLine = key;
+      render();
+    };
+
+    lineButtons.appendChild(btn);
+  });
+
+  stations.innerHTML = '';
+
+  mrtData[currentLine].stations.forEach(station => {
+    const div = document.createElement('div');
+    div.className = 'station';
+
+    let rows = '';
+
+    station.directions.forEach(direction => {
+      rows += `
+        <div class="row">
+          <div>➡ ${direction.to}</div>
+          <div class="door">Door ${direction.door}</div>
+        </div>
+      `;
+    });
+
+    div.innerHTML = `
+      <div class="station-name">${station.name}</div>
+      ${rows}
+    `;
+
+    stations.appendChild(div);
+  });
+}
+
+render();
+</script>
+
+</body>
+</html>
