@@ -73,6 +73,54 @@ body {
   border-radius: 999px;
   font-weight: bold;
 }
+
+.feedback {
+  background: white;
+  margin: 10px;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+.feedback-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.feedback button {
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.save-btn {
+  background: #2e7d32;
+  color: white;
+}
+
+.email-btn {
+  background: #1565c0;
+  color: white;
+}
+
+#saveStatus {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #2e7d32;
+}
 </style>
 </head>
 <body>
@@ -83,20 +131,34 @@ body {
 
 <div id="stations"></div>
 
+<div class="feedback">
+  <h3>Wrong info?</h3>
+
+  <textarea id="feedbackText" placeholder="Example:
+Lavender towards Pasir Ris should be Door 3"></textarea>
+
+  <div class="feedback-buttons">
+    <button class="save-btn" onclick="saveFeedback()">Save</button>
+    <button class="email-btn" onclick="sendUpdate()">Send Update</button>
+  </div>
+
+  <div id="saveStatus"></div>
+</div>
+
 <script>
 const mrtData = {
   EW: {
     color: '#2e9b43',
     stations: [
       {
-        name: 'Tanjong Pagar',
+        name: 'Lavender',
         directions: [
           { to: 'Pasir Ris', door: '2' },
           { to: 'Tuas Link', door: '10' }
         ]
       },
       {
-        name: 'City Hall',
+        name: 'Paya Lebar',
         directions: [
           { to: 'Pasir Ris', door: '4' },
           { to: 'Tuas Link', door: '8' }
@@ -181,7 +243,7 @@ function render() {
 
     station.directions.forEach(direction => {
       rows += `
-        <div class="row">
+        <div class="row" onclick="quickFeedback('${station.name}','${direction.to}')">
           <div>➡ ${direction.to}</div>
           <div class="door">Door ${direction.door}</div>
         </div>
@@ -197,7 +259,52 @@ function render() {
   });
 }
 
+function saveFeedback() {
+  const text = document.getElementById('feedbackText').value;
+
+  try {
+    localStorage.setItem('mrt_feedback', text);
+    document.getElementById('saveStatus').textContent = 'Saved locally successfully';
+  } catch (e) {
+    document.getElementById('saveStatus').textContent = 'Save failed';
+  }
+}
+
+function loadFeedback() {
+  const saved = localStorage.getItem('mrt_feedback');
+
+  if (saved) {
+    document.getElementById('feedbackText').value = saved;
+    document.getElementById('saveStatus').textContent = 'Loaded saved feedback';
+  }
+}
+
+function sendUpdate() {
+  const text = document.getElementById('feedbackText').value;
+
+  const subject = encodeURIComponent('MRT Door Finder Update');
+  const body = encodeURIComponent(text);
+
+  window.location.href = `mailto:bnxx6778@gmail.com?subject=${subject}&body=${body}`;
+}
+
+function quickFeedback(station, direction) {
+  const textarea = document.getElementById('feedbackText');
+
+  const template = `- update ${station} ${direction} door `;
+
+  if (textarea.value && !textarea.value.endsWith('\n')) {
+    textarea.value += '\n';
+  }
+
+  textarea.value += template;
+  textarea.focus();
+
+  textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 render();
+loadFeedback();
 </script>
 
 </body>
