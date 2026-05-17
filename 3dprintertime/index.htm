@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bambu P1S STL Print Time Estimator</title>
+
+<style>
+    body{
+        font-family: Arial, sans-serif;
+        background:#111;
+        color:#fff;
+        margin:0;
+        padding:20px;
+    }
+
+    h1{
+        margin-top:0;
+    }
+
+    .dropzone{
+        border:3px dashed #666;
+        border-radius:16px;
+        padding:50px 20px;
+        text-align:center;
+        transition:0.2s;
+        background:#1b1b1b;
+    }
+
+    .dropzone.dragover{
+        border-color:#4ade80;
+        background:#16331f;
+    }
+
+    .result{
+        margin-top:20px;
+        background:#1b1b1b;
+        padding:20px;
+        border-radius:16px;
+    }
+
+    .big{
+        font-size:42px;
+        font-weight:bold;
+        color:#4ade80;
+    }
+
+    input, select{
+        padding:8px;
+        border-radius:8px;
+        border:none;
+        margin-top:6px;
+    }
+
+    .settings{
+        margin-top:20px;
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+        gap:16px;
+    }
+
+    .small{
+        color:#aaa;
+        font-size:13px;
+    }
+</style>
+</head>
+<body>
+
+<h1>Bambu Lab P1S STL Print Time Estimator</h1>
+
+<div class="dropzone" id="dropzone">
+    <h2>Drag & Drop STL File Here</h2>
+    <p>or click to select</p>
+    <input type="file" id="fileInput" accept=".stl" hidden />
+</div>
+
+<div class="settings">
+    <div>
+        <label>Layer Height</label><br>
+        <select id="layerHeight" onchange="recalculateEstimate()">
+            <option value="0.28">0.28mm Draft</option>
+            <option value="0.20" selected>0.20mm Standard</option>
+            <option value="0.16">0.16mm Fine</option>
+            <option value="0.12">0.12mm High Quality</option>
+        </select>
+    </div>
+
+    <div>
+        <label>Infill %</label><br>
+        <input
+            type="number"
+            id="infill"
+            value="15"
+            min="0"
+            max="100"
+            oninput="recalculateEstimate()"
+        >
+    </div>
+
+    <div>
+        <label>Print Speed Multiplier</label><br>
+        <select id="speed" onchange="recalculateEstimate()">
+            <option value="0.7">Silent</option>
+            <option value="1" selected>Normal</option>
+            <option value="1.3">Sport</option>
+            <option value="1.6">Ludicrous</option>
+        </select>
+    </div>
+</div>
+
+<div class="result" id="result" style="display:none;">
+    <h2 id="filename"></h2>
+
+    <p>Estimated Print Time</p>
+    <div class="big" id="minutes">0 min</div>
+
+    <hr>
+
+    <p>Approx STL Volume: <span id="volume"></span> cm³</p>
+    <p>Estimated Filament Weight: <span id="weight"></span> g</p>
+    <p class="small">
+        Estimation only. Real print time depends on supports,
+        wall count, acceleration, cooling, and model geometry.
+    </p>
+</div>
+
+<script>
+let currentVolumeMM3 = 0;
+let currentFileName = "";
+
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
+dropzone.addEventListener("click", () => fileInput.click());
+
+dropzone.addEventListener("dragover", e => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+});
+
+dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("dragover");
+});
+
+dropzone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+
+    const file = e.dataTransfer.files[0];
+    handleFile(file);
+});
+
+fileInput.addEventListener("change", e => {
+    handleFile(e.target.files[0]);
+});
+
+async function handleFile(file){
+
+    if(!file || !file.name.toLowerCase().endsWith(".stl")){
+        alert("Please drop an STL file.");
+        return;
+    }
+
+    const buffer = await file.arrayBuffer();
+
+    currentVolumeMM3 = estimateSTLVolume(buffer);
+    currentFileName = file.name;
+
+    recalculateEstimate();
+}
+
+function estimateSTLVolume(buffer){
+
+    const view = new DataView(buffer);
+
+    // Binary STL check
+    const faces = view.getUint32(80, true);
+
+    if((84 + faces * 50) !== buffer.byteLength){
+        alert("ASCII STL not supported. Use binary STL.");
+        return 0;
+    }
+
+    let volume = 0;
+    let offset = 84;
+
+    for(let i=0;i<faces;i++){
+
+        offset += 12; // skip normal
+
+        const p1 = readVertex(view, offset); offset += 12;
+        const p2 = readVertex(view, offset); offset += 12;
+        const p3 = readVertex(view, offset); offset += 12;
+
+        volume += signedVolumeOfTriangle(p1,p2,p3);
+
+        offset += 2; // attribute byte count
+    }
+
+    return Math.abs(volume);
+}
+function recalculateEstimate(){
+
+    if(currentVolumeMM3 <= 0) return;
+
+    const volumeCM3 = currentVolumeMM3 / 1000;
+
+    const infill = parseFloat(document.getElementById("infill").value) / 100;
+    const layerHeight = parseFloat(document.getElementById("layerHeight").value);
+    const speedMultiplier = parseFloat(document.getElementById("speed").value);
+
+    let effectiveVolume = volumeCM3 * (0.35 + infill);
+
+    effectiveVolume *= (0.2 / layerHeight);
+
+    let minutes = effectiveVolume * 4.2;
+
+    minutes /= speedMultiplier;
+
+    minutes += 8;
+
+    const weight = volumeCM3 * 1.24;
+
+    document.getElementById("result").style.display = "block";
+
+    document.getElementById("filename").innerText = currentFileName;
+
+    document.getElementById("minutes").innerText =
+        Math.round(minutes) + " min";
+
+    document.getElementById("volume").innerText =
+        volumeCM3.toFixed(2);
+
+    document.getElementById("weight").innerText =
+        weight.toFixed(1);
+}
+
+function readVertex(view, offset){
+    return {
+        x: view.getFloat32(offset, true),
+        y: view.getFloat32(offset + 4, true),
+        z: view.getFloat32(offset + 8, true)
+    };
+}
+
+function signedVolumeOfTriangle(p1,p2,p3){
+    return (
+        (
+            -p3.x * p2.y * p1.z +
+            p2.x * p3.y * p1.z +
+            p3.x * p1.y * p2.z -
+            p1.x * p3.y * p2.z -
+            p2.x * p1.y * p3.z +
+            p1.x * p2.y * p3.z
+        ) / 6
+    );
+}
+</script>
+
+</body>
+</html>
