@@ -78,8 +78,9 @@ small  {
 
 <script>
 const STORAGE_KEY='stumble_links';
+
 let links=[];
-let currentIndex=0;
+let currentLink=null;
 
 function init(){
     loadLinks();
@@ -88,13 +89,21 @@ function init(){
 }
 
 function loadLinks(){
-    links = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+
+    links = JSON.parse(
+        localStorage.getItem(STORAGE_KEY)||'[]'
+    );
+
     const normalizedLinks = links.map(link => ({
         ...link,
         snoozed_until: normalizeSnoozedUntil(link.snoozed_until)
     }));
 
-    const changed = normalizedLinks.some((link, index) => link.snoozed_until !== links[index]?.snoozed_until);
+    const changed = normalizedLinks.some(
+        (link, index) =>
+            link.snoozed_until !== links[index]?.snoozed_until
+    );
+
     links = normalizedLinks;
 
     if(changed){
@@ -103,26 +112,42 @@ function loadLinks(){
 }
 
 function saveLinks(emptyExpected=false){
+
     if(links.length===0 && !emptyExpected){
         return;
     }
 
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(links));
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(links)
+    );
 }
 
 function getLocalDateKey(date = new Date()){
+
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2,'0');
-    const day = String(date.getDate()).padStart(2,'0');
+
+    const month = String(
+        date.getMonth() + 1
+    ).padStart(2,'0');
+
+    const day = String(
+        date.getDate()
+    ).padStart(2,'0');
+
     return `${year}-${month}-${day}`;
 }
 
 function normalizeSnoozedUntil(value){
-    if(value === null || value === undefined || value === ''){
+
+    if(value === null ||
+       value === undefined ||
+       value === ''){
         return null;
     }
 
     if(typeof value === 'string'){
+
         const trimmed = value.trim();
 
         if(!trimmed){
@@ -135,242 +160,331 @@ function normalizeSnoozedUntil(value){
 
         if(/^\d+$/.test(trimmed)){
             value = Number(trimmed);
-        }else{
+        }
+        else{
+
             const parsed = new Date(trimmed);
-            return Number.isNaN(parsed.getTime()) ? trimmed : getLocalDateKey(parsed);
+
+            return Number.isNaN(parsed.getTime())
+                ? trimmed
+                : getLocalDateKey(parsed);
         }
     }
 
     if(typeof value === 'number'){
-        return Number.isFinite(value) ? getLocalDateKey(new Date(value)) : null;
+
+        return Number.isFinite(value)
+            ? getLocalDateKey(new Date(value))
+            : null;
     }
 
     if(value instanceof Date){
-        return Number.isNaN(value.getTime()) ? null : getLocalDateKey(value);
+
+        return Number.isNaN(value.getTime())
+            ? null
+            : getLocalDateKey(value);
     }
 
     return null;
 }
 
 function getAvailableLinks(){
-	const today = getLocalDateKey();
 
-    return links.filter(l=>!l.snoozed_until||l.snoozed_until<=today);
+    const today = getLocalDateKey();
+
+    return links.filter(
+        l => !l.snoozed_until ||
+             l.snoozed_until <= today
+    );
 }
 
 function displayNextAvailable(){
-    const available=getAvailableLinks();
+
+    const available = getAvailableLinks();
+
     if(!available.length){
+
+        currentLink=null;
+
         linkFreqContainer.style.display='none';
         titleEditorContainer.style.display='none';
         buttonContainer.style.display='none';
+
         return;
     }
 
-    const next=available[0];
-    currentIndex=links.findIndex(l=>l.id===next.id);
-    displayLink(next);
+    displayLink(available[0]);
 }
 
 function displayLink(link){
+
+    if(!link) return;
+
+    currentLink = link;
+
     linkFreqContainer.style.display='flex';
     titleEditorContainer.style.display='block';
     buttonContainer.style.display='block';
 
-    linkDisplay.href=link.link;
-    linkDisplay.textContent=link.link;
+    linkDisplay.href = link.link;
+    linkDisplay.textContent = link.link;
 
-    titleTextarea.value=link.title||'';
-    frequencyInput.value=link.frequency;
-}
-async function updateCurrentURL(){
-    let clipboardText = '';
+    titleTextarea.value = link.title || '';
 
-    try{
-        clipboardText = (await navigator.clipboard.readText()).trim();
-    }catch(e){
-        // clipboard might fail (permissions)
-    }
-
-    let newUrl = clipboardText;
-
-    // validate clipboard
-    if(!newUrl || (!newUrl.startsWith('http') && !newUrl.startsWith('file'))){
-        newUrl = '';
-    }
-
-    // prompt user
-    const input = prompt(
-        'Update URL (OK to confirm, Cancel to abort):',
-        newUrl || links[currentIndex].link
-    );
-
-    if(input === null) return; // cancel
-
-    const finalUrl = input.trim();
-    if(!finalUrl) return;
-
-    // update
-    links[currentIndex].link = finalUrl;
-
-    saveLinks();
-    updateLinksList();
-    displayLink(links[currentIndex]);
+    frequencyInput.value = link.frequency || '2';
 }
 
 function saveCurrent(){
-    const l=links[currentIndex];
-    l.title=titleTextarea.value;
-    l.frequency=frequencyInput.value||'2';
+
+    if(!currentLink) return;
+
+    currentLink.title =
+        titleTextarea.value;
+
+    currentLink.frequency =
+        frequencyInput.value || '2';
+}
+
+async function updateCurrentURL(){
+
+    if(!currentLink) return;
+
+    let clipboardText='';
+
+    try{
+        clipboardText =
+            (await navigator.clipboard.readText()).trim();
+    }
+    catch(e){}
+
+    let newUrl = clipboardText;
+
+    if(
+        !newUrl ||
+        (
+            !newUrl.startsWith('http') &&
+            !newUrl.startsWith('file')
+        )
+    ){
+        newUrl='';
+    }
+
+    const input = prompt(
+        'Update URL:',
+        newUrl || currentLink.link
+    );
+
+    if(input===null) return;
+
+    const finalUrl = input.trim();
+
+    if(!finalUrl) return;
+
+    currentLink.link = finalUrl;
+
+    saveLinks();
+
+    updateLinksList();
+
+    displayLink(currentLink);
 }
 
 function openLink(link){
+
     const url = link.link?.trim() || '';
 
-    // detect file links
-    if (url.toLowerCase().startsWith('file://')){
+    if(
+        url.toLowerCase().startsWith('file://')
+    ){
+
         alert(
             'This is a local file link.\n\n' +
-            'Please open it manually:\n\n' +
+            'Please open manually:\n\n' +
             url
         );
+
         return;
     }
 
-    // normal web links
-    setTimeout(() => {
-        window.open(url, '_blank');
-    }, 50);
+    setTimeout(()=>{
+        window.open(url,'_blank');
+    },50);
 }
 
-/* removed as not really useful? FIXED FLOW */
 function laterLink(){
+
     saveCurrent();
 
-    const current = links[currentIndex];
+    const current = currentLink;
+
     const available = getAvailableLinks();
 
-    if (available.length === 0) return;
+    if(!available.length) return;
 
     let next = current;
 
-    if (available.length > 1){
-        const idx = available.findIndex(x => x.id === current.id);
-        next = available[(idx + 1) % available.length];
+    if(available.length > 1){
+
+        const idx = available.indexOf(current);
+
+        next =
+            available[
+                (idx + 1) % available.length
+            ];
     }
 
-    // move UI FIRST
-    currentIndex = links.findIndex(x => x.id === next.id);
     displayLink(next);
 
-    // THEN open NEXT (not current)
     openLink(next);
 
     saveLinks();
 }
 
-/* FIXED FLOW */
 function snoozeCurrentLink(){
+
     saveCurrent();
 
-    const current = links[currentIndex];
+    const current = currentLink;
 
-    // snooze current
+    if(!current) return;
+
     const d = new Date();
-    const freq = (current.frequency || '').toString().trim().toUpperCase();
 
-if(!freq){
-    d.setDate(d.getDate() + 1);
-}
-else if(!isNaN(freq)){
-    // numeric â†’ days
-    d.setDate(d.getDate() + parseInt(freq));
-}
-else if(freq === 'M'){
-    // monthly â†’ same date next month
-    d.setMonth(d.getMonth() + 1);
-}
-else if(freq === 'W'){
-    // weekly
-    d.setDate(d.getDate() + 7);
-}
-else if(freq === 'Y'){
-    // yearly
-    d.setFullYear(d.getFullYear() + 1);
-}
-else{
-    // fallback â†’ 1 day
-    d.setDate(d.getDate() + 1);
-}
-    current.snoozed_until = getLocalDateKey(d);
+    const freq =
+        (current.frequency || '')
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    if(!freq){
+
+        d.setDate(d.getDate() + 1);
+    }
+    else if(!isNaN(freq)){
+
+        d.setDate(
+            d.getDate() + parseInt(freq)
+        );
+    }
+    else if(freq === 'M'){
+
+        d.setMonth(d.getMonth() + 1);
+    }
+    else if(freq === 'W'){
+
+        d.setDate(d.getDate() + 7);
+    }
+    else if(freq === 'Y'){
+
+        d.setFullYear(d.getFullYear() + 1);
+    }
+    else{
+
+        d.setDate(d.getDate() + 1);
+    }
+
+    current.snoozed_until =
+        getLocalDateKey(d);
 
     saveLinks();
+
     updateLinksList();
 
-    // recompute available AFTER snooze
-    const available = getAvailableLinks();
+    const available =
+        getAvailableLinks();
 
-    if (available.length === 0){
+    if(!available.length){
+
         displayNextAvailable();
+
         return;
     }
 
-    const next = available[0];
+    displayLink(available[0]);
 
-    // move UI FIRST
-    currentIndex = links.findIndex(x => x.id === next.id);
-    displayLink(next);
-
-    // THEN open NEXT
-    openLink(next);
+    openLink(available[0]);
 }
 
-/* DELETE CURRENT */
 function deleteCurrentLink(){
-    if(!confirm('Delete this link?')) return;
 
-    links.splice(currentIndex,1);
+    if(!currentLink) return;
+
+    if(!confirm('Delete this link?')){
+        return;
+    }
+
+    const idx =
+        links.indexOf(currentLink);
+
+    if(idx !== -1){
+
+        links.splice(idx,1);
+    }
+
+    currentLink=null;
+
     saveLinks(links.length===0);
+
     displayNextAvailable();
+
     updateLinksList();
 }
 
-/* ADD */
 function addFromClipboard(){
-    navigator.clipboard.readText().then(text=>{
+
+    navigator.clipboard.readText()
+    .then(text=>{
 
         let url=text.trim();
 
-        // validate
-        if(!url || (!url.startsWith('http') && !url.startsWith('file'))){
-            url=prompt('Enter URL or file path:');
+        if(
+            !url ||
+            (
+                !url.startsWith('http') &&
+                !url.startsWith('file')
+            )
+        ){
+
+            url=prompt(
+                'Enter URL or file path:'
+            );
+
             if(!url) return;
         }
 
-        const title = prompt(`Enter title for:\n${url}`);
+        const title = prompt(
+            `Enter title for:\n${url}`
+        );
+
         if(title===null) return;
 
         links.push({
-            id:Date.now(),
-            link:url,
-            title:title||'',
+            id: Date.now(),
+            link: url,
+            title: title || '',
             frequency:'2',
             snoozed_until:null
         });
 
         saveLinks();
+
         displayNextAvailable();
+
         updateLinksList();
     });
 }
 
-/* IMPORT OVERWRITE */
 function importFromClipboard(){
-    navigator.clipboard.readText().then(text=>{
+
+    navigator.clipboard.readText()
+    .then(text=>{
+
         const rows = parseTSV(text);
+
         if(rows.length < 2) return;
 
         const h = rows[0];
+
         const s=h.indexOf('Snoozed Until');
         const f=h.indexOf('Frequency');
         const u=h.indexOf('URL');
@@ -379,95 +493,156 @@ function importFromClipboard(){
         const imported=[];
 
         for(let i=1;i<rows.length;i++){
+
             const c = rows[i];
 
             if(c[u]){
+
                 imported.push({
+
                     id: Date.now()+i,
-                    snoozed_until: s !== -1 ? normalizeSnoozedUntil(decodeField(c[s])) : null,
-		frequency: f !== -1 ? decodeField(c[f]) : '2',
-		link: decodeField(c[u]),
-		title: t !== -1 ? decodeField(c[t]) : ''
+
+                    snoozed_until:
+                        s !== -1
+                        ? normalizeSnoozedUntil(
+                            decodeField(c[s])
+                        )
+                        : null,
+
+                    frequency:
+                        f !== -1
+                        ? decodeField(c[f])
+                        : '2',
+
+                    link:
+                        decodeField(c[u]),
+
+                    title:
+                        t !== -1
+                        ? decodeField(c[t])
+                        : ''
                 });
             }
         }
 
-        links=imported;
-        currentIndex=0;
+        links = imported;
+
+        currentLink=null;
 
         saveLinks();
+
         displayNextAvailable();
+
         updateLinksList();
     });
 }
 
 function decodeField(value){
+
     try{
         return JSON.parse(value);
-    }catch{
+    }
+    catch{
         return value?.trim() || '';
     }
 }
+
 function exportToClipboard(){
-    const rows=[['Snoozed Until','Frequency','URL','Title']];
+
+    const rows=[[
+        'Snoozed Until',
+        'Frequency',
+        'URL',
+        'Title'
+    ]];
 
     links.forEach(l=>{
+
         rows.push([
-            l.snoozed_until||'',
-            l.frequency||'',
-            l.link||'',
-            l.title||''
+            l.snoozed_until || '',
+            l.frequency || '',
+            l.link || '',
+            l.title || ''
         ]);
     });
 
-    const tsv = rows.map(r => r.map(escapeTSV).join('\t')).join('\n');
+    const tsv = rows
+        .map(r =>
+            r.map(escapeTSV).join('\t')
+        )
+        .join('\n');
+
     navigator.clipboard.writeText(tsv);
 }
+
 function parseTSV(text){
+
     const rows = [];
+
     let row = [];
+
     let field = '';
+
     let inQuotes = false;
 
     for(let i=0;i<text.length;i++){
+
         const char = text[i];
+
         const next = text[i+1];
 
         if(inQuotes){
+
             if(char === '"' && next === '"'){
+
                 field += '"';
+
                 i++;
-            }else if(char === '"'){
+            }
+            else if(char === '"'){
+
                 inQuotes = false;
-            }else{
+            }
+            else{
+
                 field += char;
             }
-        }else{
+        }
+        else{
+
             if(char === '"'){
+
                 inQuotes = true;
             }
             else if(char === '\t'){
+
                 row.push(field);
+
                 field = '';
             }
             else if(char === '\n'){
+
                 row.push(field);
+
                 rows.push(row);
+
                 row = [];
+
                 field = '';
             }
             else if(char === '\r'){
-                // ignore (handles Windows \r\n)
             }
             else{
+
                 field += char;
             }
         }
     }
 
-    // push last field/row safely
     if(field !== '' || row.length){
+
         row.push(field);
+
         rows.push(row);
     }
 
@@ -475,64 +650,119 @@ function parseTSV(text){
 }
 
 function escapeTSV(value){
+
     value = value ?? '';
+
     value = value.toString();
 
-    // escape quotes
     if(value.includes('"')){
-        value = value.replace(/"/g, '""');
+
+        value =
+            value.replace(/"/g,'""');
     }
 
-    // wrap if needed (tabs, newline, quotes)
-    if(value.includes('\t') || value.includes('\n') || value.includes('"')){
+    if(
+        value.includes('\t') ||
+        value.includes('\n') ||
+        value.includes('"')
+    ){
+
         value = `"${value}"`;
     }
 
     return value;
 }
-/* TABLE */
+
 function updateLinksList(){
 
     const sorted = [...links].sort((a,b)=>{
 
-        // blank snooze first
-        if(!a.snoozed_until && !b.snoozed_until) return 0;
-        if(!a.snoozed_until) return -1;
-        if(!b.snoozed_until) return 1;
+        if(!a.snoozed_until &&
+           !b.snoozed_until){
+            return 0;
+        }
 
-        // sort by date ascending
-        return a.snoozed_until.localeCompare(b.snoozed_until);
+        if(!a.snoozed_until){
+            return -1;
+        }
+
+        if(!b.snoozed_until){
+            return 1;
+        }
+
+        return a.snoozed_until.localeCompare(
+            b.snoozed_until
+        );
     });
 
-    linksTableBody.innerHTML = sorted.map(l=>`
+    linksTableBody.innerHTML =
+        sorted.map(l=>`
+
         <tr>
+
             <td>
+
                 ${l.snoozed_until || ''}
-                ${l.snoozed_until
+
+                ${
+                    l.snoozed_until
                     ? `<button onclick="clearSnooze(${l.id})">x</button>`
                     : ''
                 }
-            </td>
 
-            <td>${l.frequency || ''}</td>
+            </td>
 
             <td>
-                <a href="${l.link}" target="_blank">
-                    ${l.title || '(no title)'}
-                </a>
-                <br>
-                <small>${l.link}</small>
+                ${l.frequency || ''}
             </td>
+
+            <td>
+
+                <a href="#"
+                   onclick="focusLink(${l.id}); return false;">
+
+                    ${l.title || '(no title)'}
+
+                </a>
+
+                <br>
+
+                <small>${l.link}</small>
+
+            </td>
+
         </tr>
+
     `).join('');
 }
 
+function focusLink(id){
+
+    saveCurrent();
+
+    const l = links.find(
+        x => x.id === id
+    );
+
+    if(!l) return;
+
+    displayLink(l);
+}
+
 function clearSnooze(id){
-    const l=links.find(x=>x.id===id);
+
+    const l = links.find(
+        x=>x.id===id
+    );
+
     if(l){
+
         l.snoozed_until=null;
+
         saveLinks();
+
         displayNextAvailable();
+
         updateLinksList();
     }
 }
