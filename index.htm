@@ -249,6 +249,10 @@ async function updateCurrentURL(){
 
     if(!currentLink) return;
 
+    // temporary UI draft backup
+    const draftTitle = titleTextarea.value;
+    const draftFreq = frequencyInput.value;
+
     let clipboardText='';
 
     try{
@@ -274,19 +278,39 @@ async function updateCurrentURL(){
         newUrl || currentLink.link
     );
 
-    if(input===null) return;
+    if(input===null){
+
+        // restore drafts
+        titleTextarea.value = draftTitle;
+        frequencyInput.value = draftFreq;
+
+        return;
+    }
 
     const finalUrl = input.trim();
 
-    if(!finalUrl) return;
+    if(!finalUrl){
 
+        // restore drafts
+        titleTextarea.value = draftTitle;
+        frequencyInput.value = draftFreq;
+
+        return;
+    }
+
+    // ONLY update url
     currentLink.link = finalUrl;
 
     saveLinks();
 
     updateLinksList();
 
+    // refresh UI
     displayLink(currentLink);
+
+    // restore unsaved drafts
+    titleTextarea.value = draftTitle;
+    frequencyInput.value = draftFreq;
 }
 
 function openLink(link){
