@@ -60,7 +60,12 @@ small  {
     <button onclick="exportToClipboard()">Copy</button>
     <button onclick="importFromClipboard()">Paste</button>
     <button class="btn-add" onclick="addFromClipboard()">Add</button>
-    <button onclick="searchLinks()">Search</button>
+    <input
+    id="searchInput"
+    placeholder="search..."
+    oninput="updateLinksList()"
+    style="padding:8px;width:140px;"
+>
 </div>
 
 <!-- TABLE -->
@@ -700,7 +705,39 @@ function escapeTSV(value){
 
 function updateLinksList(){
 
-    const sorted = [...links].sort((a,b)=>{
+    const q =
+    (searchInput.value || '')
+    .trim()
+    .toLowerCase();
+
+const filtered = links.filter(l =>
+
+    !q ||
+
+    (l.title || '')
+        .toLowerCase()
+        .includes(q)
+
+    ||
+
+    (l.link || '')
+        .toLowerCase()
+        .includes(q)
+
+    ||
+
+    (l.frequency || '')
+        .toLowerCase()
+        .includes(q)
+
+    ||
+
+    (l.snoozed_until || '')
+        .toLowerCase()
+        .includes(q)
+);
+
+const sorted = [...filtered].sort((a,b)=>{
 
         if(!a.snoozed_until &&
            !b.snoozed_until){
@@ -789,157 +826,6 @@ function clearSnooze(id){
 
         updateLinksList();
     }
-}
-function searchLinks(){
-
-    const term = prompt('Search term:');
-
-    if(term === null) return;
-
-    const q = term.trim().toLowerCase();
-
-    if(!q) return;
-
-    const results = links.filter(l =>
-
-        (l.title || '')
-            .toLowerCase()
-            .includes(q)
-
-        ||
-
-        (l.link || '')
-            .toLowerCase()
-            .includes(q)
-
-        ||
-
-        (l.frequency || '')
-            .toLowerCase()
-            .includes(q)
-
-        ||
-
-        (l.snoozed_until || '')
-            .toLowerCase()
-            .includes(q)
-    );
-
-    const w = window.open('', '_blank');
-
-    if(!w){
-
-        alert('Popup blocked');
-
-        return;
-    }
-
-    const rows = results.map(l => `
-
-        <tr>
-
-            <td>${l.snoozed_until || ''}</td>
-
-            <td>${l.frequency || ''}</td>
-
-            <td>
-
-                <a href="${l.link}"
-                   target="_blank">
-
-                    ${escapeHtml(
-                        l.title || '(no title)'
-                    )}
-
-                </a>
-
-                <br>
-
-                <small>
-                    ${escapeHtml(l.link)}
-                </small>
-
-            </td>
-
-        </tr>
-
-    `).join('');
-
-    w.document.write(`
-
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Search Results</title>
-
-<style>
-
-body{
-    font-family:sans-serif;
-    padding:10px;
-    background:#f5f5f5;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-    background:white;
-}
-
-td,th{
-    border:1px solid #ddd;
-    padding:6px;
-    font-size:smaller;
-    text-align:left;
-}
-
-small{
-    overflow-wrap:anywhere;
-}
-
-</style>
-
-</head>
-<body>
-
-<h3>
-Search:
-"${escapeHtml(term)}"
-(${results.length} result(s))
-</h3>
-
-<table>
-
-<thead>
-<tr>
-<th>Snoozed</th>
-<th>Freq</th>
-<th>Link</th>
-</tr>
-</thead>
-
-<tbody>
-${rows}
-</tbody>
-
-</table>
-
-</body>
-</html>
-
-    `);
-
-    w.document.close();
-}
-
-function escapeHtml(str){
-
-    return (str || '')
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;');
 }
 window.onload=init;
 </script>
