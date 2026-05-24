@@ -723,18 +723,6 @@ const filtered = links.filter(l =>
     (l.link || '')
         .toLowerCase()
         .includes(q)
-
-    ||
-
-    (l.frequency || '')
-        .toLowerCase()
-        .includes(q)
-
-    ||
-
-    (l.snoozed_until || '')
-        .toLowerCase()
-        .includes(q)
 );
 
 const sorted = [...filtered].sort((a,b)=>{
