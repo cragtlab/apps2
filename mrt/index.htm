@@ -209,6 +209,12 @@ const mrtData = {
           { to: 'Expo', door: '?' },
           { to: 'Bukit Panjang', door: '5' }
         ]
+      }, {
+        name: 'Bukit Panjang',
+        directions: [
+          { to: 'Expo', door: '?' },
+          { to: 'Bukit Panjang', door: '15' }
+        ]
       }
     ]
   }
@@ -251,7 +257,7 @@ function render() {
     station.directions.forEach(direction => {
       rows += `
         <div class="row" onclick="quickFeedback('${station.name}','${direction.to}')">
-          <div>âž¡ ${direction.to}</div>
+          <div>${direction.to}</div>
           <div class="door">Door ${direction.door}</div>
         </div>
       `;
