@@ -115,12 +115,16 @@ textarea {
   background: #1565c0;
   color: white;
 }
-
+.clear-btn {
+  background: #757575;
+  color: white;
+}
 #saveStatus {
   margin-top: 8px;
   font-size: 14px;
   color: #2e7d32;
 }
+
 </style>
 </head>
 <body>
@@ -140,6 +144,7 @@ Lavender towards Pasir Ris should be Door 3"></textarea>
   <div class="feedback-buttons">
     <button class="save-btn" onclick="saveFeedback()">Save</button>
     <button class="email-btn" onclick="sendUpdate()">Send Update</button>
+    <button class="clear-btn" onclick="clearFeedback()">Clear</button>
   </div>
 
   <div id="saveStatus"></div>
@@ -154,7 +159,7 @@ const mrtData = {
         name: 'Lavender',
         directions: [
           { to: 'Pasir Ris', door: '2' },
-          { to: 'Tuas Link', door: '6' }
+          { to: 'Tuas Link', door: '10' }
         ]
       },
       {
@@ -209,12 +214,6 @@ const mrtData = {
           { to: 'Expo', door: '?' },
           { to: 'Bukit Panjang', door: '5' }
         ]
-      }, {
-        name: 'Bukit Panjang',
-        directions: [
-          { to: 'Expo', door: '?' },
-          { to: 'Bukit Panjang', door: '15' }
-        ]
       }
     ]
   }
@@ -257,7 +256,7 @@ function render() {
     station.directions.forEach(direction => {
       rows += `
         <div class="row" onclick="quickFeedback('${station.name}','${direction.to}')">
-          <div>${direction.to}</div>
+          <div>âž¡ ${direction.to}</div>
           <div class="door">Door ${direction.door}</div>
         </div>
       `;
@@ -315,7 +314,24 @@ function quickFeedback(station, direction) {
 
   textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
+function clearFeedback() {
+  if (!confirm('Clear feedback and delete saved local copy?')) {
+    return;
+  }
 
+  const textarea = document.getElementById('feedbackText');
+
+  textarea.value = '';
+
+  try {
+    localStorage.removeItem('mrt_feedback');
+    document.getElementById('saveStatus').textContent =
+      'Feedback and local save cleared';
+  } catch (e) {
+    document.getElementById('saveStatus').textContent =
+      'Clear failed';
+  }
+}
 render();
 loadFeedback();
 </script>
