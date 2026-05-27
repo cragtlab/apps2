@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day Transcriber</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
+    h1 {
+      font-size: 1rem;
+      font-weight: 500;
+      color: #888;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    #date {
+      font-size: 0.85rem;
+      color: #555;
+    }
+
+    #transcript-box {
+      width: 100%;
+      max-width: 720px;
+      background: #161616;
+      border: 1px solid #222;
+      border-radius: 12px;
+      padding: 28px;
+      min-height: 400px;
+      font-size: 1.05rem;
+      line-height: 1.75;
+      color: #ddd;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #final-text {
+      flex: 1;
+      min-height: 340px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      outline: none;
+      caret-color: #e74c3c;
+    }
+
+    #interim {
+      color: #555;
+      font-style: italic;
+      margin-top: 4px;
+    }
+
+    #placeholder {
+      color: #333;
+      position: absolute;
+      top: 28px;
+      left: 28px;
+      pointer-events: none;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      align-items: center;
+    }
+
+    #mic-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #e8e8e8;
+      padding: 12px 22px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    #mic-btn:hover { background: #222; border-color: #444; }
+
+    #mic-btn.listening {
+      background: #1a0a0a;
+      border-color: #c0392b;
+      color: #e74c3c;
+    }
+
+    #mic-btn .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+      transition: background 0.2s;
+    }
+
+    #mic-btn.listening .dot {
+      background: #e74c3c;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #copy-btn, #clear-btn {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #888;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      margin-left: auto;
+    }
+
+    #clear-btn { margin-left: 0; }
+
+    #copy-btn:hover, #clear-btn:hover {
+      background: #222;
+      color: #ddd;
+    }
+
+    #status {
+      font-size: 0.78rem;
+      color: #444;
+      margin-top: 12px;
+      width: 100%;
+      max-width: 720px;
+      text-align: right;
+    }
+
+    #word-count {
+      color: #444;
+      font-size: 0.78rem;
+    }
+
+    .unsupported {
+      color: #c0392b;
+      background: #1a0a0a;
+      border: 1px solid #c0392b33;
+      padding: 16px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      max-width: 720px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Day Transcriber</h1>
+  <span id="date"></span>
+</header>
+
+<div id="transcript-box">
+  <span id="placeholder">Press record and start speaking…</span>
+  <div id="final-text" contenteditable="true" spellcheck="true"></div>
+  <span id="interim"></span>
+</div>
+
+<div class="controls">
+  <button id="mic-btn">
+    <span class="dot"></span>
+    <span id="btn-label">Start recording</span>
+  </button>
+  <span id="word-count">0 words</span>
+  <button id="clear-btn">Clear</button>
+  <button id="copy-btn">Copy</button>
+</div>
+
+<div id="status"></div>
+
+<script>
+  const dateEl = document.getElementById('date');
+  dateEl.textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    document.getElementById('transcript-box').innerHTML =
+      '<div class="unsupported">Speech recognition isn\'t supported in this browser. Try Chrome or Edge.</div>';
+    document.querySelector('.controls').style.display = 'none';
+  } else {
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    let listening = false;
+
+    const micBtn     = document.getElementById('mic-btn');
+    const btnLabel   = document.getElementById('btn-label');
+    const finalEl    = document.getElementById('final-text');
+    const interimEl  = document.getElementById('interim');
+    const placeholder = document.getElementById('placeholder');
+    const statusEl   = document.getElementById('status');
+    const wordCount  = document.getElementById('word-count');
+    const copyBtn    = document.getElementById('copy-btn');
+    const clearBtn   = document.getElementById('clear-btn');
+
+    function updateWordCount() {
+      const words = finalEl.textContent.trim().split(/\s+/).filter(Boolean).length;
+      wordCount.textContent = words + (words === 1 ? ' word' : ' words');
+    }
+
+    function setStatus(msg) { statusEl.textContent = msg; }
+
+    micBtn.addEventListener('click', () => {
+      listening ? recognition.stop() : recognition.start();
+    });
+
+    recognition.onstart = () => {
+      listening = true;
+      micBtn.classList.add('listening');
+      btnLabel.textContent = 'Stop recording';
+      placeholder.style.display = 'none';
+      setStatus('Listening…');
+    };
+
+    recognition.onend = () => {
+      listening = false;
+      micBtn.classList.remove('listening');
+      btnLabel.textContent = 'Start recording';
+      interimEl.textContent = '';
+      setStatus(finalEl.textContent ? 'Paused. Press record to continue.' : '');
+    };
+
+    recognition.onerror = (e) => {
+      setStatus('Error: ' + e.error);
+      listening = false;
+      micBtn.classList.remove('listening');
+      btnLabel.textContent = 'Start recording';
+    };
+
+    recognition.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          finalEl.textContent += t + ' ';
+        } else {
+          interim += t;
+        }
+      }
+      interimEl.textContent = interim;
+      updateWordCount();
+      if (finalEl.textContent) placeholder.style.display = 'none';
+    };
+
+    copyBtn.addEventListener('click', () => {
+      const text = finalEl.innerText.trim();
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => copyBtn.textContent = 'Copy', 1800);
+      });
+    });
+
+    clearBtn.addEventListener('click', () => {
+      finalEl.textContent = '';
+      interimEl.textContent = '';
+      placeholder.style.display = 'block';
+      updateWordCount();
+      setStatus('');
+    });
+  }
+</script>
+</body>
+</html>
