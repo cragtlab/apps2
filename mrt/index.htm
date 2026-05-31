@@ -114,40 +114,16 @@ button {
   font-weight: bold;
 }
 
-.save-btn {
-  background: #2e7d32;
-  color: white;
-}
-
-.email-btn {
-  background: #1565c0;
-  color: white;
-}
-
-.clear-btn {
-  background: #757575;
-  color: white;
-}
-
-.add-btn {
-  background: #6a1b9a;
-  color: white;
-}
-
-.start-btn {
-  background: #2e7d32;
-  color: white;
-}
-
-.stop-btn {
-  background: #1565c0;
-  color: white;
-}
-
-.cancel-btn {
-  background: #c62828;
-  color: white;
-}
+.save-btn   { background: #2e7d32; color: white; }
+.email-btn  { background: #1565c0; color: white; }
+.clear-btn  { background: #757575; color: white; }
+.add-btn    { background: #6a1b9a; color: white; }
+.manual-btn { background: #e65100; color: white; }
+.start-btn  { background: #2e7d32; color: white; }
+.stop-btn   { background: #1565c0; color: white; }
+.cancel-btn { background: #c62828; color: white; }
+.edit-btn   { background: #f57c00; color: white; }
+.delete-btn { background: #c62828; color: white; }
 
 #saveStatus {
   margin-top: 8px;
@@ -181,11 +157,101 @@ button {
   margin-top: 6px;
 }
 
+.trip-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trip-item-btns {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 .timer-running {
   color: #2e7d32;
   font-weight: bold;
   margin-bottom: 8px;
 }
+
+/* Modal overlay */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  width: 90%;
+  max-width: 360px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.modal h3 {
+  margin: 0 0 16px;
+  font-size: 17px;
+}
+
+.modal-field {
+  margin-bottom: 12px;
+}
+
+.modal-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: #555;
+}
+
+.modal-field input {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.modal-field .time-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.modal-field .time-row input {
+  width: 70px;
+  text-align: center;
+}
+
+.modal-field .time-row span {
+  font-size: 14px;
+  color: #444;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+.modal-actions .ok-btn   { background: #2e7d32; color: white; }
+.modal-actions .no-btn   { background: #757575; color: white; }
 </style>
 </head>
 <body>
@@ -200,7 +266,7 @@ button {
   <div class="travel-title">Travel Time Tracker</div>
 
   <div class="travel-buttons">
-    <button class="add-btn" onclick="addRoute()">+ Add Route</button>
+    <button class="add-btn"    onclick="addRoute()">+ Add Route</button>
   </div>
 
   <div id="travelTracker"></div>
@@ -213,12 +279,44 @@ button {
 Lavender towards Pasir Ris should be Door 3"></textarea>
 
   <div class="feedback-buttons">
-    <button class="save-btn" onclick="saveFeedback()">Save</button>
+    <button class="save-btn"  onclick="saveFeedback()">Save</button>
     <button class="email-btn" onclick="sendUpdate()">Send Update</button>
     <button class="clear-btn" onclick="clearFeedback()">Clear</button>
   </div>
 
   <div id="saveStatus"></div>
+</div>
+
+<!-- Manual / Edit modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Add Manual Time</h3>
+
+    <div class="modal-field">
+      <label>Date</label>
+      <input type="date" id="modalDate">
+    </div>
+
+    <div class="modal-field">
+      <label>Time (24h)</label>
+      <div class="time-row">
+        <input type="number" id="modalHour" min="0" max="23" placeholder="HH">
+        <span>hrs</span>
+        <input type="number" id="modalMin"  min="0" max="59" placeholder="MM">
+        <span>mins</span>
+      </div>
+    </div>
+
+    <div class="modal-field">
+      <label>Duration (minutes)</label>
+      <input type="number" id="modalDuration" min="1" placeholder="e.g. 25">
+    </div>
+
+    <div class="modal-actions">
+      <button class="no-btn" onclick="closeModal()">Cancel</button>
+      <button class="ok-btn" id="modalOkBtn" onclick="confirmModal()">Save</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -242,7 +340,6 @@ const mrtData = {
       }
     ]
   },
-
   NS: {
     color: '#d32f2f',
     stations: [
@@ -255,7 +352,6 @@ const mrtData = {
       }
     ]
   },
-
   CC: {
     color: '#f59e0b',
     stations: [
@@ -275,7 +371,6 @@ const mrtData = {
       }
     ]
   },
-
   DT: {
     color: '#005ec4',
     stations: [
@@ -285,13 +380,15 @@ const mrtData = {
           { to: 'Expo', door: '8' },
           { to: 'Bukit Panjang', door: '5' }
         ]
-      },{
+      },
+      {
         name: 'Bukit Panjang',
         directions: [
           { to: 'Expo', door: '?' },
           { to: 'Bukit Panjang', door: '7' }
         ]
-       },{
+      },
+      {
         name: 'Ubi',
         directions: [
           { to: 'Expo', door: '8' },
@@ -305,7 +402,7 @@ const mrtData = {
 let currentLine = 'EW';
 
 const lineButtons = document.getElementById('lineButtons');
-const stations = document.getElementById('stations');
+const stations    = document.getElementById('stations');
 
 function render() {
   lineButtons.innerHTML = '';
@@ -315,16 +412,8 @@ function render() {
     btn.className = 'line-btn';
     btn.textContent = key;
     btn.style.background = line.color;
-
-    if (key === currentLine) {
-      btn.classList.add('active');
-    }
-
-    btn.onclick = () => {
-      currentLine = key;
-      render();
-    };
-
+    if (key === currentLine) btn.classList.add('active');
+    btn.onclick = () => { currentLine = key; render(); };
     lineButtons.appendChild(btn);
   });
 
@@ -335,7 +424,6 @@ function render() {
     div.className = 'station';
 
     let rows = '';
-
     station.directions.forEach(direction => {
       rows += `
         <div class="row" onclick="quickFeedback('${station.name}','${direction.to}')">
@@ -345,304 +433,241 @@ function render() {
       `;
     });
 
-    div.innerHTML = `
-      <div class="station-name">${station.name}</div>
-      ${rows}
-    `;
-
+    div.innerHTML = `<div class="station-name">${station.name}</div>${rows}`;
     stations.appendChild(div);
   });
 }
 
+/* -- Feedback -- */
 function saveFeedback() {
   const text = document.getElementById('feedbackText').value;
-
   try {
     localStorage.setItem('mrt_feedback', text);
-    document.getElementById('saveStatus').textContent =
-      'Saved locally successfully';
+    document.getElementById('saveStatus').textContent = 'Saved locally successfully';
   } catch (e) {
-    document.getElementById('saveStatus').textContent =
-      'Save failed';
+    document.getElementById('saveStatus').textContent = 'Save failed';
   }
 }
 
 function loadFeedback() {
   const saved = localStorage.getItem('mrt_feedback');
-
   if (saved) {
     document.getElementById('feedbackText').value = saved;
-    document.getElementById('saveStatus').textContent =
-      'Loaded saved feedback';
+    document.getElementById('saveStatus').textContent = 'Loaded saved feedback';
   }
 }
 
 function sendUpdate() {
   const text = document.getElementById('feedbackText').value;
-
-  const subject = encodeURIComponent('MRT Door Finder Update');
-  const body = encodeURIComponent(text);
-
   window.location.href =
-    `mailto:bnxx6778@gmail.com?subject=${subject}&body=${body}`;
+    `mailto:bnxx6778@gmail.com?subject=${encodeURIComponent('MRT Door Finder Update')}&body=${encodeURIComponent(text)}`;
 }
 
 function quickFeedback(station, direction) {
   const textarea = document.getElementById('feedbackText');
-
-  const template =
-    `- update ${station} ${direction} door `;
-
-  if (textarea.value && !textarea.value.endsWith('\n')) {
-    textarea.value += '\n';
-  }
-
-  textarea.value += template;
+  if (textarea.value && !textarea.value.endsWith('\n')) textarea.value += '\n';
+  textarea.value += `- update ${station} ${direction} door `;
   textarea.focus();
-
-  textarea.scrollIntoView({
-    behavior: 'smooth',
-    block: 'center'
-  });
+  textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function clearFeedback() {
-  if (!confirm('Clear feedback and delete saved local copy?')) {
-    return;
-  }
-
-  const textarea = document.getElementById('feedbackText');
-
-  textarea.value = '';
-
+  if (!confirm('Clear feedback and delete saved local copy?')) return;
+  document.getElementById('feedbackText').value = '';
   try {
     localStorage.removeItem('mrt_feedback');
-    document.getElementById('saveStatus').textContent =
-      'Feedback and local save cleared';
+    document.getElementById('saveStatus').textContent = 'Feedback and local save cleared';
   } catch (e) {
-    document.getElementById('saveStatus').textContent =
-      'Clear failed';
+    document.getElementById('saveStatus').textContent = 'Clear failed';
   }
 }
 
-/* =========================
-   Travel Time Tracker
-========================= */
-
-let travelRoutes =
-  JSON.parse(localStorage.getItem('travel_routes') || '[]');
+/* -- Travel Time Tracker -- */
+let travelRoutes = JSON.parse(localStorage.getItem('travel_routes') || '[]');
 
 function saveRoutes() {
-  localStorage.setItem(
-    'travel_routes',
-    JSON.stringify(travelRoutes)
-  );
+  localStorage.setItem('travel_routes', JSON.stringify(travelRoutes));
 }
 
 function addRoute() {
-  const name = prompt(
-    'Enter route name\nExample:\nWork to Playfacto by DT Bendemeer'
-  );
-
+  const name = prompt('Enter route name\nExample:\nWork to Playfacto by DT Bendemeer');
   if (!name) return;
-
-  travelRoutes.unshift({
-    name,
-    trips: [],
-    activeStart: null
-  });
-
+  travelRoutes.unshift({ name, trips: [], activeStart: null });
   saveRoutes();
   renderRoutes();
 }
 
 function startRoute(index) {
   const route = travelRoutes[index];
-
-  if (route.activeStart) {
-    alert('Timer already running');
-    return;
-  }
-
+  if (route.activeStart) { alert('Timer already running'); return; }
   route.activeStart = new Date().toISOString();
-
   saveRoutes();
   renderRoutes();
 }
 
 function stopRoute(index) {
   const route = travelRoutes[index];
-
-  if (!route.activeStart) {
-    alert('No timer running');
-    return;
-  }
-
-  const start = new Date(route.activeStart);
-  const end = new Date();
-
-  const mins =
-    Math.round((end - start) / 1000 / 60);
-
-  route.trips.unshift({
-    start: route.activeStart,
-    mins
-  });
-
+  if (!route.activeStart) { alert('No timer running'); return; }
+  const mins = Math.round((new Date() - new Date(route.activeStart)) / 60000);
+  route.trips.unshift({ start: route.activeStart, mins });
   route.activeStart = null;
-
   saveRoutes();
   renderRoutes();
 }
 
 function cancelRoute(index) {
   const route = travelRoutes[index];
-
-  if (!route.activeStart) {
-    alert('No timer running');
-    return;
-  }
-
-  if (!confirm('Cancel running timer?')) {
-    return;
-  }
-
+  if (!route.activeStart) { alert('No timer running'); return; }
+  if (!confirm('Cancel running timer?')) return;
   route.activeStart = null;
-
   saveRoutes();
   renderRoutes();
 }
-  function deleteTrip(routeIndex, tripIndex) {
-  const route = travelRoutes[routeIndex];
 
-  if (!confirm('Delete this sample time?')) {
-    return;
+function deleteTrip(routeIndex, tripIndex) {
+  if (!confirm('Delete this sample time?')) return;
+  travelRoutes[routeIndex].trips.splice(tripIndex, 1);
+  saveRoutes();
+  renderRoutes();
+}
+
+/* -- Modal state -- */
+let _modalMode     = null;   // 'manual' | 'edit'
+let _modalRoute    = null;
+let _modalTripIdx  = null;
+
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function openManualModal(routeIndex) {
+  _modalMode    = 'manual';
+  _modalRoute   = routeIndex;
+  _modalTripIdx = null;
+
+  document.getElementById('modalTitle').textContent = 'Add Manual Time';
+
+  const now = new Date();
+  document.getElementById('modalDate').value     = todayISO();
+  document.getElementById('modalHour').value     = now.getHours();
+  document.getElementById('modalMin').value      = now.getMinutes();
+  document.getElementById('modalDuration').value = '';
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function openEditModal(routeIndex, tripIndex) {
+  _modalMode    = 'edit';
+  _modalRoute   = routeIndex;
+  _modalTripIdx = tripIndex;
+
+  const trip = travelRoutes[routeIndex].trips[tripIndex];
+  const d    = new Date(trip.start);
+
+  document.getElementById('modalTitle').textContent = 'Edit Sample';
+  document.getElementById('modalDate').value        = d.toISOString().slice(0, 10);
+  document.getElementById('modalHour').value        = d.getHours();
+  document.getElementById('modalMin').value         = d.getMinutes();
+  document.getElementById('modalDuration').value    = trip.mins;
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  _modalMode = _modalRoute = _modalTripIdx = null;
+}
+
+function confirmModal() {
+  const dateStr  = document.getElementById('modalDate').value;
+  const hour     = parseInt(document.getElementById('modalHour').value, 10);
+  const min      = parseInt(document.getElementById('modalMin').value, 10);
+  const duration = parseInt(document.getElementById('modalDuration').value, 10);
+
+  if (!dateStr) { alert('Please enter a date'); return; }
+  if (isNaN(hour) || hour < 0 || hour > 23) { alert('Enter a valid hour (0–23)'); return; }
+  if (isNaN(min)  || min  < 0 || min  > 59) { alert('Enter valid minutes (0–59)'); return; }
+  if (isNaN(duration) || duration < 1)       { alert('Enter a valid duration (= 1 min)'); return; }
+
+  // Build ISO start string from date + hour + min
+  const startDate = new Date(`${dateStr}T${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}:00`);
+  const startISO  = startDate.toISOString();
+
+  const route = travelRoutes[_modalRoute];
+
+  if (_modalMode === 'manual') {
+    route.trips.unshift({ start: startISO, mins: duration });
+  } else if (_modalMode === 'edit') {
+    route.trips[_modalTripIdx] = { start: startISO, mins: duration };
   }
 
-  route.trips.splice(tripIndex, 1);
-
   saveRoutes();
   renderRoutes();
+  closeModal();
 }
 
+/* -- Stats -- */
 function calcStats(trips) {
-  if (!trips.length) {
-    return {
-      min: '-',
-      avg: '-',
-      max: '-'
-    };
-  }
-
+  if (!trips.length) return { min: '-', avg: '-', max: '-' };
   const mins = trips.map(t => t.mins);
-
-  const min = Math.min(...mins);
-  const max = Math.max(...mins);
-
-  const avg =
-    Math.round(
-      mins.reduce((a, b) => a + b, 0) /
-      mins.length
-    );
-
-  return { min, avg, max };
+  return {
+    min: Math.min(...mins),
+    avg: Math.round(mins.reduce((a, b) => a + b, 0) / mins.length),
+    max: Math.max(...mins)
+  };
 }
 
+/* -- Render routes -- */
 function renderRoutes() {
-  const container =
-    document.getElementById('travelTracker');
-
+  const container = document.getElementById('travelTracker');
   container.innerHTML = '';
 
   if (!travelRoutes.length) {
-    container.innerHTML =
-      '<div>No routes added yet</div>';
+    container.innerHTML = '<div>No routes added yet</div>';
     return;
   }
 
-
   travelRoutes.forEach((route, index) => {
     const stats = calcStats(route.trips);
-
-    const div = document.createElement('div');
+    const div   = document.createElement('div');
     div.className = 'travel-card';
 
-    let runningHtml = '';
-
-    if (route.activeStart) {
-      runningHtml = `
-        <div class="timer-running">
-          Timer running since
-          ${new Date(route.activeStart).toLocaleTimeString()}
-        </div>
-      `;
-    }
+    let runningHtml = route.activeStart
+      ? `<div class="timer-running">Timer running since ${new Date(route.activeStart).toLocaleTimeString()}</div>`
+      : '';
 
     let tripsHtml = '';
-
-route.trips.slice(0, 10).forEach((trip, tripIndex) => {
-  tripsHtml += `
-    <div class="trip-item">
-      <div>
-        ${trip.mins} mins -
-        ${new Date(trip.start).toLocaleString()}
-      </div>
-
-      <button
-        class="cancel-btn"
-        style="margin-top:8px;"
-        onclick="deleteTrip(${index}, ${tripIndex})">
-        Delete Sample
-      </button>
-    </div>
-  `;
-});
+    route.trips.slice(0, 10).forEach((trip, tripIndex) => {
+      tripsHtml += `
+        <div class="trip-item">
+          <div class="trip-item-row">
+            <div>${trip.mins} mins — ${new Date(trip.start).toLocaleString()}</div>
+          </div>
+          <div class="trip-item-btns">
+            <button class="edit-btn"   onclick="openEditModal(${index}, ${tripIndex})">Edit</button>
+            <button class="delete-btn" onclick="deleteTrip(${index}, ${tripIndex})">Delete</button>
+          </div>
+        </div>
+      `;
+    });
 
     div.innerHTML = `
-      <div class="travel-title">
-        ${route.name}
-      </div>
-
+      <div class="travel-title">${route.name}</div>
       ${runningHtml}
-
       <div class="stats">
-        <div class="stat">
-          Min: ${stats.min} mins
-        </div>
-
-        <div class="stat">
-          Avg: ${stats.avg} mins
-        </div>
-
-        <div class="stat">
-          Max: ${stats.max} mins
-        </div>
-
-        <div class="stat">
-          Samples: ${route.trips.length}
-        </div>
+        <div class="stat">Min: ${stats.min} mins</div>
+        <div class="stat">Avg: ${stats.avg} mins</div>
+        <div class="stat">Max: ${stats.max} mins</div>
+        <div class="stat">Samples: ${route.trips.length}</div>
       </div>
-
       <div class="travel-buttons">
-        <button class="start-btn"
-          onclick="startRoute(${index})">
-          Start
-        </button>
-
-        <button class="stop-btn"
-          onclick="stopRoute(${index})">
-          Stop
-        </button>
-
-        <button class="cancel-btn"
-          onclick="cancelRoute(${index})">
-          Cancel
-        </button>
+        <button class="start-btn"  onclick="startRoute(${index})">Start</button>
+        <button class="stop-btn"   onclick="stopRoute(${index})">Stop</button>
+        <button class="cancel-btn" onclick="cancelRoute(${index})">Cancel</button>
+        <button class="manual-btn" onclick="openManualModal(${index})">+ Manual</button>
       </div>
-
-      <div class="trip-list">
-        ${tripsHtml}
-      </div>
+      <div class="trip-list">${tripsHtml}</div>
     `;
 
     container.appendChild(div);
