@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Morpho Investment Checker</title>
+  <meta name="description" content="Check Morpho investments for any wallet address, including vault deposits and direct market supply.">
+
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Design Tokens ─────────────────────────────────────── */
+    :root {
+      --bg-color: #06070a;
+      --panel-bg: rgba(17, 19, 28, 0.7);
+      --card-bg: rgba(22, 26, 41, 0.5);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+
+      --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      --accent-color: #8b5cf6;
+      --accent-glow: rgba(139, 92, 246, 0.15);
+
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.15);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.15);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.25);
+      --critical: #dc2626;
+
+      --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(circle at 15% 25%, rgba(99, 102, 241, 0.06) 0%, transparent 45%),
+        radial-gradient(circle at 85% 75%, rgba(168, 85, 247, 0.06) 0%, transparent 45%);
+      background-attachment: fixed;
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.01); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    .container { max-width: 1440px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;
+    }
+    .logo-area h1 {
+      font-size: 2rem; font-weight: 800;
+      background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px; display: flex; align-items: center; gap: 0.5rem;
+    }
+    .logo-area p { color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.25rem; font-weight: 400; }
+
+    .chain-badges { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.25rem 0.65rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+    }
+    .badge-chain-1 { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+    .badge-chain-8453 { background: rgba(14,165,233,0.12); color: #38bdf8; border: 1px solid rgba(14,165,233,0.3); }
+    .badge-chain-42161 { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }
+    .badge-chain-10 { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+    .search-panel {
+      background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px;
+      padding: 1.5rem 2rem; backdrop-filter: blur(12px); margin-bottom: 2rem;
+    }
+    .search-row { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
+    .search-group { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; min-width: 320px; }
+    .search-label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .input-control {
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 10px;
+      color: var(--text-primary); padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 0.9rem;
+      outline: none; transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease; width: 100%;
+    }
+    .input-control:focus {
+      border-color: var(--accent-color); background: rgba(255,255,255,0.08);
+      box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
+    }
+    .input-control::placeholder { color: rgba(255,255,255,0.25); font-family: var(--font-sans); }
+
+    .btn-primary {
+      background: var(--accent-gradient); border: none; color: var(--text-primary);
+      padding: 0.75rem 2rem; border-radius: 10px; cursor: pointer; font-family: var(--font-sans);
+      font-size: 0.95rem; font-weight: 600; box-shadow: 0 4px 15px rgba(139,92,246,0.3);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(139,92,246,0.4); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .chain-filter-row { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; align-items: center; }
+    .chain-filter-label { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); margin-right: 0.25rem; }
+    .checkbox-btn { position: relative; }
+    .checkbox-btn input[type="checkbox"] { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
+    .checkbox-label {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px;
+      padding: 0.45rem 0.9rem; cursor: pointer; font-size: 0.82rem; font-weight: 500;
+      color: var(--text-secondary); transition: all 0.2s ease; user-select: none;
+    }
+    .checkbox-btn input:checked + .checkbox-label { color: var(--text-primary); border-color: var(--accent-color); background: var(--accent-glow); }
+    .checkbox-label:hover { border-color: rgba(255,255,255,0.2); }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
+    .stat-card {
+      background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px;
+      padding: 1.25rem 1.5rem; backdrop-filter: blur(12px); transition: transform 0.3s ease, border-color 0.3s ease;
+      position: relative; overflow: hidden;
+    }
+    .stat-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.15); }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent-gradient); }
+    .stat-card.danger::before { background: var(--danger); }
+    .stat-card.warning::before { background: var(--warning); }
+    .stat-card.success::before { background: var(--success); }
+    .stat-label { color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--text-primary); margin-top: 0.5rem; }
+    .stat-subtext { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem; }
+
+    .table-container {
+      background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 16px;
+      backdrop-filter: blur(12px); overflow: hidden; margin-bottom: 2rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2); position: relative;
+    }
+    .table-header {
+      padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .table-title { font-size: 1.1rem; font-weight: 700; }
+    .table-count { font-size: 0.85rem; color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 0.25rem 0.75rem; border-radius: 20px; }
+    .table-responsive { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    th {
+      color: var(--text-secondary); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px;
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); background: rgba(255,255,255,0.01);
+      cursor: pointer; user-select: none; transition: color 0.2s;
+    }
+    th:hover { color: var(--text-primary); }
+    th.sorted { color: var(--accent-color); }
+    th .sort-arrow { font-size: 0.7rem; margin-left: 0.3rem; opacity: 0.4; }
+    th.sorted .sort-arrow { opacity: 1; }
+    td { padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; transition: background-color 0.2s ease; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background-color: rgba(255,255,255,0.02); }
+
+    .mono { font-family: var(--font-mono); font-size: 0.85rem; }
+
+    .liq-bar-wrapper { display: flex; align-items: center; gap: 0.75rem; min-width: 200px; }
+    .liq-bar-outer { flex: 1; height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; position: relative; }
+    .liq-bar-inner { height: 100%; border-radius: 5px; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); position: relative; }
+    .liq-bar-inner::after { content: ''; position: absolute; right: 0; top: 0; width: 3px; height: 100%; background: rgba(255,255,255,0.4); border-radius: 2px; }
+    .liq-pct { font-weight: 700; font-size: 0.9rem; min-width: 60px; text-align: right; }
+
+    .liq-critical { color: var(--critical); }
+    .liq-danger { color: var(--danger); }
+    .liq-warning { color: var(--warning); }
+    .liq-safe { color: var(--success); }
+
+    .bar-critical { background: linear-gradient(90deg, #991b1b, #dc2626); }
+    .bar-danger { background: linear-gradient(90deg, #b91c1c, #ef4444); }
+    .bar-warning { background: linear-gradient(90deg, #d97706, #f59e0b); }
+    .bar-safe { background: linear-gradient(90deg, #059669, #10b981); }
+
+    .asset-info { display: flex; flex-direction: column; gap: 0.15rem; }
+    .asset-val { font-weight: 600; color: var(--text-primary); }
+    .asset-sub { font-size: 0.75rem; color: var(--text-secondary); }
+
+    .type-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+    }
+    .type-supply { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+    .type-vault { background: rgba(139,92,246,0.12); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.25); }
+
+    .loading-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(6,7,10,0.85); backdrop-filter: blur(6px);
+      display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 1rem;
+      z-index: 10; border-radius: 16px; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .loading-overlay.active { opacity: 1; pointer-events: all; }
+
+    .spinner { width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.05); border-top-color: var(--accent-color); border-radius: 50%; animation: spin 1s infinite linear; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .loading-text { font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.5px; }
+
+    .status-alert {
+      padding: 1rem; border-radius: 12px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
+      color: #fca5a5; font-size: 0.9rem; display: none; margin-bottom: 1.5rem;
+    }
+
+    .empty-state { padding: 4rem 2rem; text-align: center; color: var(--text-secondary); font-size: 1rem; }
+    .empty-state svg { width: 48px; height: 48px; stroke: var(--text-secondary); opacity: 0.3; margin-bottom: 1rem; }
+
+    .info-tip { position: relative; display: inline-flex; align-items: center; cursor: help; margin-left: 0.35rem; }
+    .info-tip svg { width: 14px; height: 14px; stroke: var(--text-secondary); opacity: 0.6; transition: opacity 0.2s; }
+    .info-tip:hover svg { opacity: 1; stroke: var(--accent-color); }
+    .info-tip .tip-text {
+      display: none; position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
+      background: #1a1d2e; border: 1px solid var(--border-color); border-radius: 10px;
+      padding: 0.65rem 0.85rem; font-size: 0.78rem; color: var(--text-secondary); width: 260px;
+      text-align: left; font-weight: 400; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.4); line-height: 1.45;
+    }
+    .info-tip:hover .tip-text { display: block; }
+
+    @keyframes flash-row { 0% { background: rgba(139,92,246,0.08); } 100% { background: transparent; } }
+    tr.flash td { animation: flash-row 1.5s ease-out; }
+
+    @media (max-width: 768px) {
+      .search-row { flex-direction: column; }
+      .search-group { min-width: unset; }
+      header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .market-link {
+      color: var(--text-primary); text-decoration: none; transition: color 0.2s;
+      display: inline-flex; align-items: center; gap: 0.3rem;
+    }
+    .market-link:hover { color: var(--accent-color); }
+    .market-link svg { width: 12px; height: 12px; opacity: 0.5; transition: opacity 0.2s; }
+    .market-link:hover svg { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo-area">
+      <h1>
+        <svg style="width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+        </svg>
+        Morpho Investment Checker
+      </h1>
+      <p>Find vault deposits and direct Morpho supply for any wallet address</p>
+    </div>
+    <div class="chain-badges">
+      <span class="badge badge-chain-1">Ethereum</span>
+      <span class="badge badge-chain-8453">Base</span>
+      <span class="badge badge-chain-42161">Arbitrum</span>
+      <span class="badge badge-chain-10">Optimism</span>
+    </div>
+  </header>
+
+  <div id="status-alert" class="status-alert"></div>
+
+  <div class="search-panel">
+    <div class="search-row">
+      <div class="search-group">
+        <label class="search-label" for="address-input">Wallet Address</label>
+        <input type="text" id="address-input" class="input-control" placeholder="0x..." autocomplete="off" spellcheck="false">
+      </div>
+      <button class="btn-primary" id="btn-check" type="button">
+        <svg style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.5" viewBox="0 0 24 24" id="check-icon">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        Check Investments
+      </button>
+    </div>
+    <div class="chain-filter-row">
+      <span class="chain-filter-label">Chains:</span>
+      <div class="checkbox-btn">
+        <input type="checkbox" id="chain-1" value="1" checked>
+        <label for="chain-1" class="checkbox-label">
+          <span style="display:inline-block;width:8px;height:8px;background:#818cf8;border-radius:50%"></span> Ethereum
+        </label>
+      </div>
+      <div class="checkbox-btn">
+        <input type="checkbox" id="chain-8453" value="8453" checked>
+        <label for="chain-8453" class="checkbox-label">
+          <span style="display:inline-block;width:8px;height:8px;background:#38bdf8;border-radius:50%"></span> Base
+        </label>
+      </div>
+      <div class="checkbox-btn">
+        <input type="checkbox" id="chain-42161" value="42161" checked>
+        <label for="chain-42161" class="checkbox-label">
+          <span style="display:inline-block;width:8px;height:8px;background:#fb923c;border-radius:50%"></span> Arbitrum
+        </label>
+      </div>
+      <div class="checkbox-btn">
+        <input type="checkbox" id="chain-10" value="10" checked>
+        <label for="chain-10" class="checkbox-label">
+          <span style="display:inline-block;width:8px;height:8px;background:#f87171;border-radius:50%"></span> Optimism
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-grid" id="stats-grid" style="display:none;">
+    <div class="stat-card">
+      <div class="stat-label">Total Investments</div>
+      <div class="stat-value" id="stat-total">0</div>
+      <div class="stat-subtext">Vault and direct supply rows found</div>
+    </div>
+    <div class="stat-card success">
+      <div class="stat-label">Total Invested (USD)</div>
+      <div class="stat-value" id="stat-supply">$0</div>
+      <div class="stat-subtext">Vault deposits plus direct supply</div>
+    </div>
+    <div class="stat-card warning">
+      <div class="stat-label">Vault Investments</div>
+      <div class="stat-value" id="stat-borrow">$0</div>
+      <div class="stat-subtext">Value deposited through Morpho vaults</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="stat-label">Direct Supply</div>
+      <div class="stat-value" id="stat-lowest-liq">—</div>
+      <div class="stat-subtext">Value supplied directly to markets</div>
+    </div>
+  </div>
+
+  <div class="table-container" id="table-container" style="display:none;">
+    <div class="loading-overlay" id="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loading-text">Querying Morpho API...</div>
+    </div>
+
+    <div class="table-header">
+      <div class="table-title">
+        Investments — Vaults and Direct Supply
+        <span class="info-tip">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <span class="tip-text">Shows Morpho vault deposits and direct market supply for the wallet on the selected chains.</span>
+        </span>
+      </div>
+      <div class="table-count" id="display-count">0 investments</div>
+    </div>
+
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:4%">#</th>
+            <th style="width:7%">Chain</th>
+            <th style="width:8%">Type</th>
+            <th style="width:22%">Morpho Position</th>
+            <th style="width:14%">Your Investment</th>
+            <th style="width:14%">Available Liquidity</th>
+            <th style="width:15%">Liquidity / Investment</th>
+            <th style="width:10%">APY</th>
+            <th style="width:12%">Link</th>
+          </tr>
+        </thead>
+        <tbody id="positions-tbody">
+          <tr>
+            <td colspan="9" class="empty-state">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p>Enter a wallet address and click "Check Investments"</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
+  const CHAIN_IDS = [1, 8453, 42161, 10];
+  const CHAIN_NAMES = { 1: 'Ethereum', 8453: 'Base', 42161: 'Arbitrum', 10: 'Optimism' };
+
+  const addressInput   = document.getElementById('address-input');
+  const btnCheck       = document.getElementById('btn-check');
+  const checkIcon      = document.getElementById('check-icon');
+  const statsGrid      = document.getElementById('stats-grid');
+  const tableContainer = document.getElementById('table-container');
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const loadingText    = document.getElementById('loading-text');
+  const statusAlert    = document.getElementById('status-alert');
+  const positionsTbody = document.getElementById('positions-tbody');
+  const displayCount   = document.getElementById('display-count');
+  const statTotal      = document.getElementById('stat-total');
+  const statSupply     = document.getElementById('stat-supply');
+  const statBorrow     = document.getElementById('stat-borrow');
+  const statLowestLiq  = document.getElementById('stat-lowest-liq');
+
+  function showAlert(msg) { statusAlert.textContent = msg; statusAlert.style.display = 'block'; }
+  function hideAlert() { statusAlert.style.display = 'none'; }
+  function showLoading(msg) {
+    loadingText.textContent = msg; loadingOverlay.classList.add('active');
+    btnCheck.disabled = true; checkIcon.style.animation = 'spin 1s infinite linear';
+  }
+  function hideLoading() {
+    loadingOverlay.classList.remove('active');
+    btnCheck.disabled = false; checkIcon.style.animation = 'none';
+  }
+
+  function getSelectedChains() {
+    return CHAIN_IDS.filter(id => document.getElementById(`chain-${id}`).checked);
+  }
+
+  function formatNumber(num, dec = 2) {
+    if (num == null || isNaN(num)) return 'N/A';
+    if (num === Infinity) return '∞';
+    return num.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  function formatUsd(num) {
+    if (num == null || isNaN(num)) return '$0';
+    return '$' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function formatCompactUsd(num) {
+    if (num == null || isNaN(num) || num === 0) return '$0';
+    if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return '$' + (num / 1e3).toFixed(2) + 'K';
+    return '$' + num.toFixed(2);
+  }
+
+  function formatPercent(num, dec = 2) {
+    if (num == null || isNaN(Number(num))) return '—';
+    return (Number(num) * 100).toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec }) + '%';
+  }
+
+  function formatAddress(addr) {
+    if (!addr) return '';
+    return addr.slice(0, 6) + '…' + addr.slice(-4);
+  }
+
+  function getMorphoMarketUrl(chainId, marketId) {
+    const chainSlug = { 1: 'ethereum', 8453: 'base', 42161: 'arbitrum', 10: 'optimism' }[chainId];
+    if (!chainSlug || !marketId) return '#';
+    return `https://app.morpho.org/market?id=${marketId}&network=${chainSlug}`;
+  }
+
+  function getMorphoVaultUrl(chainId, vaultAddress) {
+    const chainSlug = { 1: 'ethereum', 8453: 'base', 42161: 'arbitrum', 10: 'optimism' }[chainId];
+    if (!chainSlug || !vaultAddress) return '#';
+    return `https://app.morpho.org/${chainSlug}/vault/${vaultAddress}`;
+  }
+
+  function getLiqClass(pct) {
+    if (pct < 25) return 'critical';
+    if (pct < 50) return 'danger';
+    if (pct < 100) return 'warning';
+    return 'safe';
+  }
+
+  async function fetchUserPositions(userAddress, chains) {
+    if (chains.length === 0) return [];
+
+    const query = `
+      query GetMorphoInvestments($address: String!, $chainId: Int!) {
+        userByAddress(address: $address, chainId: $chainId) {
+          address
+          marketPositions {
+            market {
+              marketId
+              lltv
+              loanAsset { symbol, address, decimals, priceUsd }
+              collateralAsset { symbol, address, decimals, priceUsd }
+              state { liquidityAssets liquidityAssetsUsd supplyApy netSupplyApy }
+            }
+            state { supplyAssets supplyAssetsUsd supplyShares }
+          }
+          vaultPositions {
+            vault {
+              address
+              name
+              symbol
+              asset { symbol address decimals price { usd } }
+              liquidity { underlying usd }
+              state { apy netApy }
+            }
+            state { assets assetsUsd shares }
+          }
+          vaultV2Positions {
+            vault {
+              address
+              name
+              symbol
+              asset { symbol address decimals price { usd } }
+              liquidity
+              apy
+              netApy
+            }
+            assets
+            assetsUsd
+            shares
+          }
+        }
+      }
+    `;
+
+    const results = [];
+    for (const chainId of chains) {
+      try {
+        const response = await fetch(GRAPHQL_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables: { address: userAddress.toLowerCase(), chainId } }),
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const resJson = await response.json();
+        if (resJson.errors && resJson.errors.length) throw new Error(resJson.errors[0].message);
+
+        const userData = resJson.data?.userByAddress;
+        if (userData) results.push({ chainId, user: userData });
+      } catch (err) {
+        console.warn(`Failed to fetch chain ${chainId}:`, err);
+      }
+    }
+
+    return results;
+  }
+
+  function parsePositions(items) {
+    const rows = [];
+
+    for (const item of items) {
+      const chainId = item.chainId;
+      const user = item.user || {};
+
+      for (const pos of user.marketPositions || []) {
+        const state = pos.state || {};
+        const market = pos.market || {};
+        const supplyAssetsRaw = BigInt(state.supplyAssets || '0');
+        const supplyUsd = Number(state.supplyAssetsUsd || 0);
+        if (supplyAssetsRaw <= 0n || supplyUsd <= 0.01) continue;
+
+        const loanAsset = market.loanAsset || {};
+        const collateralAsset = market.collateralAsset || {};
+        const decimals = Number(loanAsset.decimals || 18);
+        const supplyAmount = Number(state.supplyAssets || 0) / Math.pow(10, decimals);
+        const marketId = market.marketId || '';
+        const marketState = market.state || {};
+        const liquidityUsd = Number(marketState.liquidityAssetsUsd || 0);
+        const liquidityRatio = supplyUsd > 0 ? (liquidityUsd / supplyUsd) * 100 : Infinity;
+        const apy = marketState.netSupplyApy ?? marketState.supplyApy ?? null;
+
+        rows.push({
+          type: 'direct',
+          chainId,
+          name: `${collateralAsset.symbol || '?'} / ${loanAsset.symbol || '?'}`,
+          assetSymbol: loanAsset.symbol || '?',
+          amountLabel: `${formatNumber(supplyAmount, 4)} ${loanAsset.symbol || '?'}`,
+          positionUsd: supplyUsd,
+          liquidityUsd,
+          liquidityRatio,
+          apy,
+          shares: state.supplyShares || '',
+          detail: `LLTV ${formatNumber((Number(market.lltv || 0) / 1e18) * 100, 0)}%`,
+          url: getMorphoMarketUrl(chainId, marketId),
+        });
+      }
+
+      for (const pos of user.vaultPositions || []) {
+        const state = pos.state || {};
+        addVaultRow(rows, chainId, pos.vault, state.assets, state.assetsUsd, state.shares, 'Vault');
+      }
+
+      for (const pos of user.vaultV2Positions || []) {
+        addVaultRow(rows, chainId, pos.vault, pos.assets, pos.assetsUsd, pos.shares, 'Vault V2');
+      }
+    }
+
+    return rows.sort((a, b) => {
+      const ratioA = Number.isFinite(a.liquidityRatio) ? a.liquidityRatio : Number.MAX_SAFE_INTEGER;
+      const ratioB = Number.isFinite(b.liquidityRatio) ? b.liquidityRatio : Number.MAX_SAFE_INTEGER;
+      return ratioA - ratioB || b.positionUsd - a.positionUsd;
+    });
+  }
+
+  function addVaultRow(rows, chainId, vault, rawAssets, rawAssetsUsd, shares, label) {
+    const assetsUsd = Number(rawAssetsUsd || 0);
+    if (!vault || assetsUsd <= 0.01) return;
+
+    const asset = vault.asset || {};
+    const decimals = Number(asset.decimals || 18);
+    const assets = Number(rawAssets || 0) / Math.pow(10, decimals);
+    const liquidityUsd = typeof vault.liquidity === 'object'
+      ? Number(vault.liquidity?.usd || 0)
+      : Number(vault.liquidity || 0) / Math.pow(10, decimals) * Number(asset.price?.usd || 0);
+    const liquidityRatio = assetsUsd > 0 ? (liquidityUsd / assetsUsd) * 100 : Infinity;
+    const vaultState = vault.state || vault;
+    const apy = vaultState.netApy ?? vaultState.apy ?? null;
+
+    rows.push({
+      type: 'vault',
+      chainId,
+      name: vault.name || vault.symbol || 'Morpho Vault',
+      assetSymbol: asset.symbol || '?',
+      amountLabel: `${formatNumber(assets, 4)} ${asset.symbol || '?'}`,
+      positionUsd: assetsUsd,
+      liquidityUsd,
+      liquidityRatio,
+      apy,
+      shares: shares || '',
+      detail: vault.symbol ? `${label} · ${vault.symbol}` : label,
+      url: getMorphoVaultUrl(chainId, vault.address),
+    });
+  }
+
+  function updateStats(parsedPositions) {
+    const totalInvested = parsedPositions.reduce((a, p) => a + p.positionUsd, 0);
+    const totalVaults = parsedPositions.filter(p => p.type === 'vault').reduce((a, p) => a + p.positionUsd, 0);
+    const totalDirect = parsedPositions.filter(p => p.type === 'direct').reduce((a, p) => a + p.positionUsd, 0);
+
+    statTotal.textContent = parsedPositions.length;
+    statSupply.textContent = formatCompactUsd(totalInvested);
+    statBorrow.textContent = formatCompactUsd(totalVaults);
+    statLowestLiq.textContent = formatCompactUsd(totalDirect);
+  }
+
+  function renderTable(sorted) {
+    displayCount.textContent = `${sorted.length} investment${sorted.length !== 1 ? 's' : ''}`;
+
+    if (sorted.length === 0) {
+      positionsTbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="empty-state">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <p>No Morpho vault deposits or direct supply found for this address on the selected chains</p>
+          </td>
+        </tr>`;
+      return;
+    }
+
+    positionsTbody.innerHTML = sorted.map((pos, i) => {
+      const rank = i + 1;
+      const chainBadge = `<span class="badge badge-chain-${pos.chainId}">${CHAIN_NAMES[pos.chainId] || pos.chainId}</span>`;
+      const typeBadge = pos.type === 'vault'
+        ? `<span class="type-badge type-vault">Vault</span>`
+        : `<span class="type-badge type-supply">Direct</span>`;
+      const linkText = pos.url === '#' ? 'Unavailable' : 'Open';
+      const ratio = Number.isFinite(pos.liquidityRatio) ? pos.liquidityRatio : 999999;
+      const ratioClass = getLiqClass(ratio);
+      const ratioDisplay = Number.isFinite(pos.liquidityRatio) ? `${formatNumber(pos.liquidityRatio, 1)}%` : '∞';
+      const apyDisplay = formatPercent(pos.apy);
+
+      return `
+        <tr class="flash">
+          <td class="mono" style="font-weight:600;color:var(--text-secondary)">${rank}</td>
+          <td>${chainBadge}</td>
+          <td>${typeBadge}</td>
+          <td><div class="asset-info"><span class="asset-val">${pos.name}</span><span class="asset-sub">${pos.detail}</span></div></td>
+          <td><div class="asset-info"><span class="asset-val">${pos.amountLabel}</span><span class="asset-sub">${formatUsd(pos.positionUsd)}</span></div></td>
+          <td><div class="asset-info"><span class="asset-val">${formatCompactUsd(pos.liquidityUsd)}</span><span class="asset-sub">Available ${pos.assetSymbol}</span></div></td>
+          <td><div class="asset-info"><span class="asset-val liq-${ratioClass}">${ratioDisplay}</span><span class="asset-sub">Available / investment</span></div></td>
+          <td><div class="asset-info"><span class="asset-val">${apyDisplay}</span><span class="asset-sub">Net APY</span></div></td>
+          <td><a class="market-link" href="${pos.url}" target="_blank" rel="noopener noreferrer">${linkText}<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a></td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function checkPositions() {
+    const address = addressInput.value.trim();
+    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      showAlert('Please enter a valid Ethereum address (0x…)');
+      return;
+    }
+
+    const chains = getSelectedChains();
+    if (chains.length === 0) {
+      showAlert('Please select at least one chain.');
+      return;
+    }
+
+    hideAlert();
+    statsGrid.style.display = 'grid';
+    tableContainer.style.display = 'block';
+    showLoading(`Fetching Morpho investments for ${formatAddress(address)} across ${chains.length} chain${chains.length > 1 ? 's' : ''}...`);
+
+    try {
+      const rawItems = await fetchUserPositions(address, chains);
+
+      if (rawItems.length === 0) {
+        hideLoading();
+        updateStats([]);
+        renderTable([]);
+        statTotal.textContent = '0';
+        statSupply.textContent = '$0';
+        statBorrow.textContent = '$0';
+        statLowestLiq.textContent = '—';
+        return;
+      }
+
+      showLoading(`Processing ${rawItems.length} chain result${rawItems.length !== 1 ? 's' : ''}...`);
+
+      const parsed = parsePositions(rawItems);
+
+      updateStats(parsed);
+      renderTable(parsed);
+      hideLoading();
+
+    } catch (err) {
+      hideLoading();
+      console.error('Error fetching positions:', err);
+      showAlert(`Error: ${err.message}`);
+    }
+  }
+
+  btnCheck.addEventListener('click', checkPositions);
+  addressInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') checkPositions();
+  });
+
+  // ── Auto-load from URL parameters ──────────────────────
+  // Supports both ?addr=0x... (query param) and #0x... (hash)
+  function getAddressFromUrl() {
+    // 1. Check ?addr= query parameter
+    const params = new URLSearchParams(window.location.search);
+    const paramAddr = params.get('addr');
+    if (paramAddr && /^0x[a-fA-F0-9]{40}$/.test(paramAddr.trim())) {
+      return paramAddr.trim();
+    }
+    // 2. Fall back to legacy #0x... hash
+    const hashAddr = window.location.hash.slice(1);
+    if (hashAddr && /^0x[a-fA-F0-9]{40}$/.test(hashAddr)) {
+      return hashAddr;
+    }
+    return null;
+  }
+
+  const autoAddr = getAddressFromUrl();
+  if (autoAddr) {
+    addressInput.value = autoAddr;
+    checkPositions();
+  }
+
+})();
+</script>
+
+</body>
+</html>
