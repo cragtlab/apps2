@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>10x Tracker</title>
+
+
+<style>
+body { font-family:sans-serif; padding:0px; background:#f5f5f5; }
+.container { margin:auto; background:white; padding:5px; border-radius:10px; }
+
+button { padding:8px 12px; margin:3px; cursor:pointer;border-radius:2px; }
+.btn-danger { background:#ff4d4d; color:white; }
+.btn-snooze { background:orange; color:white; }
+.btn-add {    background:#28a745;color:white; }
+#linkFreqContainer { display:none; gap:10px; margin-bottom:10px; }
+#frequencyInput { width:60px; }
+#btn-update-url {    background:#007bff; color:white;border:none; }
+textarea { width:100%; height:80px; }
+
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+td, th { font-size: smaller; border:1px solid #ddd; padding:6px; }
+td button { padding: 4px}
+
+#linkDisplay{
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+small  {
+    display: block;
+    overflow-wrap: anywhere;
+}
+.tabs { display:flex; gap:6px; margin:8px 0; }
+.tab-button { background:#eee; border:1px solid #ccc; }
+.tab-button.active { background:#222; color:white; }
+#tickerContainer { display:none; margin-bottom:8px; }
+#tickerInput { padding:8px; width:140px; text-transform:uppercase; }
+</style>
+</head>
+
+<body>
+<div class="container">
+<b>10x Tracker - (open tab group in mobile)</b>
+
+<div class="tabs">
+    <button id="findTabButton" class="tab-button active" onclick="setTab('find')">Find</button>
+    <button id="trackTabButton" class="tab-button" onclick="setTab('track')">Track Stock</button>
+</div>
+
+<!-- DISPLAY -->
+<div id="linkFreqContainer">
+    <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
+    <a id="linkDisplay" target="_blank" style="flex:1;"></a>
+</div>
+
+<div id="titleEditorContainer" style="display:none;">
+    <textarea id="titleTextarea" placeholder="enter remarks"></textarea>
+</div>
+
+<div id="tickerContainer">
+    <input id="tickerInput" placeholder="ticker" oninput="saveCurrentTickerDraft()">
+</div>
+
+<div id="buttonContainer" style="display:none;">
+    <button class="btn-snooze" onclick="snoozeCurrentLink()">Snooze</button>
+    <button class="btn-danger" onclick="deleteCurrentLink()">Delete</button>
+    <button id="btn-update-url" onclick="updateCurrentURL()">Update URL only</button>
+</div>
+
+<!-- CONTROLS -->
+ <hr>
+ <small>To import from <a href="https://docs.google.com/spreadsheets/d/1U3TgM15sxkdGKnavT-LUGEFkLZGBOKKvTcOZ6EDPCB0/edit#gid=0">Google Sheets</a>, click top left empty to select all then hold to copy</small>
+<div>
+    <button onclick="exportToClipboard()">Copy</button>
+    <button onclick="importFromClipboard()">Paste</button>
+    <button class="btn-add" onclick="addFromClipboard()">Add</button>
+    <input type="search"
+    id="searchInput"
+    placeholder="search..."
+    oninput="updateLinksList()"
+    style="padding:8px;width:140px;"
+>
+</div>
+
+<!-- TABLE -->
+<table>
+<thead>
+<tr>
+<th id="tickerHeader" style="display:none;">Ticker</th>
+<th>Snoozed</th>
+<th>Freq</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody id="linksTableBody"></tbody>
+</table>
+
+</div>
+
+<script>
+const STORAGE_KEY='10x_tracker';
+const LEGACY_STORAGE_KEY='stumble_links';
+
+let appState={
+    find:[],
+    track:[]
+};
+let links=[];
+let currentLink=null;
+let currentTab='find';
+
+function init(){
+    loadLinks();
+    displayNextAvailable();
+    updateLinksList();
+}
+
+function loadLinks(){
+
+    const stored = localStorage.getItem(STORAGE_KEY);
+
+    if(stored){
+        const parsed = JSON.parse(stored);
+
+        if(Array.isArray(parsed)){
+            appState.find = parsed;
+            appState.track = [];
+        }
+        else{
+            appState.find = Array.isArray(parsed.find) ? parsed.find : [];
+            appState.track = Array.isArray(parsed.track) ? parsed.track : [];
+        }
+    }
+    else{
+        appState.find = JSON.parse(
+            localStorage.getItem(LEGACY_STORAGE_KEY)||'[]'
+        );
+        appState.track = [];
+    }
+
+    const changed = normalizeAllLinks();
+
+    links = appState[currentTab];
+
+    if(changed){
+        saveLinks();
+    }
+}
+
+function normalizeAllLinks(){
+
+    let changed = false;
+
+    ['find','track'].forEach(tab => {
+        const original = appState[tab];
+
+        appState[tab] = original.map(link => {
+            const normalized = {
+                ...link,
+                id: link.id || Date.now() + Math.floor(Math.random() * 1000000),
+                ticker: normalizeTicker(link.ticker),
+                snoozed_until: normalizeSnoozedUntil(link.snoozed_until)
+            };
+
+            if(normalized.id !== link.id ||
+               normalized.ticker !== link.ticker ||
+               normalized.snoozed_until !== link.snoozed_until){
+                changed = true;
+            }
+
+            return normalized;
+        });
+    });
+
+    return changed;
+}
+
+function saveLinks(emptyExpected=false){
+
+    if(appState.find.length===0 &&
+       appState.track.length===0 &&
+       !emptyExpected){
+        return;
+    }
+
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(appState)
+    );
+}
+
+function setTab(tab){
+
+    if(tab === currentTab) return;
+
+    saveCurrent();
+
+    currentTab = tab;
+    links = appState[currentTab];
+    currentLink = null;
+
+    findTabButton.classList.toggle('active', tab === 'find');
+    trackTabButton.classList.toggle('active', tab === 'track');
+    tickerContainer.style.display = tab === 'track' ? 'block' : 'none';
+    tickerHeader.style.display = tab === 'track' ? '' : 'none';
+    searchInput.value = '';
+
+    displayNextAvailable();
+    updateLinksList();
+}
+
+function normalizeTicker(value){
+    return (value || '').toString().trim().toUpperCase();
+}
+
+function getLocalDateKey(date = new Date()){
+
+    const year = date.getFullYear();
+
+    const month = String(
+        date.getMonth() + 1
+    ).padStart(2,'0');
+
+    const day = String(
+        date.getDate()
+    ).padStart(2,'0');
+
+    return `${year}-${month}-${day}`;
+}
+
+function normalizeSnoozedUntil(value){
+
+    if(value === null ||
+       value === undefined ||
+       value === ''){
+        return null;
+    }
+
+    if(typeof value === 'string'){
+
+        const trimmed = value.trim();
+
+        if(!trimmed){
+            return null;
+        }
+
+        if(/^\d{4}-\d{2}-\d{2}$/.test(trimmed)){
+            return trimmed;
+        }
+
+        if(/^\d+$/.test(trimmed)){
+            value = Number(trimmed);
+        }
+        else{
+
+            const parsed = new Date(trimmed);
+
+            return Number.isNaN(parsed.getTime())
+                ? trimmed
+                : getLocalDateKey(parsed);
+        }
+    }
+
+    if(typeof value === 'number'){
+
+        return Number.isFinite(value)
+            ? getLocalDateKey(new Date(value))
+            : null;
+    }
+
+    if(value instanceof Date){
+
+        return Number.isNaN(value.getTime())
+            ? null
+            : getLocalDateKey(value);
+    }
+
+    return null;
+}
+
+function getAvailableLinks(){
+
+    const today = getLocalDateKey();
+
+    return links.filter(
+        l => !l.snoozed_until ||
+             l.snoozed_until <= today
+    );
+}
+
+function displayNextAvailable(){
+
+    const available = getAvailableLinks();
+
+    if(!available.length){
+
+        currentLink=null;
+
+        linkFreqContainer.style.display='none';
+        titleEditorContainer.style.display='none';
+        buttonContainer.style.display='none';
+
+        return;
+    }
+
+    displayLink(available[0]);
+}
+
+function displayLink(link){
+
+    if(!link) return;
+
+    currentLink = link;
+
+    linkFreqContainer.style.display='flex';
+    titleEditorContainer.style.display='block';
+    buttonContainer.style.display='block';
+
+    linkDisplay.href = link.link;
+    linkDisplay.textContent = link.link;
+
+    titleTextarea.value = link.title || '';
+
+    frequencyInput.value = link.frequency || '2';
+
+    tickerInput.value = normalizeTicker(link.ticker);
+
+    if(currentTab === 'track' && link.ticker){
+        searchInput.value = normalizeTicker(link.ticker);
+    }
+
+    updateLinksList();
+}
+
+function saveCurrent(){
+
+    if(!currentLink) return;
+
+    currentLink.title =
+        titleTextarea.value;
+
+    currentLink.frequency =
+        frequencyInput.value || '2';
+
+    if(currentTab === 'track'){
+        currentLink.ticker = normalizeTicker(tickerInput.value);
+    }
+}
+
+function saveCurrentTickerDraft(){
+
+    if(!currentLink || currentTab !== 'track') return;
+
+    currentLink.ticker = normalizeTicker(tickerInput.value);
+
+    saveLinks();
+
+    updateLinksList();
+}
+
+async function updateCurrentURL(){
+
+    if(!currentLink) return;
+
+    // temporary UI draft backup
+    const draftTitle = titleTextarea.value;
+    const draftFreq = frequencyInput.value;
+
+    let clipboardText='';
+
+    try{
+        clipboardText =
+            (await navigator.clipboard.readText()).trim();
+    }
+    catch(e){}
+
+    let newUrl = clipboardText;
+
+    if(
+        !newUrl ||
+        (
+            !newUrl.startsWith('http') &&
+            !newUrl.startsWith('file')
+        )
+    ){
+        newUrl='';
+    }
+
+    const input = prompt(
+        'Update URL:',
+        newUrl || currentLink.link
+    );
+
+    if(input===null){
+
+        // restore drafts
+        titleTextarea.value = draftTitle;
+        frequencyInput.value = draftFreq;
+
+        return;
+    }
+
+    const finalUrl = input.trim();
+
+    if(!finalUrl){
+
+        // restore drafts
+        titleTextarea.value = draftTitle;
+        frequencyInput.value = draftFreq;
+
+        return;
+    }
+
+    // ONLY update url
+    currentLink.link = finalUrl;
+
+    saveLinks();
+
+    updateLinksList();
+
+    // refresh UI
+    displayLink(currentLink);
+
+    // restore unsaved drafts
+    titleTextarea.value = draftTitle;
+    frequencyInput.value = draftFreq;
+}
+
+function openLink(link){
+
+    if(!link) return;
+
+    const title =
+        (link.title || '').trim();
+
+    if(title.startsWith('*')){
+
+        alert(
+            'This link is marked manual-only.\n\n' +
+            'Open it manually so it stays outside the app.'
+        );
+
+        return;
+    }
+
+    const url = link.link?.trim() || '';
+
+    if(
+        url.toLowerCase().startsWith('file://')
+    ){
+
+        alert(
+            'This is a local file link.\n\n' +
+            'Please open manually:\n\n' +
+            url
+        );
+
+        return;
+    }
+
+    setTimeout(()=>{
+        window.open(url,'_blank');
+    },50);
+}
+
+function laterLink(){
+
+    saveCurrent();
+
+    const current = currentLink;
+
+    const available = getAvailableLinks();
+
+    if(!available.length) return;
+
+    let next = current;
+
+    if(available.length > 1){
+
+        const idx = available.indexOf(current);
+
+        next =
+            available[
+                (idx + 1) % available.length
+            ];
+    }
+
+    displayLink(next);
+
+    openLink(next);
+
+    saveLinks();
+}
+
+function snoozeCurrentLink(){
+
+    saveCurrent();
+
+    const current = currentLink;
+
+    if(!current) return;
+
+    const d = new Date();
+
+    const freq =
+        (current.frequency || '')
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    if(!freq){
+
+        d.setDate(d.getDate() + 1);
+    }
+    else if(!isNaN(freq)){
+
+        d.setDate(
+            d.getDate() + parseInt(freq)
+        );
+    }
+    else if(freq === 'M'){
+
+        d.setMonth(d.getMonth() + 1);
+    }
+    else if(freq === 'W'){
+
+        d.setDate(d.getDate() + 7);
+    }
+    else if(freq === 'Y'){
+
+        d.setFullYear(d.getFullYear() + 1);
+    }
+    else{
+
+        d.setDate(d.getDate() + 1);
+    }
+
+    current.snoozed_until =
+        getLocalDateKey(d);
+
+    saveLinks();
+
+    updateLinksList();
+
+    const available =
+        getAvailableLinks();
+
+    if(!available.length){
+
+        displayNextAvailable();
+
+        return;
+    }
+
+    displayLink(available[0]);
+
+    openLink(available[0]);
+}
+
+function deleteCurrentLink(){
+
+    if(!currentLink) return;
+
+    if(!confirm('Delete this link?')){
+        return;
+    }
+
+    saveCurrent();
+
+    const current = currentLink;
+
+    const available = getAvailableLinks();
+
+    let next = null;
+
+    if(available.length > 1){
+
+        const idx = available.indexOf(current);
+
+        next =
+            available[
+                (idx + 1) % available.length
+            ];
+    }
+
+    const linkIdx =
+        links.indexOf(current);
+
+    if(linkIdx !== -1){
+
+        links.splice(linkIdx,1);
+    }
+
+    currentLink = null;
+
+    saveLinks(links.length===0);
+
+    updateLinksList();
+
+    if(next){
+
+        displayLink(next);
+
+        openLink(next);
+    }
+    else{
+
+        displayNextAvailable();
+    }
+}
+
+function addFromClipboard(){
+
+    navigator.clipboard.readText()
+    .then(text=>{
+
+        let url=text.trim();
+
+        if(
+            !url ||
+            (
+                !url.startsWith('http') &&
+                !url.startsWith('file')
+            )
+        ){
+
+            url=prompt(
+                'Enter URL or file path:'
+            );
+
+            if(!url) return;
+        }
+
+        const title = prompt(
+            `Enter title for:\n${url}`
+        );
+
+        if(title===null) return;
+
+        links.push({
+            id: Date.now(),
+            ticker: currentTab === 'track'
+                ? normalizeTicker(prompt('Ticker:', searchInput.value) || '')
+                : '',
+            link: url,
+            title: title || '',
+            frequency:'2',
+            snoozed_until:null
+        });
+
+        saveLinks();
+
+        displayNextAvailable();
+
+        updateLinksList();
+    });
+}
+
+function importFromClipboard(){
+
+    navigator.clipboard.readText()
+    .then(text=>{
+
+        const rows = parseTSV(text);
+
+        if(rows.length < 2) return;
+
+        const h = rows[0];
+
+        const tickerIndex=h.indexOf('Ticker');
+        const s=h.indexOf('Snoozed Until');
+        const f=h.indexOf('Frequency');
+        const u=h.indexOf('URL');
+        const t=h.indexOf('Title');
+
+        const imported={
+            find:[],
+            track:[]
+        };
+
+        for(let i=1;i<rows.length;i++){
+
+            const c = rows[i];
+
+            if(c[u]){
+
+                const ticker =
+                    tickerIndex !== -1
+                    ? normalizeTicker(decodeField(c[tickerIndex]))
+                    : '';
+
+                const tab =
+                    ticker
+                        ? 'track'
+                        : 'find';
+
+                imported[tab].push({
+
+                    id: Date.now()+i,
+                    ticker,
+
+                    snoozed_until:
+                        s !== -1
+                        ? normalizeSnoozedUntil(
+                            decodeField(c[s])
+                        )
+                        : null,
+
+                    frequency:
+                        f !== -1
+                        ? decodeField(c[f])
+                        : '2',
+
+                    link:
+                        decodeField(c[u]),
+
+                    title:
+                        t !== -1
+                        ? decodeField(c[t])
+                        : ''
+                });
+            }
+        }
+
+        appState = imported;
+        links = appState[currentTab];
+
+        currentLink=null;
+
+        saveLinks();
+
+        displayNextAvailable();
+
+        updateLinksList();
+    });
+}
+
+function decodeField(value){
+
+    try{
+        return JSON.parse(value);
+    }
+    catch{
+        return value?.trim() || '';
+    }
+}
+
+function exportToClipboard(){
+
+    const rows=[[
+        'Snoozed Until',
+        'Frequency',
+        'URL',
+        'Title',
+        'Ticker'
+    ]];
+
+    ['find','track'].forEach(type => {
+        appState[type].forEach(l=>{
+
+            rows.push([
+                l.snoozed_until || '',
+                l.frequency || '',
+                l.link || '',
+                l.title || '',
+                type === 'track' ? normalizeTicker(l.ticker) : ''
+            ]);
+        });
+    });
+
+    const tsv = rows
+        .map(r =>
+            r.map(escapeTSV).join('\t')
+        )
+        .join('\n');
+
+    navigator.clipboard.writeText(tsv);
+}
+
+function parseTSV(text){
+
+    const rows = [];
+
+    let row = [];
+
+    let field = '';
+
+    let inQuotes = false;
+
+    for(let i=0;i<text.length;i++){
+
+        const char = text[i];
+
+        const next = text[i+1];
+
+        if(inQuotes){
+
+            if(char === '"' && next === '"'){
+
+                field += '"';
+
+                i++;
+            }
+            else if(char === '"'){
+
+                inQuotes = false;
+            }
+            else{
+
+                field += char;
+            }
+        }
+        else{
+
+            if(char === '"'){
+
+                inQuotes = true;
+            }
+            else if(char === '\t'){
+
+                row.push(field);
+
+                field = '';
+            }
+            else if(char === '\n'){
+
+                row.push(field);
+
+                rows.push(row);
+
+                row = [];
+
+                field = '';
+            }
+            else if(char === '\r'){
+            }
+            else{
+
+                field += char;
+            }
+        }
+    }
+
+    if(field !== '' || row.length){
+
+        row.push(field);
+
+        rows.push(row);
+    }
+
+    return rows;
+}
+
+function escapeTSV(value){
+
+    value = value ?? '';
+
+    value = value.toString();
+
+    if(value.includes('"')){
+
+        value =
+            value.replace(/"/g,'""');
+    }
+
+    if(
+        value.includes('\t') ||
+        value.includes('\n') ||
+        value.includes('"')
+    ){
+
+        value = `"${value}"`;
+    }
+
+    return value;
+}
+
+function updateLinksList(){
+
+    const q =
+    (searchInput.value || '')
+    .trim()
+    .toLowerCase();
+
+const filtered = links.filter(l =>
+
+    !q ||
+
+    (l.ticker || '')
+        .toLowerCase()
+        .includes(q)
+
+    ||
+
+    (l.title || '')
+        .toLowerCase()
+        .includes(q)
+
+    ||
+
+    (l.link || '')
+        .toLowerCase()
+        .includes(q)
+);
+
+const sorted = [...filtered].sort((a,b)=>{
+
+        if(!a.snoozed_until &&
+           !b.snoozed_until){
+            return 0;
+        }
+
+        if(!a.snoozed_until){
+            return -1;
+        }
+
+        if(!b.snoozed_until){
+            return 1;
+        }
+
+        return a.snoozed_until.localeCompare(
+            b.snoozed_until
+        );
+    });
+
+    linksTableBody.innerHTML =
+        sorted.map(l=>`
+
+        <tr>
+
+            ${
+                currentTab === 'track'
+                ? `<td><button onclick="filterTickerById(${l.id})">${escapeHTML(normalizeTicker(l.ticker))}</button></td>`
+                : ''
+            }
+
+            <td>
+
+                ${l.snoozed_until || ''}
+
+                ${
+                    l.snoozed_until
+                    ? `<button onclick="clearSnooze(${l.id})">x</button>`
+                    : ''
+                }
+
+            </td>
+
+            <td>
+                ${l.frequency || ''}
+            </td>
+
+            <td>
+
+               <a href="${l.link}" target="_blank">
+
+                    ${l.title || '(no title)'}
+
+                </a>
+
+                <br>
+
+                <small>${l.link}</small>
+
+            </td>
+
+        </tr>
+
+    `).join('');
+}
+
+function focusLink(id){
+
+    saveCurrent();
+
+    const l = links.find(
+        x => x.id === id
+    );
+
+    if(!l) return;
+
+    displayLink(l);
+}
+
+function filterTickerById(id){
+
+    const l = links.find(
+        x => x.id === id
+    );
+
+    if(!l) return;
+
+    const ticker = normalizeTicker(l.ticker);
+
+    searchInput.value = ticker;
+
+    updateLinksList();
+}
+
+function escapeHTML(value){
+
+    return (value ?? '').toString()
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+}
+
+function clearSnooze(id){
+
+    const l = links.find(
+        x=>x.id===id
+    );
+
+    if(l){
+
+        l.snoozed_until=null;
+
+        saveLinks();
+
+        displayNextAvailable();
+
+        updateLinksList();
+    }
+}
+window.onload=init;
+</script>
+</body>
+</html>
