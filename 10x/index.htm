@@ -71,9 +71,9 @@ small  {
  <hr>
  <small>To import from <a href="https://docs.google.com/spreadsheets/d/1U3TgM15sxkdGKnavT-LUGEFkLZGBOKKvTcOZ6EDPCB0/edit#gid=0">Google Sheets</a>, click top left empty to select all then hold to copy</small>
 <div>
-    <button onclick="exportToClipboard()">Copy</button>
-    <button onclick="importFromClipboard()">Paste</button>
-    <button class="btn-add" onclick="addFromClipboard()">Add</button>
+    <button onclick="exportToClipboard()">Copy 10x</button>
+    <button onclick="importFromClipboard()">Paste 10x</button>
+    <button class="btn-add" onclick="addFromClipboard()">Add 10x</button>
     <input type="search"
     id="searchInput"
     placeholder="search..."
@@ -99,7 +99,6 @@ small  {
 
 <script>
 const STORAGE_KEY='10x_tracker';
-const LEGACY_STORAGE_KEY='stumble_links';
 
 let appState={
     find:[],
@@ -132,9 +131,7 @@ function loadLinks(){
         }
     }
     else{
-        appState.find = JSON.parse(
-            localStorage.getItem(LEGACY_STORAGE_KEY)||'[]'
-        );
+        appState.find = [];
         appState.track = [];
     }
 
