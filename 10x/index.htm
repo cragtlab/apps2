@@ -14,9 +14,16 @@ button { padding:8px 12px; margin:3px; cursor:pointer;border-radius:2px; }
 .btn-snooze { background:orange; color:white; }
 .btn-add {    background:#28a745;color:white; }
 #linkFreqContainer { display:none; gap:10px; margin-bottom:10px; }
-#frequencyInput { width:60px; }
+#frequencyInput { width:60px; padding:8px }
 #btn-update-url {    background:#007bff; color:white;border:none; }
 textarea { width:100%; height:80px; }
+#trackQueryContainer { display:none; margin-bottom:8px; }
+#trackQueryTextarea { width:100%; height:90px; font-size:smaller; box-sizing:border-box; }
+.track-search-links { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+.track-search-links a { font-size:smaller; padding:2px 6px; border-radius:3px; color:white; text-decoration:none; }
+.track-search-links a.g { background:#4285f4; }
+.track-search-links a.r { background:#ff4500; }
+.track-search-links a.x { background:#222; }
 
 table { width:100%; border-collapse:collapse; margin-top:10px; }
 td, th { font-size: smaller; border:1px solid #ddd; padding:6px; }
@@ -49,7 +56,6 @@ small  {
 
 <!-- DISPLAY -->
 <div id="linkFreqContainer">
-    <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
     <a id="linkDisplay" target="_blank" style="flex:1;"></a>
 </div>
 
@@ -58,7 +64,18 @@ small  {
 </div>
 
 <div id="tickerContainer">
+    <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
     <input id="tickerInput" placeholder="ticker" oninput="saveCurrentTickerDraft()">
+    <button onclick="window.open('https://www.google.com/finance/beta/quote/'+tickerInput.value)">Finance</button> 
+    <button onclick="window.open('https://www.google.com/search?q=3 growth areas for '+tickerInput.value)">3 Growth</button> 
+</div>
+
+<!-- Track: search queries textarea -->
+<div id="trackQueryContainer">
+    <label style="font-size:smaller;">Search queries (one per line):</label>
+    <textarea id="trackQueryTextarea" placeholder="e.g. AAPL earnings&#10;AAPL reddit&#10;AAPL site:x.com" oninput="saveCurrentQueries()"></textarea>
+    <div id="trackSearchLinks" class="track-search-links"></div>
+  
 </div>
 
 <div id="buttonContainer" style="display:none;">
@@ -80,6 +97,7 @@ small  {
     oninput="updateLinksList()"
     style="padding:8px;width:140px;"
 >
+
 </div>
 
 <!-- TABLE -->
@@ -200,6 +218,7 @@ function setTab(tab){
     trackTabButton.classList.toggle('active', tab === 'track');
     tickerContainer.style.display = tab === 'track' ? 'block' : 'none';
     tickerHeader.style.display = tab === 'track' ? '' : 'none';
+    trackQueryContainer.style.display = 'none';
     searchInput.value = '';
 
     displayNextAvailable();
@@ -294,6 +313,7 @@ function displayNextAvailable(){
         currentLink=null;
 
         linkFreqContainer.style.display='none';
+        trackQueryContainer.style.display='none';
         titleEditorContainer.style.display='none';
         buttonContainer.style.display='none';
 
@@ -309,12 +329,19 @@ function displayLink(link){
 
     currentLink = link;
 
-    linkFreqContainer.style.display='flex';
+    if(currentTab === 'track'){
+        linkFreqContainer.style.display='none';
+        trackQueryContainer.style.display='block';
+    } else {
+        linkFreqContainer.style.display='flex';
+        linkDisplay.href = link.link;
+        linkDisplay.textContent = link.link;
+        trackQueryContainer.style.display='none';
+    }
+
     titleEditorContainer.style.display='block';
     buttonContainer.style.display='block';
-
-    linkDisplay.href = link.link;
-    linkDisplay.textContent = link.link;
+    document.getElementById('btn-update-url').style.display = currentTab === 'track' ? 'none' : '';
 
     titleTextarea.value = link.title || '';
 
@@ -322,8 +349,9 @@ function displayLink(link){
 
     tickerInput.value = normalizeTicker(link.ticker);
 
-    if(currentTab === 'track' && link.ticker){
-        searchInput.value = normalizeTicker(link.ticker);
+    if(currentTab === 'track'){
+        trackQueryTextarea.value = link.link || '';
+        renderTrackSearchLinks();
     }
 
     updateLinksList();
@@ -341,7 +369,31 @@ function saveCurrent(){
 
     if(currentTab === 'track'){
         currentLink.ticker = normalizeTicker(tickerInput.value);
+        currentLink.link = trackQueryTextarea.value;
     }
+}
+
+function saveCurrentQueries(){
+    if(!currentLink || currentTab !== 'track') return;
+    currentLink.link = trackQueryTextarea.value;
+    saveLinks();
+    renderTrackSearchLinks();
+}
+
+function renderTrackSearchLinks(){
+    const queries = (trackQueryTextarea.value || '')
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    trackSearchLinks.innerHTML = queries.map(q => {
+        const enc = encodeURIComponent(q);
+        return [
+            `<a class="g" href="https://www.google.com/search?q=${enc}+latest" target="_blank">G: ${escapeHTML(q)}</a>`,
+            `<a class="r" href="https://www.reddit.com/search/?q=${enc}+latest" target="_blank">Reddit</a>`,
+            `<a class="x" href="https://x.com/search?q=%2B${enc}+latest" target="_blank">X</a>`
+        ].join('');
+    }).join('');
 }
 
 function saveCurrentTickerDraft(){
@@ -484,7 +536,9 @@ function laterLink(){
 
     displayLink(next);
 
-    openLink(next);
+    if(currentTab !== 'track'){
+        openLink(next);
+    }
 
     saveLinks();
 }
@@ -551,7 +605,10 @@ function snoozeCurrentLink(){
 
     displayLink(available[0]);
 
-    openLink(available[0]);
+    // track tab: never auto-open on snooze
+    if(currentTab !== 'track'){
+        openLink(available[0]);
+    }
 }
 
 function deleteCurrentLink(){
@@ -598,7 +655,9 @@ function deleteCurrentLink(){
 
         displayLink(next);
 
-        openLink(next);
+        if(currentTab !== 'track'){
+            openLink(next);
+        }
     }
     else{
 
@@ -987,9 +1046,12 @@ function filterTickerById(id){
 
     if(!l) return;
 
-    const ticker = normalizeTicker(l.ticker);
+    l.snoozed_until = null;
 
-    searchInput.value = ticker;
+    saveLinks();
+
+    const ticker = normalizeTicker(l.ticker);
+    displayLink(l);
 
     updateLinksList();
 }
