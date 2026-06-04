@@ -91,6 +91,7 @@ small  {
     <button onclick="exportToClipboard()">Copy 10x</button>
     <button onclick="importFromClipboard()">Paste 10x</button>
     <button class="btn-add" onclick="addFromClipboard()">Add 10x</button>
+     <button class="btn-add" onclick="addFromGoogleFinance()">Add from Goog Finance</button>
     <input type="search"
     id="searchInput"
     placeholder="search..."
@@ -711,7 +712,48 @@ function addFromClipboard(){
         updateLinksList();
     });
 }
+async function addFromGoogleFinance(){
 
+    let clipboardText = '';
+
+    try{
+        clipboardText = (await navigator.clipboard.readText()).trim();
+    }
+    catch(e){}
+
+    const match = clipboardText.match(
+        /\/finance\/(?:beta\/)?quote\/([^#/?\s]+)/
+    );
+
+    if(!match){
+        alert('Clipboard does not contain a Google Finance quote URL.');
+        return;
+    }
+
+    const ticker = match[1].toUpperCase();
+
+    const title = prompt(`Enter title for ${ticker}:`);
+
+    if(title === null) return;
+
+    appState.track.push({
+        id: Date.now(),
+        ticker: ticker,
+        link: '',
+        title: title || '',
+        frequency: '2',
+        snoozed_until: null
+    });
+
+    saveLinks();
+
+    if(currentTab === 'track'){
+        links = appState.track;
+        displayNextAvailable();
+    }
+
+    updateLinksList();
+}
 function importFromClipboard(){
 
     navigator.clipboard.readText()
