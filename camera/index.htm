@@ -1,328 +1,863 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Face & QR Scanner with Snapshots</title>
-  <style>
-    video { width: 50%; border: 1px solid #ccc; }
-    canvas { max-width: 100%; border: 1px solid #ccc; }
-    #overlay { position: absolute; top: 0; left: 0; }
-    #container { position: relative; display: inline-block; }
-    .snapshots { margin-top: 20px; }
-    .snapshot { margin: 10px 0; border: 1px solid #ccc; padding: 5px; }
-    button { margin-top: 10px; margin-right: 10px; font-size: 1.5em; padding: 10px 20px; }
-    #controls { margin-top: 10px; }
-    #analyzeBtn { background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; }
-    #analyzeBtn:hover { background-color: #0056b3; }
-    #analyzeBtn:disabled { background-color: #ccc; cursor: not-allowed; }
-    .analysis-status { font-weight: bold; color: #555; margin-left: 10px; }
-    .snapshot-data { font-size: 0.9em; color: #333; margin-top: 5px; background: #f9f9f9; padding: 5px; border-radius: 4px; }
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+<meta charset="UTF-8">
+<title>Stumble Links</title>
+
+
+<style>
+body { font-family:sans-serif; padding:0px; background:#f5f5f5; }
+.container { margin:auto; background:white; padding:5px; border-radius:10px; }
+
+button { padding:8px 12px; margin:3px; cursor:pointer;border-radius:2px; }
+.btn-danger { background:#ff4d4d; color:white; }
+.btn-snooze { background:orange; color:white; }
+.btn-add {    background:#28a745;color:white; }
+#linkFreqContainer { display:none; gap:10px; margin-bottom:10px; }
+#frequencyInput { width:60px; }
+#btn-update-url {    background:#007bff; color:white;border:none; }
+textarea { width:100%; height:80px; }
+
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+td, th { font-size: smaller; border:1px solid #ddd; padding:6px; }
+td button { padding: 4px}
+
+#linkDisplay{
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+small  {
+    display: block;
+    overflow-wrap: anywhere;
+}
+</style>
 </head>
+
 <body>
-  <h1>Face & QR Scanner with Snapshots</h1>
-  <div id="container">
-    <video id="video" autoplay muted playsinline></video>
-    <canvas id="overlay"></canvas>
-  </div>
-  <p id="log">Initializing...</p>
-  <p id="counters"></p>
-  <div id="controls">
-    <button id="pauseBtn">Pause</button>
-    <button id="toggleFaceBtn">Toggle Face Detection (On)</button>
-    <button id="toggleQRBtn">Toggle QR Detection (On)</button>
-    <button id="clearSnapshotsBtn">Clear Snapshots</button>
-    <br><br>
-    <button id="analyzeBtn">📸 Analyze Crowd (Snapshot)</button>
-    <span id="analysisStatus" class="analysis-status">Loading ML Models...</span>
-  </div>
-  <div class="snapshots" id="snapshots"></div>
+<div class="container">
+<b>Stumble Links - (open tab group in mobile)</b>
 
-  <script>
-    const video = document.getElementById('video');
-    const overlay = document.getElementById('overlay');
-    const ctx = overlay.getContext('2d');
-    const log = document.getElementById('log');
-    const snapshotsContainer = document.getElementById('snapshots');
-    const pauseBtn = document.getElementById('pauseBtn');
-    const toggleFaceBtn = document.getElementById('toggleFaceBtn');
-    const toggleQRBtn = document.getElementById('toggleQRBtn');
-    const clearSnapshotsBtn = document.getElementById('clearSnapshotsBtn');
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const analysisStatus = document.getElementById('analysisStatus');
-    const counters = document.getElementById('counters');
+<!-- DISPLAY -->
+<div id="linkFreqContainer">
+    <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
+    <a id="linkDisplay" target="_blank" style="flex:1;"></a>
+</div>
 
-    let scanning = true;
-    let mlModelsLoaded = false;
-    let cocoModel = null;
+<div id="titleEditorContainer" style="display:none;">
+    <textarea id="titleTextarea" placeholder="enter remarks"></textarea>
+</div>
 
-    // Initialize ML Models
-    async function loadModels() {
-      try {
-        analyzeBtn.disabled = true;
-        analysisStatus.textContent = 'Loading Coco-SSD...';
-        cocoModel = await cocoSsd.load();
-        
-        analysisStatus.textContent = 'Loading Face-API...';
-        await faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-        await faceapi.nets.ageGenderNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-        
-        mlModelsLoaded = true;
-        analysisStatus.textContent = 'ML Models Ready.';
-        analyzeBtn.disabled = false;
-        setTimeout(() => analysisStatus.textContent = '', 3000);
-      } catch (err) {
-        console.error('Error loading models:', err);
-        analysisStatus.textContent = 'Failed to load ML models.';
-      }
+<div id="buttonContainer" style="display:none;">
+    <button class="btn-snooze" onclick="snoozeCurrentLink()">Snooze</button>
+    <button class="btn-danger" onclick="deleteCurrentLink()">Delete</button>
+    <button id="btn-update-url" onclick="updateCurrentURL()">Update URL only</button>
+</div>
+
+<!-- CONTROLS -->
+ <hr>
+ <small>To import from <a href="https://docs.google.com/spreadsheets/d/1U3TgM15sxkdGKnavT-LUGEFkLZGBOKKvTcOZ6EDPCB0/edit#gid=0">Google Sheets</a>, click top left empty to select all then hold to copy</small>
+<div>
+    <button onclick="exportToClipboard()">Copy</button>
+    <button onclick="importFromClipboard()">Paste</button>
+    <button class="btn-add" onclick="addFromClipboard()">Add</button>
+    <input type="search"
+    id="searchInput"
+    placeholder="search..."
+    oninput="updateLinksList()"
+    style="padding:8px;width:140px;"
+>
+</div>
+
+<!-- TABLE -->
+<table>
+<thead>
+<tr>
+<th>Snoozed</th>
+<th>Freq</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody id="linksTableBody"></tbody>
+</table>
+
+</div>
+
+<script>
+const STORAGE_KEY='stumble_links';
+
+let links=[];
+let currentLink=null;
+
+function init(){
+    loadLinks();
+    displayNextAvailable();
+    updateLinksList();
+}
+
+function loadLinks(){
+
+    links = JSON.parse(
+        localStorage.getItem(STORAGE_KEY)||'[]'
+    );
+
+    const normalizedLinks = links.map(link => ({
+        ...link,
+        snoozed_until: normalizeSnoozedUntil(link.snoozed_until)
+    }));
+
+    const changed = normalizedLinks.some(
+        (link, index) =>
+            link.snoozed_until !== links[index]?.snoozed_until
+    );
+
+    links = normalizedLinks;
+
+    if(changed){
+        saveLinks();
     }
-    loadModels();
+}
 
-    function getAgeGroup(age) {
-      if (age < 13) return 'Child';
-      if (age < 20) return 'Teen';
-      if (age < 60) return 'Adult';
-      return 'Senior';
-    }
+function saveLinks(emptyExpected=false){
 
-    analyzeBtn.addEventListener('click', async () => {
-      if (!mlModelsLoaded || !video.videoWidth) return;
-      
-      analysisStatus.textContent = 'Capturing & Analyzing...';
-      analyzeBtn.disabled = true;
-
-      // 1. Capture current frame to an offscreen canvas
-      const snapCanvas = document.createElement('canvas');
-      snapCanvas.width = video.videoWidth;
-      snapCanvas.height = video.videoHeight;
-      const snapCtx = snapCanvas.getContext('2d');
-      snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
-
-      try {
-        // 2. Run detections in background (non-blocking for video)
-        const [predictions, faces] = await Promise.all([
-          cocoModel.detect(snapCanvas),
-          faceapi.detectAllFaces(snapCanvas).withAgeAndGender()
-        ]);
-
-        // 3. Process results
-        const people = predictions.filter(p => p.class === 'person');
-        
-        // Draw person bounding boxes
-        snapCtx.lineWidth = 3;
-        snapCtx.font = '16px Arial';
-        people.forEach(person => {
-          snapCtx.strokeStyle = '#ff0000'; // Red for bodies
-          snapCtx.strokeRect(...person.bbox);
-        });
-
-        // Draw face bounding boxes and demographics
-        let maleCount = 0;
-        let femaleCount = 0;
-        faces.forEach(face => {
-          const { x, y, width, height } = face.detection.box;
-          snapCtx.strokeStyle = '#00ff00'; // Green for faces
-          snapCtx.strokeRect(x, y, width, height);
-          
-          const ageGroup = getAgeGroup(face.age);
-          const gender = face.gender;
-          if (gender === 'male') maleCount++;
-          else femaleCount++;
-
-          const label = `${gender} (${ageGroup})`;
-          snapCtx.fillStyle = '#00ff00';
-          snapCtx.fillText(label, x, y > 20 ? y - 5 : y + 20);
-        });
-
-        // 4. Show snapshot in UI
-        const container = document.createElement('div');
-        container.className = 'snapshot';
-        const timestamp = new Date().toLocaleString();
-        
-        const infoHtml = `<div class="snapshot-data">
-          <strong>Crowd Analysis</strong><br>
-          People (Bodies): ${people.length}<br>
-          Faces Detected: ${faces.length}<br>
-          Demographics: ${maleCount} Male, ${femaleCount} Female
-        </div>`;
-
-        container.innerHTML = `<strong>Manual Snapshot</strong><br>${timestamp}<br>${infoHtml}`;
-        
-        // Resize for display to avoid huge canvases in the DOM
-        const displayCanvas = document.createElement('canvas');
-        displayCanvas.width = snapCanvas.width / 2;
-        displayCanvas.height = snapCanvas.height / 2;
-        displayCanvas.getContext('2d').drawImage(snapCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
-        
-        container.appendChild(displayCanvas);
-        snapshotsContainer.prepend(container);
-
-        analysisStatus.textContent = 'Analysis Complete.';
-      } catch (err) {
-        console.error('Analysis error:', err);
-        analysisStatus.textContent = 'Analysis failed.';
-      }
-
-      analyzeBtn.disabled = false;
-      setTimeout(() => { if (analysisStatus.textContent === 'Analysis Complete.') analysisStatus.textContent = ''; }, 3000);
-    });
-
-    let scanning = true;
-    let detectFaces = true;
-    let detectQRs = true;
-    let faceCount = 0;
-    let qrCount = 0;
-
-    const seenQRCodes = new Set();
-    const seenFaces = [];
-
-    pauseBtn.addEventListener('click', () => {
-      scanning = !scanning;
-      pauseBtn.textContent = scanning ? 'Pause' : 'Resume';
-      if (scanning) detectLoop();
-    });
-
-    toggleFaceBtn.addEventListener('click', () => {
-      detectFaces = !detectFaces;
-      toggleFaceBtn.textContent = `Toggle Face Detection (${detectFaces ? 'On' : 'Off'})`;
-    });
-
-    toggleQRBtn.addEventListener('click', () => {
-      detectQRs = !detectQRs;
-      toggleQRBtn.textContent = `Toggle QR Detection (${detectQRs ? 'On' : 'Off'})`;
-    });
-
-    clearSnapshotsBtn.addEventListener('click', () => {
-      snapshotsContainer.innerHTML = '';
-      seenFaces.length = 0;
-      seenQRCodes.clear();
-      faceCount = 0;
-      qrCount = 0;
-      updateCounters();
-    });
-
-    function updateCounters() {
-      counters.textContent = `Faces: ${faceCount}, QR Codes: ${qrCount}`;
-    }
-
-    async function setupCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        video.srcObject = stream;
-        video.onloadedmetadata = () => {
-          overlay.width = video.videoWidth;
-          overlay.height = video.videoHeight;
-          detectLoop();
-        };
-      } catch (err) {
-        log.textContent = 'Camera access denied or not supported.';
-        console.error(err);
-      }
-    }
-
-    function isSimilarFace(newFace) {
-      return seenFaces.some(f =>
-        Math.abs(f.x - newFace.x) < 30 &&
-        Math.abs(f.y - newFace.y) < 30 &&
-        Math.abs(f.width - newFace.width) < 30 &&
-        Math.abs(f.height - newFace.height) < 30
-      );
-    }
-
-    function captureSnapshot(label, box) {
-      const canvas = document.createElement('canvas');
-      canvas.width = box.width;
-      canvas.height = box.height;
-      const context = canvas.getContext('2d');
-      context.drawImage(video, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height);
-
-      const container = document.createElement('div');
-      container.className = 'snapshot';
-      const timestamp = new Date().toLocaleString();
-      container.innerHTML = `<strong>${label}</strong><br>${timestamp}<br>`;
-
-      const downloadBtn = document.createElement('a');
-      downloadBtn.textContent = 'Download Snapshot';
-      downloadBtn.href = canvas.toDataURL('image/png');
-      downloadBtn.download = `${label}-${Date.now()}.png`;
-      downloadBtn.style.display = 'block';
-      downloadBtn.style.marginTop = '5px';
-
-      container.appendChild(canvas);
-      container.appendChild(downloadBtn);
-      snapshotsContainer.prepend(container);
-    }
-
-    async function detectLoop() {
-      const faceDetector = ('FaceDetector' in window) ? new FaceDetector({ fastMode: true }) : null;
-      const barcodeDetector = ('BarcodeDetector' in window) ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
-
-      if (!faceDetector && !barcodeDetector) {
-        log.textContent = 'Face and QR detection not supported in this browser.';
+    if(links.length===0 && !emptyExpected){
         return;
-      }
+    }
 
-      const detect = async () => {
-        if (!scanning) return;
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(links)
+    );
+}
 
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-        let newInfo = [];
+function getLocalDateKey(date = new Date()){
 
-        try {
-          if (faceDetector && detectFaces) {
-            const faces = await faceDetector.detect(video);
-            faces.forEach(face => {
-              const box = face.boundingBox;
-              ctx.strokeStyle = 'blue';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(box.x, box.y, box.width, box.height);
+    const year = date.getFullYear();
 
-              if (!isSimilarFace(box)) {
-                seenFaces.push(box);
-                faceCount++;
-                captureSnapshot('New Face Detected', box);
-                newInfo.push('Face');
-              }
-            });
-          }
+    const month = String(
+        date.getMonth() + 1
+    ).padStart(2,'0');
 
-          if (barcodeDetector && detectQRs) {
-            const barcodes = await barcodeDetector.detect(video);
-            barcodes.forEach(code => {
-              const { x, y, width, height } = code.boundingBox;
-              ctx.strokeStyle = 'green';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(x, y, width, height);
-              ctx.fillStyle = 'green';
-              ctx.fillText(code.rawValue, x, y - 10);
+    const day = String(
+        date.getDate()
+    ).padStart(2,'0');
 
-              if (!seenQRCodes.has(code.rawValue)) {
-                seenQRCodes.add(code.rawValue);
-                qrCount++;
-                const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z\.]{2,6})([\/\w .-]*)*\/?$/i;
-                const link = urlPattern.test(code.rawValue) ?
-                  code.rawValue.startsWith('http') ? code.rawValue : 'https://' + code.rawValue :
-                  `https://www.google.com/search?q=${encodeURIComponent(code.rawValue)}`;
-                captureSnapshot(`<a href="${link}" target="_blank">QR: ${code.rawValue}</a>`, {x, y, width, height});
-                newInfo.push(`QR: ${code.rawValue}`);
-              }
-            });
-          }
-        } catch (err) {
-          console.error('Detection error:', err);
+    return `${year}-${month}-${day}`;
+}
+
+function normalizeSnoozedUntil(value){
+
+    if(value === null ||
+       value === undefined ||
+       value === ''){
+        return null;
+    }
+
+    if(typeof value === 'string'){
+
+        const trimmed = value.trim();
+
+        if(!trimmed){
+            return null;
         }
 
-        log.textContent = `Scanning... ${newInfo.join(', ')}`;
-        updateCounters();
-        if (scanning) requestAnimationFrame(detect);
-      };
+        if(/^\d{4}-\d{2}-\d{2}$/.test(trimmed)){
+            return trimmed;
+        }
 
-      detect();
+        if(/^\d+$/.test(trimmed)){
+            value = Number(trimmed);
+        }
+        else{
+
+            const parsed = new Date(trimmed);
+
+            return Number.isNaN(parsed.getTime())
+                ? trimmed
+                : getLocalDateKey(parsed);
+        }
     }
 
-    setupCamera();
-  </script>
+    if(typeof value === 'number'){
+
+        return Number.isFinite(value)
+            ? getLocalDateKey(new Date(value))
+            : null;
+    }
+
+    if(value instanceof Date){
+
+        return Number.isNaN(value.getTime())
+            ? null
+            : getLocalDateKey(value);
+    }
+
+    return null;
+}
+
+function getAvailableLinks(){
+
+    const today = getLocalDateKey();
+
+    return links.filter(
+        l => !l.snoozed_until ||
+             l.snoozed_until <= today
+    );
+}
+
+function displayNextAvailable(){
+
+    const available = getAvailableLinks();
+
+    if(!available.length){
+
+        currentLink=null;
+
+        linkFreqContainer.style.display='none';
+        titleEditorContainer.style.display='none';
+        buttonContainer.style.display='none';
+
+        return;
+    }
+
+    displayLink(available[0]);
+}
+
+function displayLink(link){
+
+    if(!link) return;
+
+    currentLink = link;
+
+    linkFreqContainer.style.display='flex';
+    titleEditorContainer.style.display='block';
+    buttonContainer.style.display='block';
+
+    linkDisplay.href = link.link;
+    linkDisplay.textContent = link.link;
+
+    titleTextarea.value = link.title || '';
+
+    frequencyInput.value = link.frequency || '2';
+}
+
+function saveCurrent(){
+
+    if(!currentLink) return;
+
+    currentLink.title =
+        titleTextarea.value;
+
+    currentLink.frequency =
+        frequencyInput.value || '2';
+}
+
+async function updateCurrentURL(){
+
+    if(!currentLink) return;
+
+    // temporary UI draft backup
+    const draftTitle = titleTextarea.value;
+    const draftFreq = frequencyInput.value;
+
+    let clipboardText='';
+
+    try{
+        clipboardText =
+            (await navigator.clipboard.readText()).trim();
+    }
+    catch(e){}
+
+    let newUrl = clipboardText;
+
+    if(
+        !newUrl ||
+        (
+            !newUrl.startsWith('http') &&
+            !newUrl.startsWith('file')
+        )
+    ){
+        newUrl='';
+    }
+
+    const input = prompt(
+        'Update URL:',
+        newUrl || currentLink.link
+    );
+
+    if(input===null){
+
+        // restore drafts
+        titleTextarea.value = draftTitle;
+        frequencyInput.value = draftFreq;
+
+        return;
+    }
+
+    const finalUrl = input.trim();
+
+    if(!finalUrl){
+
+        // restore drafts
+        titleTextarea.value = draftTitle;
+        frequencyInput.value = draftFreq;
+
+        return;
+    }
+
+    // ONLY update url
+    currentLink.link = finalUrl;
+
+    saveLinks();
+
+    updateLinksList();
+
+    // refresh UI
+    displayLink(currentLink);
+
+    // restore unsaved drafts
+    titleTextarea.value = draftTitle;
+    frequencyInput.value = draftFreq;
+}
+
+function openLink(link){
+
+    if(!link) return;
+
+    const title =
+        (link.title || '').trim();
+
+    if(title.startsWith('*')){
+
+        alert(
+            'This link is marked manual-only.\n\n' +
+            'Open it manually so it stays outside the app.'
+        );
+
+        return;
+    }
+
+    const url = link.link?.trim() || '';
+
+    if(
+        url.toLowerCase().startsWith('file://')
+    ){
+
+        alert(
+            'This is a local file link.\n\n' +
+            'Please open manually:\n\n' +
+            url
+        );
+
+        return;
+    }
+
+    setTimeout(()=>{
+        window.open(url,'_blank');
+    },50);
+}
+
+function laterLink(){
+
+    saveCurrent();
+
+    const current = currentLink;
+
+    const available = getAvailableLinks();
+
+    if(!available.length) return;
+
+    let next = current;
+
+    if(available.length > 1){
+
+        const idx = available.indexOf(current);
+
+        next =
+            available[
+                (idx + 1) % available.length
+            ];
+    }
+
+    displayLink(next);
+
+    openLink(next);
+
+    saveLinks();
+}
+
+function snoozeCurrentLink(){
+
+    saveCurrent();
+
+    const current = currentLink;
+
+    if(!current) return;
+
+    const d = new Date();
+
+    const freq =
+        (current.frequency || '')
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    if(!freq){
+
+        d.setDate(d.getDate() + 1);
+    }
+    else if(!isNaN(freq)){
+
+        d.setDate(
+            d.getDate() + parseInt(freq)
+        );
+    }
+    else if(freq === 'M'){
+
+        d.setMonth(d.getMonth() + 1);
+    }
+    else if(freq === 'W'){
+
+        d.setDate(d.getDate() + 7);
+    }
+    else if(freq === 'Y'){
+
+        d.setFullYear(d.getFullYear() + 1);
+    }
+    else{
+
+        d.setDate(d.getDate() + 1);
+    }
+
+    current.snoozed_until =
+        getLocalDateKey(d);
+
+    saveLinks();
+
+    updateLinksList();
+
+    const available =
+        getAvailableLinks();
+
+    if(!available.length){
+
+        displayNextAvailable();
+
+        return;
+    }
+
+    displayLink(available[0]);
+
+    openLink(available[0]);
+}
+
+function deleteCurrentLink(){
+
+    if(!currentLink) return;
+
+    if(!confirm('Delete this link?')){
+        return;
+    }
+
+    saveCurrent();
+
+    const current = currentLink;
+
+    const available = getAvailableLinks();
+
+    let next = null;
+
+    if(available.length > 1){
+
+        const idx = available.indexOf(current);
+
+        next =
+            available[
+                (idx + 1) % available.length
+            ];
+    }
+
+    const linkIdx =
+        links.indexOf(current);
+
+    if(linkIdx !== -1){
+
+        links.splice(linkIdx,1);
+    }
+
+    currentLink = null;
+
+    saveLinks(links.length===0);
+
+    updateLinksList();
+
+    if(next){
+
+        displayLink(next);
+
+        openLink(next);
+    }
+    else{
+
+        displayNextAvailable();
+    }
+}
+
+function addFromClipboard(){
+
+    navigator.clipboard.readText()
+    .then(text=>{
+
+        let url=text.trim();
+
+        if(
+            !url ||
+            (
+                !url.startsWith('http') &&
+                !url.startsWith('file')
+            )
+        ){
+
+            url=prompt(
+                'Enter URL or file path:'
+            );
+
+            if(!url) return;
+        }
+
+        const title = prompt(
+            `Enter title for:\n${url}`
+        );
+
+        if(title===null) return;
+
+        links.push({
+            id: Date.now(),
+            link: url,
+            title: title || '',
+            frequency:'2',
+            snoozed_until:null
+        });
+
+        saveLinks();
+
+        displayNextAvailable();
+
+        updateLinksList();
+    });
+}
+
+function importFromClipboard(){
+
+    navigator.clipboard.readText()
+    .then(text=>{
+
+        const rows = parseTSV(text);
+
+        if(rows.length < 2) return;
+
+        const h = rows[0];
+
+        const s=h.indexOf('Snoozed Until');
+        const f=h.indexOf('Frequency');
+        const u=h.indexOf('URL');
+        const t=h.indexOf('Title');
+
+        const imported=[];
+
+        for(let i=1;i<rows.length;i++){
+
+            const c = rows[i];
+
+            if(c[u]){
+
+                imported.push({
+
+                    id: Date.now()+i,
+
+                    snoozed_until:
+                        s !== -1
+                        ? normalizeSnoozedUntil(
+                            decodeField(c[s])
+                        )
+                        : null,
+
+                    frequency:
+                        f !== -1
+                        ? decodeField(c[f])
+                        : '2',
+
+                    link:
+                        decodeField(c[u]),
+
+                    title:
+                        t !== -1
+                        ? decodeField(c[t])
+                        : ''
+                });
+            }
+        }
+
+        links = imported;
+
+        currentLink=null;
+
+        saveLinks();
+
+        displayNextAvailable();
+
+        updateLinksList();
+    });
+}
+
+function decodeField(value){
+
+    try{
+        return JSON.parse(value);
+    }
+    catch{
+        return value?.trim() || '';
+    }
+}
+
+function exportToClipboard(){
+
+    const rows=[[
+        'Snoozed Until',
+        'Frequency',
+        'URL',
+        'Title'
+    ]];
+
+    links.forEach(l=>{
+
+        rows.push([
+            l.snoozed_until || '',
+            l.frequency || '',
+            l.link || '',
+            l.title || ''
+        ]);
+    });
+
+    const tsv = rows
+        .map(r =>
+            r.map(escapeTSV).join('\t')
+        )
+        .join('\n');
+
+    navigator.clipboard.writeText(tsv);
+}
+
+function parseTSV(text){
+
+    const rows = [];
+
+    let row = [];
+
+    let field = '';
+
+    let inQuotes = false;
+
+    for(let i=0;i<text.length;i++){
+
+        const char = text[i];
+
+        const next = text[i+1];
+
+        if(inQuotes){
+
+            if(char === '"' && next === '"'){
+
+                field += '"';
+
+                i++;
+            }
+            else if(char === '"'){
+
+                inQuotes = false;
+            }
+            else{
+
+                field += char;
+            }
+        }
+        else{
+
+            if(char === '"'){
+
+                inQuotes = true;
+            }
+            else if(char === '\t'){
+
+                row.push(field);
+
+                field = '';
+            }
+            else if(char === '\n'){
+
+                row.push(field);
+
+                rows.push(row);
+
+                row = [];
+
+                field = '';
+            }
+            else if(char === '\r'){
+            }
+            else{
+
+                field += char;
+            }
+        }
+    }
+
+    if(field !== '' || row.length){
+
+        row.push(field);
+
+        rows.push(row);
+    }
+
+    return rows;
+}
+
+function escapeTSV(value){
+
+    value = value ?? '';
+
+    value = value.toString();
+
+    if(value.includes('"')){
+
+        value =
+            value.replace(/"/g,'""');
+    }
+
+    if(
+        value.includes('\t') ||
+        value.includes('\n') ||
+        value.includes('"')
+    ){
+
+        value = `"${value}"`;
+    }
+
+    return value;
+}
+
+function updateLinksList(){
+
+    const q =
+    (searchInput.value || '')
+    .trim()
+    .toLowerCase();
+
+const filtered = links.filter(l =>
+
+    !q ||
+
+    (l.title || '')
+        .toLowerCase()
+        .includes(q)
+
+    ||
+
+    (l.link || '')
+        .toLowerCase()
+        .includes(q)
+);
+
+const sorted = [...filtered].sort((a,b)=>{
+
+        if(!a.snoozed_until &&
+           !b.snoozed_until){
+            return 0;
+        }
+
+        if(!a.snoozed_until){
+            return -1;
+        }
+
+        if(!b.snoozed_until){
+            return 1;
+        }
+
+        return a.snoozed_until.localeCompare(
+            b.snoozed_until
+        );
+    });
+
+    linksTableBody.innerHTML =
+        sorted.map(l=>`
+
+        <tr>
+
+            <td>
+
+                ${l.snoozed_until || ''}
+
+                ${
+                    l.snoozed_until
+                    ? `<button onclick="clearSnooze(${l.id})">x</button>`
+                    : ''
+                }
+
+            </td>
+
+            <td>
+                ${l.frequency || ''}
+            </td>
+
+            <td>
+
+               <a href="${l.link}" target="_blank">
+
+                    ${l.title || '(no title)'}
+
+                </a>
+
+                <br>
+
+                <small>${l.link}</small>
+
+            </td>
+
+        </tr>
+
+    `).join('');
+}
+
+function focusLink(id){
+
+    saveCurrent();
+
+    const l = links.find(
+        x => x.id === id
+    );
+
+    if(!l) return;
+
+    displayLink(l);
+}
+
+function clearSnooze(id){
+
+    const l = links.find(
+        x=>x.id===id
+    );
+
+    if(l){
+
+        l.snoozed_until=null;
+
+        saveLinks();
+
+        displayNextAvailable();
+
+        updateLinksList();
+    }
+}
+window.onload=init;
+</script>
 </body>
 </html>
