@@ -14,7 +14,7 @@ button { padding:8px 12px; margin:3px; cursor:pointer;border-radius:2px; }
 .btn-snooze { background:orange; color:white; }
 .btn-add {    background:#28a745;color:white; }
 #linkFreqContainer { display:none; gap:10px; margin-bottom:10px; }
-#frequencyInput { width:60px; padding:8px }
+#frequencyInput { width:30px; padding:8px }
 #btn-update-url {    background:#007bff; color:white;border:none; }
 textarea { width:100%; height:80px; }
 #trackQueryContainer { display:none; margin-bottom:8px; }
@@ -41,7 +41,7 @@ small  {
 .tab-button { background:#eee; border:1px solid #ccc; }
 .tab-button.active { background:#222; color:white; }
 #tickerContainer { display:none; margin-bottom:8px; }
-#tickerInput { padding:8px; width:140px; text-transform:uppercase; }
+#tickerInput { padding:8px; width:70px; text-transform:uppercase; }
 </style>
 </head>
 
@@ -67,7 +67,8 @@ small  {
     <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
     <input id="tickerInput" placeholder="ticker" oninput="saveCurrentTickerDraft()">
     <button onclick="window.open('https://www.google.com/finance/beta/quote/'+tickerInput.value)">Finance</button> 
-    <button onclick="window.open('https://www.google.com/search?q=3 growth areas for '+tickerInput.value)">3 Growth</button> 
+    <button onclick="window.open('https://www.google.com/search?q=3 growth areas for '+tickerInput.value)">3 Growth</button>
+    <button onclick="window.open('https://altindex.com/ticker/'+tickerInput.value.replace(/:.*$/,'').toLowerCase())">Altindex</button> 
 </div>
 
 <!-- Track: search queries textarea -->
@@ -91,7 +92,7 @@ small  {
     <button onclick="exportToClipboard()">Copy 10x</button>
     <button onclick="importFromClipboard()">Paste 10x</button>
     <button class="btn-add" onclick="addFromClipboard()">Add 10x</button>
-     <button class="btn-add" onclick="addFromGoogleFinance()">Add from Goog Finance</button>
+    <button class="btn-add" onclick="addFromGoogleFinance()">Add from Goog / ticker</button>
     <input type="search"
     id="searchInput"
     placeholder="search..."
@@ -725,12 +726,16 @@ async function addFromGoogleFinance(){
         /\/finance\/(?:beta\/)?quote\/([^#/?\s]+)/
     );
 
-    if(!match){
-        alert('Clipboard does not contain a Google Finance quote URL.');
-        return;
-    }
+    let ticker;
 
-    const ticker = match[1].toUpperCase();
+    if(match){
+        ticker = match[1].toUpperCase();
+    } else {
+        ticker = prompt('Enter ticker:', clipboardText.toUpperCase());
+        if(ticker === null) return;
+        ticker = ticker.trim().toUpperCase();
+        if(!ticker) return;
+    }
 
     const title = prompt(`Enter title for ${ticker}:`);
 
