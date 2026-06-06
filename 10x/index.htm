@@ -37,10 +37,6 @@ small  {
     display: block;
     overflow-wrap: anywhere;
 }
-.tabs { display:flex; gap:6px; margin:8px 0; }
-.tab-button { background:#eee; border:1px solid #ccc; }
-.tab-button.active { background:#222; color:white; }
-#tickerContainer { display:none; margin-bottom:8px; }
 #tickerInput { padding:8px; width:70px; text-transform:uppercase; }
 </style>
 </head>
@@ -49,27 +45,23 @@ small  {
 <div class="container">
 <b>10x Tracker - (open tab group in mobile)</b>
 
-<div class="tabs">
-    <button id="findTabButton" class="tab-button active" onclick="setTab('find')">Find</button>
-    <button id="trackTabButton" class="tab-button" onclick="setTab('track')">Track Stock</button>
-</div>
-
 <!-- DISPLAY -->
 <div id="linkFreqContainer">
+    <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
     <a id="linkDisplay" target="_blank" style="flex:1;"></a>
+      <input id="tickerInput" placeholder="ticker" oninput="saveCurrentTickerDraft()">
+    <button onclick="window.open('https://www.google.com/finance/beta/quote/'+tickerInput.value)">Finance</button> 
+    <button onclick="window.open('https://www.google.com/search?q=3 growth areas for '+tickerInput.value)">3 Growth</button>
+    <button onclick="window.open('https://altindex.com/ticker/'+tickerInput.value.replace(/:.*$/,'').toLowerCase())">Altindex</button>
+    <button onclick="window.open('https://x.com/search?q=%24'+tickerInput.value.replace(/:.*$/,'')+'&src=typeahead_click')">X</button>
+
 </div>
 
 <div id="titleEditorContainer" style="display:none;">
     <textarea id="titleTextarea" placeholder="enter remarks"></textarea>
 </div>
 
-<div id="tickerContainer">
-    <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
-    <input id="tickerInput" placeholder="ticker" oninput="saveCurrentTickerDraft()">
-    <button onclick="window.open('https://www.google.com/finance/beta/quote/'+tickerInput.value)">Finance</button> 
-    <button onclick="window.open('https://www.google.com/search?q=3 growth areas for '+tickerInput.value)">3 Growth</button>
-    <button onclick="window.open('https://altindex.com/ticker/'+tickerInput.value.replace(/:.*$/,'').toLowerCase())">Altindex</button> 
-</div>
+  
 
 <!-- Track: search queries textarea -->
 <div id="trackQueryContainer">
@@ -106,7 +98,7 @@ small  {
 <table>
 <thead>
 <tr>
-<th id="tickerHeader" style="display:none;">Ticker</th>
+<th>Ticker</th>
 <th>Snoozed</th>
 <th>Freq</th>
 <th>Link</th>
@@ -120,13 +112,12 @@ small  {
 <script>
 const STORAGE_KEY='10x_tracker';
 
-let appState={
-    find:[],
-    track:[]
-};
 let links=[];
 let currentLink=null;
-let currentTab='find';
+
+function isTrackItem(link){
+    return !!(link && normalizeTicker(link.ticker));
+}
 
 function init(){
     loadLinks();
@@ -142,22 +133,25 @@ function loadLinks(){
         const parsed = JSON.parse(stored);
 
         if(Array.isArray(parsed)){
-            appState.find = parsed;
-            appState.track = [];
+            // oldest format: plain array (all find items)
+            links = parsed;
+        }
+        else if(Array.isArray(parsed.items)){
+            // new format: { items: [...] }
+            links = parsed.items;
         }
         else{
-            appState.find = Array.isArray(parsed.find) ? parsed.find : [];
-            appState.track = Array.isArray(parsed.track) ? parsed.track : [];
+            // old format: { find: [...], track: [...] }
+            const find = Array.isArray(parsed.find) ? parsed.find : [];
+            const track = Array.isArray(parsed.track) ? parsed.track : [];
+            links = [...find, ...track];
         }
     }
     else{
-        appState.find = [];
-        appState.track = [];
+        links = [];
     }
 
     const changed = normalizeAllLinks();
-
-    links = appState[currentTab];
 
     if(changed){
         saveLinks();
@@ -168,25 +162,21 @@ function normalizeAllLinks(){
 
     let changed = false;
 
-    ['find','track'].forEach(tab => {
-        const original = appState[tab];
+    links = links.map(link => {
+        const normalized = {
+            ...link,
+            id: link.id || Date.now() + Math.floor(Math.random() * 1000000),
+            ticker: normalizeTicker(link.ticker),
+            snoozed_until: normalizeSnoozedUntil(link.snoozed_until)
+        };
 
-        appState[tab] = original.map(link => {
-            const normalized = {
-                ...link,
-                id: link.id || Date.now() + Math.floor(Math.random() * 1000000),
-                ticker: normalizeTicker(link.ticker),
-                snoozed_until: normalizeSnoozedUntil(link.snoozed_until)
-            };
+        if(normalized.id !== link.id ||
+           normalized.ticker !== link.ticker ||
+           normalized.snoozed_until !== link.snoozed_until){
+            changed = true;
+        }
 
-            if(normalized.id !== link.id ||
-               normalized.ticker !== link.ticker ||
-               normalized.snoozed_until !== link.snoozed_until){
-                changed = true;
-            }
-
-            return normalized;
-        });
+        return normalized;
     });
 
     return changed;
@@ -194,37 +184,15 @@ function normalizeAllLinks(){
 
 function saveLinks(emptyExpected=false){
 
-    if(appState.find.length===0 &&
-       appState.track.length===0 &&
+    if(links.length===0 &&
        !emptyExpected){
         return;
     }
 
     localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify(appState)
+        JSON.stringify({ items: links })
     );
-}
-
-function setTab(tab){
-
-    if(tab === currentTab) return;
-
-    saveCurrent();
-
-    currentTab = tab;
-    links = appState[currentTab];
-    currentLink = null;
-
-    findTabButton.classList.toggle('active', tab === 'find');
-    trackTabButton.classList.toggle('active', tab === 'track');
-    tickerContainer.style.display = tab === 'track' ? 'block' : 'none';
-    tickerHeader.style.display = tab === 'track' ? '' : 'none';
-    trackQueryContainer.style.display = 'none';
-    searchInput.value = '';
-
-    displayNextAvailable();
-    updateLinksList();
 }
 
 function normalizeTicker(value){
@@ -331,30 +299,34 @@ function displayLink(link){
 
     currentLink = link;
 
-    if(currentTab === 'track'){
-        linkFreqContainer.style.display='none';
+    const track = isTrackItem(link);
+
+    linkFreqContainer.style.display='flex';
+
+    if(track){
+        // Track item: hide link display, show ticker/query UI
+        linkDisplay.style.display='none';
         trackQueryContainer.style.display='block';
+        trackQueryTextarea.value = link.link || '';
+        renderTrackSearchLinks();
     } else {
-        linkFreqContainer.style.display='flex';
+        // Find item: show link display, hide ticker/query UI
+        linkDisplay.style.display='';
         linkDisplay.href = link.link;
         linkDisplay.textContent = link.link;
+
         trackQueryContainer.style.display='none';
     }
 
     titleEditorContainer.style.display='block';
     buttonContainer.style.display='block';
-    document.getElementById('btn-update-url').style.display = currentTab === 'track' ? 'none' : '';
+    document.getElementById('btn-update-url').style.display = track ? 'none' : '';
 
     titleTextarea.value = link.title || '';
 
     frequencyInput.value = link.frequency || '2';
 
     tickerInput.value = normalizeTicker(link.ticker);
-
-    if(currentTab === 'track'){
-        trackQueryTextarea.value = link.link || '';
-        renderTrackSearchLinks();
-    }
 
     updateLinksList();
 }
@@ -369,14 +341,14 @@ function saveCurrent(){
     currentLink.frequency =
         frequencyInput.value || '2';
 
-    if(currentTab === 'track'){
+    if(isTrackItem(currentLink)){
         currentLink.ticker = normalizeTicker(tickerInput.value);
         currentLink.link = trackQueryTextarea.value;
     }
 }
 
 function saveCurrentQueries(){
-    if(!currentLink || currentTab !== 'track') return;
+    if(!currentLink || !isTrackItem(currentLink)) return;
     currentLink.link = trackQueryTextarea.value;
     saveLinks();
     renderTrackSearchLinks();
@@ -400,7 +372,7 @@ function renderTrackSearchLinks(){
 
 function saveCurrentTickerDraft(){
 
-    if(!currentLink || currentTab !== 'track') return;
+    if(!currentLink || !isTrackItem(currentLink)) return;
 
     currentLink.ticker = normalizeTicker(tickerInput.value);
 
@@ -538,7 +510,7 @@ function laterLink(){
 
     displayLink(next);
 
-    if(currentTab !== 'track'){
+    if(!isTrackItem(next)){
         openLink(next);
     }
 
@@ -607,8 +579,8 @@ function snoozeCurrentLink(){
 
     displayLink(available[0]);
 
-    // track tab: never auto-open on snooze
-    if(currentTab !== 'track'){
+    // track items: never auto-open on snooze
+    if(!isTrackItem(available[0])){
         openLink(available[0]);
     }
 }
@@ -657,7 +629,7 @@ function deleteCurrentLink(){
 
         displayLink(next);
 
-        if(currentTab !== 'track'){
+        if(!isTrackItem(next)){
             openLink(next);
         }
     }
@@ -697,9 +669,7 @@ function addFromClipboard(){
 
         links.push({
             id: Date.now(),
-            ticker: currentTab === 'track'
-                ? normalizeTicker(prompt('Ticker:', searchInput.value) || '')
-                : '',
+            ticker: '',
             link: url,
             title: title || '',
             frequency:'2',
@@ -741,7 +711,7 @@ async function addFromGoogleFinance(){
 
     if(title === null) return;
 
-    appState.track.push({
+    links.push({
         id: Date.now(),
         ticker: ticker,
         link: '',
@@ -752,10 +722,7 @@ async function addFromGoogleFinance(){
 
     saveLinks();
 
-    if(currentTab === 'track'){
-        links = appState.track;
-        displayNextAvailable();
-    }
+    displayNextAvailable();
 
     updateLinksList();
 }
@@ -776,10 +743,7 @@ function importFromClipboard(){
         const u=h.indexOf('URL');
         const t=h.indexOf('Title');
 
-        const imported={
-            find:[],
-            track:[]
-        };
+        const imported=[];
 
         for(let i=1;i<rows.length;i++){
 
@@ -792,12 +756,7 @@ function importFromClipboard(){
                     ? normalizeTicker(decodeField(c[tickerIndex]))
                     : '';
 
-                const tab =
-                    ticker
-                        ? 'track'
-                        : 'find';
-
-                imported[tab].push({
+                imported.push({
 
                     id: Date.now()+i,
                     ticker,
@@ -825,8 +784,7 @@ function importFromClipboard(){
             }
         }
 
-        appState = imported;
-        links = appState[currentTab];
+        links = imported;
 
         currentLink=null;
 
@@ -858,17 +816,15 @@ function exportToClipboard(){
         'Ticker'
     ]];
 
-    ['find','track'].forEach(type => {
-        appState[type].forEach(l=>{
+    links.forEach(l=>{
 
-            rows.push([
-                l.snoozed_until || '',
-                l.frequency || '',
-                l.link || '',
-                l.title || '',
-                type === 'track' ? normalizeTicker(l.ticker) : ''
-            ]);
-        });
+        rows.push([
+            l.snoozed_until || '',
+            l.frequency || '',
+            l.link || '',
+            l.title || '',
+            normalizeTicker(l.ticker)
+        ]);
     });
 
     const tsv = rows
@@ -1031,11 +987,11 @@ const sorted = [...filtered].sort((a,b)=>{
 
         <tr>
 
-            ${
-                currentTab === 'track'
-                ? `<td><button onclick="filterTickerById(${l.id})">${escapeHTML(normalizeTicker(l.ticker))}</button></td>`
+            <td>${
+                normalizeTicker(l.ticker)
+                ? `<button onclick="filterTickerById(${l.id})">${escapeHTML(normalizeTicker(l.ticker))}</button>`
                 : ''
-            }
+            }</td>
 
             <td>
 
@@ -1098,6 +1054,9 @@ function filterTickerById(id){
     saveLinks();
 
     const ticker = normalizeTicker(l.ticker);
+
+    searchInput.value = ticker;
+
     displayLink(l);
 
     updateLinksList();
