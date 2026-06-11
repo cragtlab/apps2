@@ -25,7 +25,7 @@
         }
         .container {
             width: 100%;
-            max-width: 800px;
+            max-width: 900px;
         }
         h1 {
             text-align: center;
@@ -61,6 +61,7 @@
             text-transform: uppercase;
             font-size: 0.8rem;
             letter-spacing: 1px;
+            white-space: nowrap;
         }
         th:hover {
             color: #fff;
@@ -119,7 +120,7 @@
 
         @media (max-width: 600px) {
             .add-form { grid-template-columns: 1fr; }
-            th:nth-child(3), td:nth-child(3) { display: none; } /* Hide material cost on small screens */
+            th:nth-child(3), td:nth-child(3) { display: none; }
         }
     </style>
 </head>
@@ -158,8 +159,12 @@
     </div>
 
     <script>
-        const STORAGE_KEY = 'idiot_items';
+        const STORAGE_KEY = 'idiot_items_v2';
         const defaultItems = [
+            { name: "Text Message (Legacy Roaming)", retail: 0.50, material: 0.00001 },
+            { name: "Mundane Software (Enterprise)", retail: 1000.00, material: 0.00 },
+            { name: "Hospital IV Saline Bag", retail: 400.00, material: 1.00 },
+            { name: "Brand Name Drugs (Patent)", retail: 200.00, material: 0.50 },
             { name: "Movie Popcorn (Large)", retail: 8.00, material: 0.30 },
             { name: "Bottled Water (Airport)", retail: 5.00, material: 0.05 },
             { name: "Designer T-Shirt (White)", retail: 450.00, material: 5.00 },
@@ -168,18 +173,109 @@
             { name: "Eyeglass Frames (Designer)", retail: 300.00, material: 10.00 },
             { name: "Greeting Card", retail: 6.00, material: 0.20 },
             { name: "Wine (by the glass)", retail: 15.00, material: 2.50 },
-            { name: "Text Message (Legacy Roaming)", retail: 0.50, material: 0.00001 },
             { name: "Diamond Engagement Ring", retail: 5000.00, material: 500.00 },
             { name: "Coffee (Premium Latte)", retail: 6.50, material: 0.40 },
-            { name: "Hospital IV Saline Bag", retail: 400.00, material: 1.00 },
             { name: "HDMI Cable (Boutique Shop)", retail: 50.00, material: 2.00 },
-            { name: "Mundane Software (Enterprise)", retail: 1000.00, material: 0.00 },
-            { name: "Brand Name Drugs (Patent)", retail: 200.00, material: 0.50 }
+            { name: "Funeral Casket (High-end)", retail: 5000.00, material: 300.00 },
+            { name: "Wedding Cake", retail: 600.00, material: 40.00 },
+            { name: "Popcorn (Microwave 1 bag)", retail: 1.50, material: 0.05 },
+            { name: "Pre-cut Fruit Salad", retail: 7.00, material: 1.00 },
+            { name: "School Textbook", retail: 250.00, material: 5.00 },
+            { name: "Digital Game Currency", retail: 99.00, material: 0.00 },
+            { name: "Razor Blades (Cartridge)", retail: 5.00, material: 0.10 },
+            { name: "Minibar Snickers", retail: 6.00, material: 0.50 },
+            { name: "Prescription Lens (High Index)", retail: 200.00, material: 5.00 },
+            { name: "Vending Machine Soda", retail: 2.00, material: 0.15 },
+            { name: "Room Service Burger", retail: 35.00, material: 4.00 },
+            { name: "Private Jet Seat (Short)", retail: 5000.00, material: 800.00 },
+            { name: "Designer Handbag", retail: 2000.00, material: 80.00 },
+            { name: "Luxury Watch (Steel)", retail: 10000.00, material: 500.00 },
+            { name: "Hotel WiFi (Daily)", retail: 20.00, material: 0.00 },
+            { name: "Theme Park Water", retail: 6.00, material: 0.10 },
+            { name: "Concierge Medicine (Annual)", retail: 3000.00, material: 0.00 },
+            { name: "NFT Artwork (Mint)", retail: 500.00, material: 0.00 },
+            { name: "Extended Warranty", retail: 100.00, material: 0.00 },
+            { name: "Payday Loan (Fees)", retail: 50.00, material: 0.00 },
+            { name: "Champagne (Club Bottle)", retail: 500.00, material: 40.00 },
+            { name: "Branded Sunglasses", retail: 180.00, material: 8.00 },
+            { name: "Perfume (Designer 50ml)", retail: 120.00, material: 3.00 },
+            { name: "Skincare Serum (Luxury)", retail: 150.00, material: 2.00 },
+            { name: "Specialty Tea (Cup)", retail: 5.00, material: 0.10 },
+            { name: "Baby Formula (Premium)", retail: 45.00, material: 5.00 },
+            { name: "Gluten-Free Bread", retail: 8.00, material: 1.50 },
+            { name: "Organic Avocados (2pk)", retail: 6.00, material: 1.00 },
+            { name: "Mattress (Luxury)", retail: 3000.00, material: 300.00 },
+            { name: "Airlines Blanket/Pillow", retail: 15.00, material: 1.00 },
+            { name: "Pet Insurance (Monthly)", retail: 60.00, material: 0.00 },
+            { name: "Dating App Gold (Monthly)", retail: 30.00, material: 0.00 },
+            { name: "Cloud Storage (Extra 1TB)", retail: 10.00, material: 0.05 },
+            { name: "Cable TV Box Rental", retail: 15.00, material: 0.00 },
+            { name: "Directory Assistance (411)", retail: 2.50, material: 0.00 },
+            { name: "Checking Account Monthly Fee", retail: 12.00, material: 0.00 },
+            { name: "Overdraft Fee", retail: 35.00, material: 0.00 },
+            { name: "Foreign Transaction Fee", retail: 10.00, material: 0.00 },
+            { name: "Resort Fee (Nightly)", retail: 45.00, material: 0.00 },
+            { name: "Convenience Fee (Tickets)", retail: 15.00, material: 0.00 },
+            { name: "Paper Statement Fee", retail: 2.00, material: 0.00 },
+            { name: "Valet Parking (Event)", retail: 40.00, material: 0.00 },
+            { name: "Furniture Assembly Service", retail: 100.00, material: 0.00 },
+            { name: "Yoga Class (Single)", retail: 25.00, material: 0.00 },
+            { name: "Smoothie (Store-bought)", retail: 9.00, material: 1.50 },
+            { name: "Juice Cleanse (Daily)", retail: 70.00, material: 8.00 },
+            { name: "Personal Trainer (Hour)", retail: 120.00, material: 0.00 },
+            { name: "Golf Green Fees (Peak)", retail: 200.00, material: 0.00 },
+            { name: "Ski Lift Ticket (Daily)", retail: 180.00, material: 0.00 },
+            { name: "Bowling Shoe Rental", retail: 6.00, material: 0.10 },
+            { name: "Ice (Bag at Gas Station)", retail: 4.00, material: 0.02 },
+            { name: "Charcoal (Small bag)", retail: 12.00, material: 1.00 },
+            { name: "Firewood (Bundle)", retail: 10.00, material: 0.50 },
+            { name: "Batteries (Alkaline 4pk)", retail: 8.00, material: 0.80 },
+            { name: "Light Bulbs (Smart LED)", retail: 25.00, material: 3.00 },
+            { name: "Tooth Whitening Strips", retail: 50.00, material: 2.00 },
+            { name: "Electric Toothbrush Head", retail: 12.00, material: 0.50 },
+            { name: "Shampoo (Salon Brand)", retail: 35.00, material: 2.00 },
+            { name: "Sunscreen (SPF 50)", retail: 18.00, material: 2.00 },
+            { name: "Face Mask (Sheet 1pc)", retail: 8.00, material: 0.20 },
+            { name: "Anti-Aging Cream", retail: 200.00, material: 4.00 },
+            { name: "Lip Balm (High-end)", retail: 25.00, material: 0.50 },
+            { name: "Candle (Luxury Scented)", retail: 70.00, material: 5.00 },
+            { name: "Essential Oil (Tiny Bottle)", retail: 20.00, material: 0.50 },
+            { name: "Vitamin Supplements", retail: 30.00, material: 2.00 },
+            { name: "Protein Powder (Tub)", retail: 60.00, material: 12.00 },
+            { name: "Pre-Workout Supplement", retail: 50.00, material: 8.00 },
+            { name: "Energy Drink (Can)", retail: 3.50, material: 0.25 },
+            { name: "Beef Jerky (Pack)", retail: 9.00, material: 2.00 },
+            { name: "Greek Yogurt (Single)", retail: 2.00, material: 0.40 },
+            { name: "Almond Milk (Carton)", retail: 5.00, material: 0.60 },
+            { name: "Avocado Toast (Cafe)", retail: 18.00, material: 2.50 },
+            { name: "Truffle Fries (Appetizer)", retail: 16.00, material: 1.50 },
+            { name: "Artisanal Pizza", retail: 25.00, material: 3.00 },
+            { name: "Cocktail (Rooftop)", retail: 22.00, material: 2.00 },
+            { name: "Craft Beer (Pint)", retail: 12.00, material: 1.00 },
+            { name: "Spirit Mixer (Double)", retail: 18.00, material: 1.50 },
+            { name: "Pasta Dish (Upscale)", retail: 28.00, material: 2.00 },
+            { name: "Steak (Dry Aged)", retail: 90.00, material: 20.00 },
+            { name: "Sushi Omakase", retail: 250.00, material: 40.00 },
+            { name: "Dessert Platter", retail: 20.00, material: 3.00 },
+            { name: "Bread Basket (Table)", retail: 8.00, material: 0.50 },
+            { name: "Sparkling Water (Bottle)", retail: 9.00, material: 0.30 },
+            { name: "Coffee Pods (10pk)", retail: 10.00, material: 0.80 },
+            { name: "Loose Leaf Tea (Tin)", retail: 30.00, material: 2.00 },
+            { name: "Herbs (Fresh bundle)", retail: 4.00, material: 0.20 },
+            { name: "Spices (Small jar)", retail: 7.00, material: 0.50 },
+            { name: "Honey (Manuka)", retail: 50.00, material: 5.00 },
+            { name: "Maple Syrup (Small)", retail: 12.00, material: 3.00 },
+            { name: "Extra Virgin Olive Oil", retail: 25.00, material: 6.00 },
+            { name: "Balsamic Vinegar (Aged)", retail: 40.00, material: 5.00 },
+            { name: "Saffron (1 gram)", retail: 20.00, material: 2.00 },
+            { name: "Caviar (Small tin)", retail: 100.00, material: 15.00 },
+            { name: "Oysters (Half Dozen)", retail: 30.00, material: 6.00 },
+            { name: "Lobster Roll", retail: 35.00, material: 10.00 }
         ];
 
         let items = [];
         let sortField = 'markup';
-        let sortOrder = -1; // Default descending
+        let sortOrder = -1;
 
         function init() {
             const stored = localStorage.getItem(STORAGE_KEY);
@@ -192,7 +288,7 @@
         }
 
         function getMarkup(item) {
-            if (item.material === 0) return 999999; // Infinity-ish
+            if (item.material === 0) return 999999;
             return ((item.retail - item.material) / item.material) * 100;
         }
 
