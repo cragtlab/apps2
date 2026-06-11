@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MRT Door Finder + GPS Route Learning</title>
+<style>
+body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5}
+.header{position:sticky;top:0;background:#fff;padding:10px;border-bottom:1px solid #ddd;z-index:10}
+.line-buttons,.travel-buttons{display:flex;gap:6px;flex-wrap:wrap}
+.line-btn{border:none;color:#fff;padding:10px 14px;border-radius:8px;font-weight:bold;cursor:pointer}
+.line-btn.active{outline:3px solid #00000033}
+.station,.travel-card,.feedback,.travel-section{background:#fff;border-radius:10px;padding:12px;margin:10px}
+.row{display:flex;justify-content:space-between;background:#f7f7f7;padding:10px;border-radius:8px;margin-top:6px}
+.door{background:#1976d2;color:#fff;padding:4px 10px;border-radius:999px}
+button,select{border:none;padding:10px 14px;border-radius:8px}
+.start-btn{background:#2e7d32;color:#fff}.stop-btn{background:#1565c0;color:#fff}
+.add-btn{background:#6a1b9a;color:#fff}.manual-btn{background:#e65100;color:#fff}
+</style>
+</head>
+<body>
+
+<div class="header"><div id="lineButtons" class="line-buttons"></div></div>
+<div id="stations"></div>
+
+<div class="travel-section">
+<h3>Travel Time Tracker</h3>
+
+<div class="travel-buttons">
+<button class="add-btn" onclick="addRoute()">+ Add Route</button>
+<button class="start-btn" onclick="globalStart()">Start Trip</button>
+<select id="routeSelect"><option value="">Select Route</option></select>
+<button class="stop-btn" onclick="globalStop()">Stop Trip</button>
+<button class="manual-btn" onclick="guessRoute()">Guess Route</button>
+</div>
+
+<div id="tripStatus"></div>
+<div id="travelTracker"></div>
+</div>
+
+<script>
+const mrtData={
+EW:{color:"#2e9b43",stations:[
+{name:"Lavender",directions:[{to:"Pasir Ris",door:"2"},{to:"Tuas Link",door:"10"}]},
+{name:"Paya Lebar",directions:[{to:"Pasir Ris",door:"11"},{to:"Tuas Link",door:"14"}]}
+]},
+NS:{color:"#d32f2f",stations:[
+{name:"Orchard",directions:[{to:"Jurong East",door:"3"},{to:"Marina South Pier",door:"8"}]}
+]},
+CC:{color:"#f59e0b",stations:[
+{name:"Paya Lebar",directions:[{to:"HarbourFront",door:"2"},{to:"Dhoby Ghaut",door:"7"}]},
+{name:"Macpherson",directions:[{to:"HarbourFront",door:"6"},{to:"Dhoby Ghaut",door:"6"}]}
+]},
+DT:{color:"#005ec4",stations:[
+{name:"Bendemeer",directions:[{to:"Expo",door:"8"},{to:"Bukit Panjang",door:"5"}]},
+{name:"Bukit Panjang",directions:[{to:"Expo",door:"?"},{to:"Bukit Panjang",door:"7"}]},
+{name:"Bugis",directions:[{to:"Expo",door:"6"},{to:"Bukit Panjang",door:"?"}]},
+{name:"Ubi",directions:[{to:"Expo",door:"8"},{to:"Bukit Panjang",door:"?"}]}
+]}
+};
+
+let currentLine='EW';
+let travelRoutes=JSON.parse(localStorage.getItem('travel_routes')||'[]');
+let activeTrip=JSON.parse(localStorage.getItem('active_trip')||'null');
+
+function saveRoutes(){localStorage.setItem('travel_routes',JSON.stringify(travelRoutes));}
+function saveActive(){localStorage.setItem('active_trip',JSON.stringify(activeTrip));}
+
+function render(){
+const lb=document.getElementById('lineButtons');
+const st=document.getElementById('stations');
+lb.innerHTML=''; st.innerHTML='';
+Object.entries(mrtData).forEach(([k,v])=>{
+const b=document.createElement('button');
+b.className='line-btn'+(k===currentLine?' active':'');
+b.style.background=v.color;b.textContent=k;
+b.onclick=()=>{currentLine=k;render();};
+lb.appendChild(b);
+});
+mrtData[currentLine].stations.forEach(s=>{
+const d=document.createElement('div');
+d.className='station';
+d.innerHTML='<b>'+s.name+'</b>'+s.directions.map(x=>'<div class="row"><span>'+x.to+'</span><span class="door">Door '+x.door+'</span></div>').join('');
+st.appendChild(d);
+});
+}
+
+function addRoute(){
+const name=prompt('Route name');
+if(!name)return;
+travelRoutes.unshift({name,trips:[]});
+saveRoutes(); renderRoutes();
+}
+
+function updateRouteDropdown(){
+const s=document.getElementById('routeSelect');
+const current=s.value;
+s.innerHTML='<option value="">Select Route</option>';
+travelRoutes.forEach((r,i)=>{
+const o=document.createElement('option');
+o.value=i;o.textContent=r.name;s.appendChild(o);
+});
+s.value=current;
+}
+
+function getCurrentPosition(){
+return new Promise((resolve,reject)=>{
+navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true});
+});
+}
+
+async function globalStart(){
+const pos=await getCurrentPosition();
+activeTrip={
+startTime:new Date().toISOString(),
+startLat:pos.coords.latitude,
+startLng:pos.coords.longitude
+};
+saveActive();
+document.getElementById('tripStatus').innerHTML='Started at '+activeTrip.startLat.toFixed(5)+','+activeTrip.startLng.toFixed(5);
+}
+
+async function globalStop(){
+if(!activeTrip)return alert('No active trip');
+const route=document.getElementById('routeSelect').value;
+if(route==='')return alert('Select route');
+const pos=await getCurrentPosition();
+const mins=Math.round((Date.now()-new Date(activeTrip.startTime))/60000);
+
+travelRoutes[route].trips.unshift({
+start:activeTrip.startTime,
+mins,
+startLat:activeTrip.startLat,
+startLng:activeTrip.startLng,
+endLat:pos.coords.latitude,
+endLng:pos.coords.longitude
+});
+
+activeTrip=null;
+localStorage.removeItem('active_trip');
+saveRoutes();
+renderRoutes();
+document.getElementById('tripStatus').innerHTML='';
+}
+
+function distanceMeters(lat1,lng1,lat2,lng2){
+const R=6371000;
+const dLat=(lat2-lat1)*Math.PI/180;
+const dLng=(lng2-lng1)*Math.PI/180;
+const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+async function guessRoute(){
+if(!activeTrip)return alert('Start trip first');
+const pos=await getCurrentPosition();
+let best=null,bestScore=Infinity;
+
+travelRoutes.forEach((r,i)=>{
+const s=r.trips.filter(t=>t.startLat&&t.endLat);
+if(!s.length)return;
+
+const avg=(key)=>s.reduce((a,b)=>a+b[key],0)/s.length;
+
+const score=distanceMeters(activeTrip.startLat,activeTrip.startLng,avg('startLat'),avg('startLng'))
++distanceMeters(pos.coords.latitude,pos.coords.longitude,avg('endLat'),avg('endLng'));
+
+if(score<bestScore){bestScore=score;best=i;}
+});
+
+if(best!==null){
+document.getElementById('routeSelect').value=best;
+alert('Guess: '+travelRoutes[best].name);
+}
+}
+
+function renderRoutes(){
+updateRouteDropdown();
+const c=document.getElementById('travelTracker');
+c.innerHTML='';
+travelRoutes.forEach((r,i)=>{
+const div=document.createElement('div');
+div.className='travel-card';
+div.innerHTML='<b>'+r.name+'</b><br>Samples: '+r.trips.length;
+c.appendChild(div);
+});
+}
+
+render();
+renderRoutes();
+</script>
+</body>
+</html>
