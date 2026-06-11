@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Markup Inspector (Idiot Tax Tracker)</title>
+    <style>
+        :root {
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --success: #28a745;
+            --bg: #121212;
+            --card: #1e1e1e;
+            --text: #e0e0e0;
+            --primary: #bb86fc;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        th {
+            color: var(--primary);
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+        th:hover {
+            color: #fff;
+        }
+        .markup-high { color: var(--danger); font-weight: bold; }
+        .markup-mid { color: var(--warning); }
+        .markup-low { color: var(--success); }
+        
+        .rating-pill {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .rating-idiot { background: var(--danger); color: #fff; }
+        .rating-sucker { background: var(--warning); color: #000; }
+        .rating-fair { background: var(--success); color: #fff; }
+
+        .search-bar {
+            width: 100%;
+            padding: 12px;
+            background: #2c2c2c;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+        
+        .add-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .add-form input {
+            background: #2c2c2c;
+            border: 1px solid #444;
+            padding: 8px;
+            border-radius: 4px;
+            color: #fff;
+        }
+        .btn-add {
+            background: var(--primary);
+            border: none;
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-add:hover { background: #d7b7fd; }
+        
+        small { color: #666; display: block; margin-top: 5px; }
+
+        @media (max-width: 600px) {
+            .add-form { grid-template-columns: 1fr; }
+            th:nth-child(3), td:nth-child(3) { display: none; } /* Hide material cost on small screens */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>The Markup Inspector</h1>
+        <div class="subtitle">Things that cost a lot more than their material</div>
+
+        <input type="text" id="searchInput" class="search-bar" placeholder="Search items..." oninput="renderTable()">
+
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="setSort('name')">Item</th>
+                        <th onclick="setSort('retail')">Retail ($)</th>
+                        <th onclick="setSort('material')">Material ($)</th>
+                        <th onclick="setSort('markup')">Markup (%)</th>
+                        <th onclick="setSort('markup')">Rating</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>Add New Finding</h3>
+            <div class="add-form">
+                <input type="text" id="newName" placeholder="Item Name">
+                <input type="number" id="newRetail" placeholder="Retail Price ($)">
+                <input type="number" id="newMaterial" placeholder="Material Cost ($)">
+                <button class="btn-add" onclick="addItem()">Add</button>
+            </div>
+            <small>* Markup = (Retail - Material) / Material * 100</small>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'idiot_items';
+        const defaultItems = [
+            { name: "Movie Popcorn (Large)", retail: 8.00, material: 0.30 },
+            { name: "Bottled Water (Airport)", retail: 5.00, material: 0.05 },
+            { name: "Designer T-Shirt (White)", retail: 450.00, material: 5.00 },
+            { name: "Fountain Soda (Large)", retail: 2.50, material: 0.10 },
+            { name: "Printer Ink (Cartridge)", retail: 40.00, material: 0.25 },
+            { name: "Eyeglass Frames (Designer)", retail: 300.00, material: 10.00 },
+            { name: "Greeting Card", retail: 6.00, material: 0.20 },
+            { name: "Wine (by the glass)", retail: 15.00, material: 2.50 },
+            { name: "Text Message (Legacy Roaming)", retail: 0.50, material: 0.00001 },
+            { name: "Diamond Engagement Ring", retail: 5000.00, material: 500.00 },
+            { name: "Coffee (Premium Latte)", retail: 6.50, material: 0.40 },
+            { name: "Hospital IV Saline Bag", retail: 400.00, material: 1.00 },
+            { name: "HDMI Cable (Boutique Shop)", retail: 50.00, material: 2.00 },
+            { name: "Mundane Software (Enterprise)", retail: 1000.00, material: 0.00 },
+            { name: "Brand Name Drugs (Patent)", retail: 200.00, material: 0.50 }
+        ];
+
+        let items = [];
+        let sortField = 'markup';
+        let sortOrder = -1; // Default descending
+
+        function init() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                items = JSON.parse(stored);
+            } else {
+                items = [...defaultItems];
+            }
+            renderTable();
+        }
+
+        function getMarkup(item) {
+            if (item.material === 0) return 999999; // Infinity-ish
+            return ((item.retail - item.material) / item.material) * 100;
+        }
+
+        function getRating(markup) {
+            if (markup > 1000) return { label: 'IDIOT', class: 'rating-idiot' };
+            if (markup > 300) return { label: 'SUCKER', class: 'rating-sucker' };
+            return { label: 'FAIR?', class: 'rating-fair' };
+        }
+
+        function setSort(field) {
+            if (sortField === field) {
+                sortOrder *= -1;
+            } else {
+                sortField = field;
+                sortOrder = (field === 'name') ? 1 : -1;
+            }
+            renderTable();
+        }
+
+        function addItem() {
+            const name = document.getElementById('newName').value;
+            const retail = parseFloat(document.getElementById('newRetail').value);
+            const material = parseFloat(document.getElementById('newMaterial').value);
+
+            if (!name || isNaN(retail) || isNaN(material)) {
+                alert('Please fill in all fields correctly.');
+                return;
+            }
+
+            items.push({ name, retail, material });
+            saveItems();
+            renderTable();
+            
+            document.getElementById('newName').value = '';
+            document.getElementById('newRetail').value = '';
+            document.getElementById('newMaterial').value = '';
+        }
+
+        function saveItems() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+        }
+
+        function renderTable() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = items.filter(i => i.name.toLowerCase().includes(search));
+
+            filtered.sort((a, b) => {
+                let valA, valB;
+                if (sortField === 'markup') {
+                    valA = getMarkup(a);
+                    valB = getMarkup(b);
+                } else {
+                    valA = a[sortField];
+                    valB = b[sortField];
+                }
+
+                if (valA < valB) return -1 * sortOrder;
+                if (valA > valB) return 1 * sortOrder;
+                return 0;
+            });
+
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = filtered.map(item => {
+                const markup = getMarkup(item);
+                const rating = getRating(markup);
+                const markupClass = markup > 500 ? 'markup-high' : (markup > 100 ? 'markup-mid' : 'markup-low');
+
+                return `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>${item.retail.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                        <td>${item.material.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                        <td class="${markupClass}">${Math.round(markup).toLocaleString()}%</td>
+                        <td><span class="rating-pill ${rating.class}">${rating.label}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        init();
+    </script>
+</body>
+</html>
