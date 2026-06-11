@@ -3,191 +3,806 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MRT Door Finder + GPS Route Learning</title>
+<title>MRT Door Finder</title>
 <style>
-body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5}
-.header{position:sticky;top:0;background:#fff;padding:10px;border-bottom:1px solid #ddd;z-index:10}
-.line-buttons,.travel-buttons{display:flex;gap:6px;flex-wrap:wrap}
-.line-btn{border:none;color:#fff;padding:10px 14px;border-radius:8px;font-weight:bold;cursor:pointer}
-.line-btn.active{outline:3px solid #00000033}
-.station,.travel-card,.feedback,.travel-section{background:#fff;border-radius:10px;padding:12px;margin:10px}
-.row{display:flex;justify-content:space-between;background:#f7f7f7;padding:10px;border-radius:8px;margin-top:6px}
-.door{background:#1976d2;color:#fff;padding:4px 10px;border-radius:999px}
-button,select{border:none;padding:10px 14px;border-radius:8px}
-.start-btn{background:#2e7d32;color:#fff}.stop-btn{background:#1565c0;color:#fff}
-.add-btn{background:#6a1b9a;color:#fff}.manual-btn{background:#e65100;color:#fff}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; font-size: 15px; }
+
+/* ── Header ── */
+.header {
+  position: sticky; top: 0; background: #1a1a2e; z-index: 20;
+  padding: 8px 10px 6px;
+}
+.line-buttons { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
+.line-btn {
+  border: none; color: white; padding: 8px 14px; border-radius: 8px;
+  font-weight: bold; cursor: pointer; flex-shrink: 0; font-size: 14px;
+}
+.line-btn.active { outline: 3px solid rgba(255,255,255,0.5); }
+
+/* ── Quick Timer Bar ── */
+.quick-timer {
+  background: #12122a; border-top: 1px solid rgba(255,255,255,0.1);
+  padding: 8px 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.qt-status {
+  font-size: 12px; color: #aaa; flex: 1; min-width: 120px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.qt-status.running { color: #4caf50; font-weight: bold; }
+select#routeSelect {
+  flex: 1; min-width: 130px; max-width: 200px;
+  padding: 7px 8px; border-radius: 8px; border: none;
+  background: #2a2a4a; color: white; font-size: 13px; cursor: pointer;
+}
+.qt-btn {
+  border: none; padding: 7px 13px; border-radius: 8px;
+  font-weight: bold; cursor: pointer; font-size: 13px; white-space: nowrap;
+}
+.qt-start  { background: #2e7d32; color: white; }
+.qt-stop   { background: #1565c0; color: white; }
+.qt-cancel { background: #7b1fa2; color: white; }
+.qt-guess  { background: #e65100; color: white; }
+
+/* ── Content sections ── */
+#stations, .section { padding: 10px; }
+
+.station, .travel-card, .card {
+  background: white; border-radius: 10px; padding: 12px; margin-bottom: 10px;
+}
+.station-name, .travel-title, .card-title {
+  font-size: 16px; font-weight: bold; margin-bottom: 10px;
+}
+.row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #f7f7f7; padding: 10px; border-radius: 8px; margin-top: 6px;
+  cursor: pointer;
+}
+.door {
+  background: #1976d2; color: white; padding: 4px 10px;
+  border-radius: 999px; font-weight: bold;
+}
+
+/* ── Travel card ── */
+.stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.stat { background: #f7f7f7; padding: 7px 10px; border-radius: 8px; font-size: 13px; }
+.travel-buttons { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+button { border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; }
+.save-btn   { background: #2e7d32; color: white; }
+.email-btn  { background: #1565c0; color: white; }
+.clear-btn  { background: #757575; color: white; }
+.add-btn    { background: #6a1b9a; color: white; }
+.manual-btn { background: #e65100; color: white; }
+.start-btn  { background: #2e7d32; color: white; }
+.stop-btn   { background: #1565c0; color: white; }
+.cancel-btn { background: #c62828; color: white; }
+.edit-btn   { background: #f57c00; color: white; }
+.delete-btn { background: #c62828; color: white; }
+.guess-inline-btn { background: #00838f; color: white; }
+
+.trip-list { font-size: 13px; }
+.trip-item { background: #fafafa; border-radius: 8px; padding: 8px; margin-top: 6px; }
+.trip-item-btns { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+.timer-running { color: #2e7d32; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
+
+.guess-result {
+  background: #e3f2fd; border-radius: 8px; padding: 10px; margin-top: 8px;
+  font-size: 13px; border-left: 3px solid #1976d2;
+}
+
+/* ── Coord Directory ── */
+.coord-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.coord-table th {
+  background: #f0f0f0; padding: 7px 8px; text-align: left;
+  border-bottom: 1px solid #ddd; font-size: 12px; color: #555;
+}
+.coord-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+.coord-table input {
+  width: 100%; border: 1px solid #ddd; border-radius: 6px;
+  padding: 5px 7px; font-size: 13px; background: #fafafa;
+}
+.coord-table input:focus { outline: none; border-color: #1976d2; background: white; }
+.coord-add-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.coord-add-row input {
+  flex: 1; min-width: 80px; padding: 7px 9px; border-radius: 8px;
+  border: 1px solid #ccc; font-size: 13px;
+}
+.coord-save-btn { background: #1976d2; color: white; }
+.coord-del-btn  { background: #e53935; color: white; padding: 5px 9px; font-size: 12px; }
+
+/* ── Feedback ── */
+.feedback { background: white; margin: 10px; padding: 12px; border-radius: 10px; }
+textarea {
+  width: 100%; min-height: 100px; padding: 9px; border-radius: 8px;
+  border: 1px solid #ccc; resize: vertical; font-family: Arial, sans-serif; font-size: 14px;
+}
+.feedback-buttons { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+#saveStatus { margin-top: 6px; font-size: 13px; color: #2e7d32; }
+
+/* ── Modal ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: white; border-radius: 12px; padding: 18px;
+  width: 92%; max-width: 340px;
+}
+.modal h3 { margin: 0 0 14px; font-size: 16px; }
+.modal-field { margin-bottom: 11px; }
+.modal-field label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 3px; color: #555; }
+.modal-field input {
+  width: 100%; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid #ccc; font-size: 14px;
+}
+.modal-field .time-row { display: flex; gap: 8px; align-items: center; }
+.modal-field .time-row input { width: 66px; text-align: center; }
+.modal-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+.modal-actions .ok-btn  { background: #2e7d32; color: white; }
+.modal-actions .no-btn  { background: #757575; color: white; }
+
+/* ── Route coords display ── */
+.route-coord-info {
+  font-size: 11px; color: #777; margin-top: 3px;
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.route-coord-chip {
+  background: #f0f4ff; color: #1565c0; padding: 2px 7px;
+  border-radius: 999px; font-size: 11px; cursor: pointer;
+  border: 1px solid #c5cae9;
+}
 </style>
 </head>
 <body>
 
-<div class="header"><div id="lineButtons" class="line-buttons"></div></div>
-<div id="stations"></div>
+<div class="header">
+  <div class="line-buttons" id="lineButtons"></div>
 
-<div class="travel-section">
-<h3>Travel Time Tracker</h3>
-
-<div class="travel-buttons">
-<button class="add-btn" onclick="addRoute()">+ Add Route</button>
-<button class="start-btn" onclick="globalStart()">Start Trip</button>
-<select id="routeSelect"><option value="">Select Route</option></select>
-<button class="stop-btn" onclick="globalStop()">Stop Trip</button>
-<button class="manual-btn" onclick="guessRoute()">Guess Route</button>
+  <!-- Quick Timer Bar -->
+  <div class="quick-timer">
+    <span class="qt-status" id="qtStatus">No timer running</span>
+    <select id="routeSelect"><option value="">-- pick route --</option></select>
+    <button class="qt-btn qt-start"  onclick="qtStart()">▶ Start</button>
+    <button class="qt-btn qt-stop"   onclick="qtStop()">■ Stop</button>
+    <button class="qt-btn qt-cancel" onclick="qtCancel()">✕</button>
+    <button class="qt-btn qt-guess"  onclick="qtGuess()">⊙ Guess</button>
+  </div>
 </div>
 
-<div id="tripStatus"></div>
-<div id="travelTracker"></div>
+<div id="stations"></div>
+
+<div class="section">
+  <div class="card">
+    <div class="card-title">Travel Routes</div>
+    <div class="travel-buttons">
+      <button class="add-btn" onclick="addRoute()">+ Add Route</button>
+    </div>
+    <div id="travelTracker"></div>
+  </div>
+</div>
+
+<!-- Coord Directory -->
+<div class="section">
+  <div class="card">
+    <div class="card-title">📍 Coord Directory</div>
+    <p style="font-size:12px;color:#666;margin:0 0 10px;">
+      Store named locations. Used by Guess to match route start/end to nearest known place.
+      Tap <strong>Use current</strong> to fill in your GPS.
+    </p>
+    <div id="coordTableWrap"></div>
+    <div class="coord-add-row" style="margin-top:10px;">
+      <input type="text"   id="newCoordLabel" placeholder="Label (e.g. Home)">
+      <input type="number" id="newCoordLat"   placeholder="Lat" step="any">
+      <input type="number" id="newCoordLng"   placeholder="Lng" step="any">
+      <button class="coord-save-btn" onclick="addCoord()">+ Add</button>
+      <button class="manual-btn"     onclick="fillCurrentCoord()">Use current</button>
+    </div>
+    <div id="coordStatus" style="font-size:12px;color:#2e7d32;margin-top:6px;"></div>
+  </div>
+</div>
+
+<div class="feedback">
+  <h3 style="margin:0 0 8px;">Wrong info? (tap door row to prefill)</h3>
+  <textarea id="feedbackText" placeholder="Example:&#10;Lavender towards Pasir Ris should be Door 3"></textarea>
+  <div class="feedback-buttons">
+    <button class="save-btn"  onclick="saveFeedback()">Save</button>
+    <button class="email-btn" onclick="sendUpdate()">Send Update</button>
+    <button class="clear-btn" onclick="clearFeedback()">Clear</button>
+  </div>
+  <div id="saveStatus"></div>
+</div>
+
+<!-- Manual / Edit modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Add Manual Time</h3>
+    <div class="modal-field">
+      <label>Date</label>
+      <input type="date" id="modalDate">
+    </div>
+    <div class="modal-field">
+      <label>Time (24h)</label>
+      <div class="time-row">
+        <input type="number" id="modalHour" min="0" max="23" placeholder="HH">
+        <span style="font-size:13px;">hrs</span>
+        <input type="number" id="modalMin"  min="0" max="59" placeholder="MM">
+        <span style="font-size:13px;">mins</span>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Duration (minutes)</label>
+      <input type="number" id="modalDuration" min="1" placeholder="e.g. 25">
+    </div>
+    <div class="modal-actions">
+      <button class="no-btn" onclick="closeModal()">Cancel</button>
+      <button class="ok-btn" onclick="confirmModal()">Save</button>
+    </div>
+  </div>
 </div>
 
 <script>
-const mrtData={
-EW:{color:"#2e9b43",stations:[
-{name:"Lavender",directions:[{to:"Pasir Ris",door:"2"},{to:"Tuas Link",door:"10"}]},
-{name:"Paya Lebar",directions:[{to:"Pasir Ris",door:"11"},{to:"Tuas Link",door:"14"}]}
-]},
-NS:{color:"#d32f2f",stations:[
-{name:"Orchard",directions:[{to:"Jurong East",door:"3"},{to:"Marina South Pier",door:"8"}]}
-]},
-CC:{color:"#f59e0b",stations:[
-{name:"Paya Lebar",directions:[{to:"HarbourFront",door:"2"},{to:"Dhoby Ghaut",door:"7"}]},
-{name:"Macpherson",directions:[{to:"HarbourFront",door:"6"},{to:"Dhoby Ghaut",door:"6"}]}
-]},
-DT:{color:"#005ec4",stations:[
-{name:"Bendemeer",directions:[{to:"Expo",door:"8"},{to:"Bukit Panjang",door:"5"}]},
-{name:"Bukit Panjang",directions:[{to:"Expo",door:"?"},{to:"Bukit Panjang",door:"7"}]},
-{name:"Bugis",directions:[{to:"Expo",door:"6"},{to:"Bukit Panjang",door:"?"}]},
-{name:"Ubi",directions:[{to:"Expo",door:"8"},{to:"Bukit Panjang",door:"?"}]}
-]}
+/* ═══════════════════════════════════════
+   MRT DATA
+═══════════════════════════════════════ */
+const mrtData = {
+  EW: {
+    color: '#2e9b43',
+    stations: [
+      { name: 'Lavender',    directions: [{ to: 'Pasir Ris', door: '2' },  { to: 'Tuas Link', door: '10' }] },
+      { name: 'Paya Lebar',  directions: [{ to: 'Pasir Ris', door: '11' }, { to: 'Tuas Link', door: '14' }] }
+    ]
+  },
+  NS: {
+    color: '#d32f2f',
+    stations: [
+      { name: 'Orchard', directions: [{ to: 'Jurong East', door: '3' }, { to: 'Marina South Pier', door: '8' }] }
+    ]
+  },
+  CC: {
+    color: '#f59e0b',
+    stations: [
+      { name: 'Paya Lebar', directions: [{ to: 'HarbourFront', door: '2' }, { to: 'Dhoby Ghaut', door: '7' }] },
+      { name: 'Macpherson', directions: [{ to: 'HarbourFront', door: '6' }, { to: 'Dhoby Ghaut', door: '6' }] }
+    ]
+  },
+  DT: {
+    color: '#005ec4',
+    stations: [
+      { name: 'Bendemeer',    directions: [{ to: 'Expo', door: '8' },  { to: 'Bukit Panjang', door: '5' }] },
+      { name: 'Bukit Panjang',directions: [{ to: 'Expo', door: '?' },  { to: 'Bukit Panjang', door: '7' }] },
+      { name: 'Bugis',        directions: [{ to: 'Expo', door: '6' },  { to: 'Bukit Panjang', door: '?' }] },
+      { name: 'Ubi',          directions: [{ to: 'Expo', door: '8' },  { to: 'Bukit Panjang', door: '?' }] }
+    ]
+  }
 };
 
-let currentLine='EW';
-let travelRoutes=JSON.parse(localStorage.getItem('travel_routes')||'[]');
-let activeTrip=JSON.parse(localStorage.getItem('active_trip')||'null');
+let currentLine = 'EW';
 
-function saveRoutes(){localStorage.setItem('travel_routes',JSON.stringify(travelRoutes));}
-function saveActive(){localStorage.setItem('active_trip',JSON.stringify(activeTrip));}
-
-function render(){
-const lb=document.getElementById('lineButtons');
-const st=document.getElementById('stations');
-lb.innerHTML=''; st.innerHTML='';
-Object.entries(mrtData).forEach(([k,v])=>{
-const b=document.createElement('button');
-b.className='line-btn'+(k===currentLine?' active':'');
-b.style.background=v.color;b.textContent=k;
-b.onclick=()=>{currentLine=k;render();};
-lb.appendChild(b);
-});
-mrtData[currentLine].stations.forEach(s=>{
-const d=document.createElement('div');
-d.className='station';
-d.innerHTML='<b>'+s.name+'</b>'+s.directions.map(x=>'<div class="row"><span>'+x.to+'</span><span class="door">Door '+x.door+'</span></div>').join('');
-st.appendChild(d);
-});
+/* ═══════════════════════════════════════
+   COORD DIRECTORY
+═══════════════════════════════════════ */
+let coordDir = JSON.parse(localStorage.getItem('coord_dir') || '[]');
+// Default entries if empty
+if (!coordDir.length) {
+  coordDir = [
+    { label: 'Home',        lat: 1.3521,  lng: 103.8198 },
+    { label: 'Work',        lat: 1.2966,  lng: 103.8549 },
+    { label: 'Playfacto',   lat: 1.3316,  lng: 103.7436 }
+  ];
+  saveCoords();
 }
 
-function addRoute(){
-const name=prompt('Route name');
-if(!name)return;
-travelRoutes.unshift({name,trips:[]});
-saveRoutes(); renderRoutes();
+function saveCoords() { localStorage.setItem('coord_dir', JSON.stringify(coordDir)); }
+
+function renderCoordTable() {
+  const wrap = document.getElementById('coordTableWrap');
+  if (!coordDir.length) { wrap.innerHTML = '<p style="color:#999;font-size:13px;">No locations saved yet.</p>'; return; }
+  let rows = coordDir.map((c, i) => `
+    <tr>
+      <td><input value="${c.label}" onchange="coordDir[${i}].label=this.value;saveCoords();rebuildRouteSelect()" placeholder="Label"></td>
+      <td><input type="number" value="${c.lat}" step="any" onchange="coordDir[${i}].lat=parseFloat(this.value)||0;saveCoords()" placeholder="Lat"></td>
+      <td><input type="number" value="${c.lng}" step="any" onchange="coordDir[${i}].lng=parseFloat(this.value)||0;saveCoords()" placeholder="Lng"></td>
+      <td><button class="coord-del-btn" onclick="deleteCoord(${i})">✕</button></td>
+    </tr>
+  `).join('');
+  wrap.innerHTML = `
+    <table class="coord-table">
+      <thead><tr><th>Label</th><th>Lat</th><th>Lng</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
-function updateRouteDropdown(){
-const s=document.getElementById('routeSelect');
-const current=s.value;
-s.innerHTML='<option value="">Select Route</option>';
-travelRoutes.forEach((r,i)=>{
-const o=document.createElement('option');
-o.value=i;o.textContent=r.name;s.appendChild(o);
-});
-s.value=current;
+function addCoord() {
+  const label = document.getElementById('newCoordLabel').value.trim();
+  const lat   = parseFloat(document.getElementById('newCoordLat').value);
+  const lng   = parseFloat(document.getElementById('newCoordLng').value);
+  if (!label) { alert('Enter a label'); return; }
+  if (isNaN(lat) || isNaN(lng)) { alert('Enter valid lat/lng'); return; }
+  coordDir.push({ label, lat, lng });
+  saveCoords();
+  renderCoordTable();
+  rebuildRouteSelect();
+  document.getElementById('newCoordLabel').value = '';
+  document.getElementById('newCoordLat').value   = '';
+  document.getElementById('newCoordLng').value   = '';
 }
 
-function getCurrentPosition(){
-return new Promise((resolve,reject)=>{
-navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true});
-});
+function deleteCoord(i) {
+  if (!confirm(`Delete "${coordDir[i].label}"?`)) return;
+  coordDir.splice(i, 1);
+  saveCoords();
+  renderCoordTable();
 }
 
-async function globalStart(){
-const pos=await getCurrentPosition();
-activeTrip={
-startTime:new Date().toISOString(),
-startLat:pos.coords.latitude,
-startLng:pos.coords.longitude
-};
-saveActive();
-document.getElementById('tripStatus').innerHTML='Started at '+activeTrip.startLat.toFixed(5)+','+activeTrip.startLng.toFixed(5);
+function fillCurrentCoord() {
+  const status = document.getElementById('coordStatus');
+  if (!navigator.geolocation) { status.textContent = 'Geolocation not supported'; return; }
+  status.textContent = 'Getting location…';
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('newCoordLat').value = pos.coords.latitude.toFixed(6);
+    document.getElementById('newCoordLng').value = pos.coords.longitude.toFixed(6);
+    status.textContent = `Got: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+  }, err => {
+    status.textContent = 'Location error: ' + err.message;
+  }, { timeout: 8000 });
 }
 
-async function globalStop(){
-if(!activeTrip)return alert('No active trip');
-const route=document.getElementById('routeSelect').value;
-if(route==='')return alert('Select route');
-const pos=await getCurrentPosition();
-const mins=Math.round((Date.now()-new Date(activeTrip.startTime))/60000);
-
-travelRoutes[route].trips.unshift({
-start:activeTrip.startTime,
-mins,
-startLat:activeTrip.startLat,
-startLng:activeTrip.startLng,
-endLat:pos.coords.latitude,
-endLng:pos.coords.longitude
-});
-
-activeTrip=null;
-localStorage.removeItem('active_trip');
-saveRoutes();
-renderRoutes();
-document.getElementById('tripStatus').innerHTML='';
+/* ═══════════════════════════════════════
+   HAVERSINE DISTANCE (km)
+═══════════════════════════════════════ */
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-function distanceMeters(lat1,lng1,lat2,lng2){
-const R=6371000;
-const dLat=(lat2-lat1)*Math.PI/180;
-const dLng=(lng2-lng1)*Math.PI/180;
-const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+function nearestCoord(lat, lng) {
+  if (!coordDir.length) return null;
+  let best = coordDir[0], bestDist = haversine(lat, lng, best.lat, best.lng);
+  coordDir.forEach(c => {
+    const d = haversine(lat, lng, c.lat, c.lng);
+    if (d < bestDist) { best = c; bestDist = d; }
+  });
+  return { coord: best, dist: bestDist };
 }
 
-async function guessRoute(){
-if(!activeTrip)return alert('Start trip first');
-const pos=await getCurrentPosition();
-let best=null,bestScore=Infinity;
+/* ═══════════════════════════════════════
+   TRAVEL ROUTES
+═══════════════════════════════════════ */
+let travelRoutes = JSON.parse(localStorage.getItem('travel_routes') || '[]');
+// Migrate old routes to include coords fields
+travelRoutes = travelRoutes.map(r => ({
+  startLat: null, startLng: null,
+  endLat:   null, endLng:   null,
+  ...r
+}));
 
-travelRoutes.forEach((r,i)=>{
-const s=r.trips.filter(t=>t.startLat&&t.endLat);
-if(!s.length)return;
+function saveRoutes() { localStorage.setItem('travel_routes', JSON.stringify(travelRoutes)); }
 
-const avg=(key)=>s.reduce((a,b)=>a+b[key],0)/s.length;
-
-const score=distanceMeters(activeTrip.startLat,activeTrip.startLng,avg('startLat'),avg('startLng'))
-+distanceMeters(pos.coords.latitude,pos.coords.longitude,avg('endLat'),avg('endLng'));
-
-if(score<bestScore){bestScore=score;best=i;}
-});
-
-if(best!==null){
-document.getElementById('routeSelect').value=best;
-alert('Guess: '+travelRoutes[best].name);
-}
-}
-
-function renderRoutes(){
-updateRouteDropdown();
-const c=document.getElementById('travelTracker');
-c.innerHTML='';
-travelRoutes.forEach((r,i)=>{
-const div=document.createElement('div');
-div.className='travel-card';
-div.innerHTML='<b>'+r.name+'</b><br>Samples: '+r.trips.length;
-c.appendChild(div);
-});
+function rebuildRouteSelect() {
+  const sel = document.getElementById('routeSelect');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- pick route --</option>';
+  travelRoutes.forEach((r, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = r.name;
+    sel.appendChild(opt);
+  });
+  sel.value = prev;
 }
 
+function addRoute() {
+  const name = prompt('Route name\nExample: Home → Playfacto via DT Bendemeer');
+  if (!name) return;
+  travelRoutes.unshift({ name, trips: [], activeStart: null, startLat: null, startLng: null, endLat: null, endLng: null });
+  saveRoutes();
+  renderRoutes();
+  rebuildRouteSelect();
+}
+
+/* ── Route start/end coord setters ── */
+function setRouteCoord(routeIndex, which) {
+  if (!navigator.geolocation) { alert('Geolocation not supported'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const r = travelRoutes[routeIndex];
+    if (which === 'start') { r.startLat = pos.coords.latitude; r.startLng = pos.coords.longitude; }
+    else                   { r.endLat   = pos.coords.latitude; r.endLng   = pos.coords.longitude; }
+    saveRoutes();
+    renderRoutes();
+  }, err => alert('Location error: ' + err.message), { timeout: 8000 });
+}
+
+function clearRouteCoord(routeIndex, which) {
+  const r = travelRoutes[routeIndex];
+  if (which === 'start') { r.startLat = null; r.startLng = null; }
+  else                   { r.endLat   = null; r.endLng   = null; }
+  saveRoutes();
+  renderRoutes();
+}
+
+/* ── Per-route inline guess ── */
+function guessRoute(routeIndex) {
+  const route  = travelRoutes[routeIndex];
+  const el     = document.getElementById(`guess-${routeIndex}`);
+  if (!navigator.geolocation) { el.textContent = 'Geolocation not supported'; return; }
+  el.textContent = 'Getting location…';
+  el.style.display = 'block';
+  navigator.geolocation.getCurrentPosition(pos => {
+    const cur   = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    const lines = [];
+
+    // Nearest to current location
+    const nearCur = nearestCoord(cur.lat, cur.lng);
+    if (nearCur) lines.push(`📍 You're nearest to: ${nearCur.coord.label} (${nearCur.dist.toFixed(2)} km)`);
+
+    // Match start
+    if (route.startLat != null) {
+      const nearStart = nearestCoord(route.startLat, route.startLng);
+      if (nearStart) lines.push(`🚦 Route start ≈ ${nearStart.coord.label} (${nearStart.dist.toFixed(2)} km)`);
+    }
+    // Match end
+    if (route.endLat != null) {
+      const nearEnd = nearestCoord(route.endLat, route.endLng);
+      if (nearEnd) lines.push(`🏁 Route end ≈ ${nearEnd.coord.label} (${nearEnd.dist.toFixed(2)} km)`);
+    }
+    // Best matching route across all routes by start proximity
+    let bestRoute = null, bestDist = Infinity;
+    travelRoutes.forEach((r, i) => {
+      if (r.startLat == null) return;
+      const d = haversine(cur.lat, cur.lng, r.startLat, r.startLng);
+      if (d < bestDist) { bestDist = d; bestRoute = { r, i }; }
+    });
+    if (bestRoute && bestDist < 1.0) {
+      lines.push(`💡 Best route match: "${bestRoute.r.name}" (start ${bestDist.toFixed(2)} km away)`);
+    }
+    el.innerHTML = lines.length ? lines.join('<br>') : 'No coord data to match against. Set start/end coords first.';
+  }, err => { el.textContent = 'Location error: ' + err.message; }, { timeout: 8000 });
+}
+
+/* ═══════════════════════════════════════
+   QUICK TIMER (header)
+═══════════════════════════════════════ */
+let qtActive = JSON.parse(localStorage.getItem('qt_active') || 'null');
+
+function qtStart() {
+  const sel = document.getElementById('routeSelect');
+  if (sel.value === '') { alert('Pick a route first'); return; }
+  if (qtActive) { alert('Timer already running — stop or cancel first'); return; }
+  const routeIndex = parseInt(sel.value);
+
+  if (!navigator.geolocation) {
+    qtActive = { routeIndex, startISO: new Date().toISOString(), startLat: null, startLng: null };
+    saveQT(); updateQTStatus();
+    return;
+  }
+  document.getElementById('qtStatus').textContent = 'Getting GPS…';
+  navigator.geolocation.getCurrentPosition(pos => {
+    const route = travelRoutes[routeIndex];
+    // Auto-set route start coords if not set
+    if (route.startLat == null) {
+      route.startLat = pos.coords.latitude;
+      route.startLng = pos.coords.longitude;
+      saveRoutes(); renderRoutes();
+    }
+    qtActive = {
+      routeIndex,
+      startISO: new Date().toISOString(),
+      startLat: pos.coords.latitude,
+      startLng: pos.coords.longitude
+    };
+    saveQT(); updateQTStatus();
+  }, err => {
+    qtActive = { routeIndex, startISO: new Date().toISOString(), startLat: null, startLng: null };
+    saveQT(); updateQTStatus();
+  }, { timeout: 8000 });
+}
+
+function qtStop() {
+  if (!qtActive) { alert('No timer running'); return; }
+  const mins = Math.round((new Date() - new Date(qtActive.startISO)) / 60000);
+  const route = travelRoutes[qtActive.routeIndex];
+  route.trips.unshift({ start: qtActive.startISO, mins });
+  saveRoutes(); renderRoutes();
+  qtActive = null; saveQT(); updateQTStatus();
+  // Show quick toast
+  const s = document.getElementById('qtStatus');
+  s.className = 'qt-status'; s.textContent = `Saved: ${mins} min trip for "${route.name}"`;
+  setTimeout(updateQTStatus, 3000);
+}
+
+function qtCancel() {
+  if (!qtActive) return;
+  if (!confirm('Cancel running timer?')) return;
+  qtActive = null; saveQT(); updateQTStatus();
+}
+
+function qtGuess() {
+  if (!navigator.geolocation) { alert('Geolocation not supported'); return; }
+  const s = document.getElementById('qtStatus');
+  s.className = 'qt-status'; s.textContent = 'Getting location for guess…';
+  navigator.geolocation.getCurrentPosition(pos => {
+    const cur = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    // Find best matching route by start proximity
+    let best = null, bestDist = Infinity;
+    travelRoutes.forEach((r, i) => {
+      if (r.startLat == null) return;
+      const d = haversine(cur.lat, cur.lng, r.startLat, r.startLng);
+      if (d < bestDist) { bestDist = d; best = { r, i }; }
+    });
+    const nearCur = nearestCoord(cur.lat, cur.lng);
+    let msg = `📍 ${nearCur ? nearCur.coord.label : 'Unknown location'}`;
+    if (best) {
+      msg += ` → Best match: "${best.r.name}" (${bestDist.toFixed(2)} km from start)`;
+      document.getElementById('routeSelect').value = best.i;
+    } else {
+      msg += ' — no routes with start coords set';
+    }
+    s.className = 'qt-status running'; s.textContent = msg;
+  }, err => {
+    document.getElementById('qtStatus').textContent = 'Location error: ' + err.message;
+  }, { timeout: 8000 });
+}
+
+function saveQT() { localStorage.setItem('qt_active', JSON.stringify(qtActive)); }
+
+function updateQTStatus() {
+  const s = document.getElementById('qtStatus');
+  if (!qtActive) {
+    s.className = 'qt-status'; s.textContent = 'No timer running'; return;
+  }
+  const route = travelRoutes[qtActive.routeIndex];
+  const elapsed = Math.round((new Date() - new Date(qtActive.startISO)) / 60000);
+  const loc = qtActive.startLat != null
+    ? (() => { const n = nearestCoord(qtActive.startLat, qtActive.startLng); return n ? ` from ${n.coord.label}` : ''; })()
+    : '';
+  s.className = 'qt-status running';
+  s.textContent = `▶ ${route ? route.name : '?'}${loc} — ${elapsed} min`;
+}
+
+// Refresh running timer every 30s
+setInterval(() => { if (qtActive) updateQTStatus(); }, 30000);
+
+/* ═══════════════════════════════════════
+   RENDER STATIONS
+═══════════════════════════════════════ */
+function render() {
+  const lineButtons = document.getElementById('lineButtons');
+  lineButtons.innerHTML = '';
+  Object.entries(mrtData).forEach(([key, line]) => {
+    const btn = document.createElement('button');
+    btn.className = 'line-btn' + (key === currentLine ? ' active' : '');
+    btn.textContent = key;
+    btn.style.background = line.color;
+    btn.onclick = () => { currentLine = key; render(); };
+    lineButtons.appendChild(btn);
+  });
+
+  const stations = document.getElementById('stations');
+  stations.innerHTML = '';
+  mrtData[currentLine].stations.forEach(station => {
+    const div = document.createElement('div');
+    div.className = 'station';
+    let rows = station.directions.map(d => `
+      <div class="row" onclick="quickFeedback('${station.name}','${d.to}')">
+        <div>${d.to}</div>
+        <div class="door">Door ${d.door}</div>
+      </div>`).join('');
+    div.innerHTML = `<div class="station-name">${station.name}</div>${rows}`;
+    stations.appendChild(div);
+  });
+}
+
+/* ═══════════════════════════════════════
+   RENDER ROUTES
+═══════════════════════════════════════ */
+function calcStats(trips) {
+  if (!trips.length) return { min: '-', avg: '-', max: '-' };
+  const mins = trips.map(t => t.mins);
+  return { min: Math.min(...mins), avg: Math.round(mins.reduce((a,b)=>a+b,0)/mins.length), max: Math.max(...mins) };
+}
+
+function fmtCoord(lat, lng) {
+  if (lat == null) return null;
+  const n = nearestCoord(lat, lng);
+  return n ? `${n.coord.label} (${n.dist.toFixed(2)} km)` : `${lat.toFixed(4)},${lng.toFixed(4)}`;
+}
+
+function renderRoutes() {
+  const container = document.getElementById('travelTracker');
+  container.innerHTML = '';
+  if (!travelRoutes.length) {
+    container.innerHTML = '<div style="color:#999;font-size:13px;">No routes yet — tap + Add Route</div>';
+    return;
+  }
+  travelRoutes.forEach((route, index) => {
+    const stats = calcStats(route.trips);
+    const div   = document.createElement('div');
+    div.className = 'travel-card';
+
+    const running = route.activeStart
+      ? `<div class="timer-running">Timer running since ${new Date(route.activeStart).toLocaleTimeString()}</div>`
+      : '';
+
+    const startLabel = fmtCoord(route.startLat, route.startLng);
+    const endLabel   = fmtCoord(route.endLat, route.endLng);
+
+    const coordHtml = `
+      <div class="route-coord-info">
+        <span>Start: ${startLabel
+          ? `<span class="route-coord-chip" onclick="clearRouteCoord(${index},'start')" title="Tap to clear">${startLabel} ✕</span>`
+          : `<button class="qt-btn qt-start" style="padding:3px 8px;font-size:11px;" onclick="setRouteCoord(${index},'start')">Set GPS</button>`
+        }</span>
+        <span>End: ${endLabel
+          ? `<span class="route-coord-chip" onclick="clearRouteCoord(${index},'end')" title="Tap to clear">${endLabel} ✕</span>`
+          : `<button class="qt-btn qt-start" style="padding:3px 8px;font-size:11px;" onclick="setRouteCoord(${index},'end')">Set GPS</button>`
+        }</span>
+      </div>`;
+
+    const tripsHtml = route.trips.slice(0, 10).map((trip, tripIndex) => `
+      <div class="trip-item">
+        <div>${trip.mins} mins — ${new Date(trip.start).toLocaleString()}</div>
+        <div class="trip-item-btns">
+          <button class="edit-btn"   onclick="openEditModal(${index}, ${tripIndex})">Edit</button>
+          <button class="delete-btn" onclick="deleteTrip(${index}, ${tripIndex})">Delete</button>
+        </div>
+      </div>`).join('');
+
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div class="travel-title" style="margin-bottom:4px;">${route.name}</div>
+        <button class="delete-btn" style="padding:4px 9px;font-size:12px;" onclick="deleteRoute(${index})">✕ Route</button>
+      </div>
+      ${coordHtml}
+      ${running}
+      <div class="stats" style="margin-top:8px;">
+        <div class="stat">Min: ${stats.min} m</div>
+        <div class="stat">Avg: ${stats.avg} m</div>
+        <div class="stat">Max: ${stats.max} m</div>
+        <div class="stat">n=${route.trips.length}</div>
+      </div>
+      <div class="travel-buttons">
+        <button class="start-btn"        onclick="startRoute(${index})">▶ Start</button>
+        <button class="stop-btn"         onclick="stopRoute(${index})">■ Stop</button>
+        <button class="cancel-btn"       onclick="cancelRoute(${index})">✕ Cancel</button>
+        <button class="manual-btn"       onclick="openManualModal(${index})">+ Manual</button>
+        <button class="guess-inline-btn" onclick="guessRoute(${index})">⊙ Guess</button>
+      </div>
+      <div class="guess-result" id="guess-${index}" style="display:none;"></div>
+      <div class="trip-list">${tripsHtml}</div>`;
+
+    container.appendChild(div);
+  });
+}
+
+function deleteRoute(index) {
+  if (!confirm(`Delete route "${travelRoutes[index].name}" and all its trips?`)) return;
+  travelRoutes.splice(index, 1);
+  saveRoutes(); renderRoutes(); rebuildRouteSelect();
+}
+
+/* ── Per-route timer controls ── */
+function startRoute(index) {
+  const route = travelRoutes[index];
+  if (route.activeStart) { alert('Timer already running'); return; }
+  route.activeStart = new Date().toISOString();
+  saveRoutes(); renderRoutes();
+}
+function stopRoute(index) {
+  const route = travelRoutes[index];
+  if (!route.activeStart) { alert('No timer running'); return; }
+  const mins = Math.round((new Date() - new Date(route.activeStart)) / 60000);
+  route.trips.unshift({ start: route.activeStart, mins });
+  route.activeStart = null;
+  saveRoutes(); renderRoutes();
+}
+function cancelRoute(index) {
+  const route = travelRoutes[index];
+  if (!route.activeStart) { alert('No timer running'); return; }
+  if (!confirm('Cancel running timer?')) return;
+  route.activeStart = null;
+  saveRoutes(); renderRoutes();
+}
+function deleteTrip(routeIndex, tripIndex) {
+  if (!confirm('Delete this sample?')) return;
+  travelRoutes[routeIndex].trips.splice(tripIndex, 1);
+  saveRoutes(); renderRoutes();
+}
+
+/* ═══════════════════════════════════════
+   MODAL
+═══════════════════════════════════════ */
+let _modalMode = null, _modalRoute = null, _modalTripIdx = null;
+
+function todayISO() { return new Date().toISOString().slice(0,10); }
+
+function openManualModal(routeIndex) {
+  _modalMode = 'manual'; _modalRoute = routeIndex; _modalTripIdx = null;
+  document.getElementById('modalTitle').textContent = 'Add Manual Time';
+  const now = new Date();
+  document.getElementById('modalDate').value     = todayISO();
+  document.getElementById('modalHour').value     = now.getHours();
+  document.getElementById('modalMin').value      = now.getMinutes();
+  document.getElementById('modalDuration').value = '';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function openEditModal(routeIndex, tripIndex) {
+  _modalMode = 'edit'; _modalRoute = routeIndex; _modalTripIdx = tripIndex;
+  const trip = travelRoutes[routeIndex].trips[tripIndex];
+  const d = new Date(trip.start);
+  document.getElementById('modalTitle').textContent  = 'Edit Sample';
+  document.getElementById('modalDate').value         = d.toISOString().slice(0,10);
+  document.getElementById('modalHour').value         = d.getHours();
+  document.getElementById('modalMin').value          = d.getMinutes();
+  document.getElementById('modalDuration').value     = trip.mins;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  _modalMode = _modalRoute = _modalTripIdx = null;
+}
+
+function confirmModal() {
+  const dateStr  = document.getElementById('modalDate').value;
+  const hour     = parseInt(document.getElementById('modalHour').value, 10);
+  const min      = parseInt(document.getElementById('modalMin').value, 10);
+  const duration = parseInt(document.getElementById('modalDuration').value, 10);
+  if (!dateStr)                                  { alert('Enter a date'); return; }
+  if (isNaN(hour)||hour<0||hour>23)              { alert('Enter valid hour 0–23'); return; }
+  if (isNaN(min)||min<0||min>59)                 { alert('Enter valid minutes 0–59'); return; }
+  if (isNaN(duration)||duration<1)               { alert('Enter duration ≥ 1 min'); return; }
+  const startISO = new Date(`${dateStr}T${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}:00`).toISOString();
+  const route = travelRoutes[_modalRoute];
+  if (_modalMode === 'manual') route.trips.unshift({ start: startISO, mins: duration });
+  else route.trips[_modalTripIdx] = { start: startISO, mins: duration };
+  saveRoutes(); renderRoutes(); closeModal();
+}
+
+/* ═══════════════════════════════════════
+   FEEDBACK
+═══════════════════════════════════════ */
+function saveFeedback() {
+  try {
+    localStorage.setItem('mrt_feedback', document.getElementById('feedbackText').value);
+    document.getElementById('saveStatus').textContent = 'Saved locally';
+  } catch(e) { document.getElementById('saveStatus').textContent = 'Save failed'; }
+}
+function loadFeedback() {
+  const saved = localStorage.getItem('mrt_feedback');
+  if (saved) { document.getElementById('feedbackText').value = saved; }
+}
+function sendUpdate() {
+  const text = document.getElementById('feedbackText').value;
+  window.location.href = `mailto:bnxx6778@gmail.com?subject=${encodeURIComponent('MRT Door Finder Update')}&body=${encodeURIComponent(text)}`;
+}
+function quickFeedback(station, direction) {
+  const ta = document.getElementById('feedbackText');
+  if (ta.value && !ta.value.endsWith('\n')) ta.value += '\n';
+  ta.value += `- update ${station} ${direction} door `;
+  ta.focus();
+  ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function clearFeedback() {
+  if (!confirm('Clear feedback and saved copy?')) return;
+  document.getElementById('feedbackText').value = '';
+  try { localStorage.removeItem('mrt_feedback'); document.getElementById('saveStatus').textContent = 'Cleared'; }
+  catch(e) { document.getElementById('saveStatus').textContent = 'Clear failed'; }
+}
+
+/* ═══════════════════════════════════════
+   INIT
+═══════════════════════════════════════ */
 render();
+loadFeedback();
 renderRoutes();
+renderCoordTable();
+rebuildRouteSelect();
+updateQTStatus();
 </script>
 </body>
 </html>
