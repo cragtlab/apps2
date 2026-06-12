@@ -1,0 +1,26 @@
+write a simple coding harness/agent using Powershell
+
+Set up a Excel sheet with these exact column headers from left to right: 
+Status (Your Kanban columns: Todo, Doing, Done, Failed). 
+Date Updated (The last day either of you changed the row)
+My Request (Your original task description and notes)
+Agent Notes (The agent’s answers or questions)
+File Link / Name (The name of the file or a local file path link)
+
+There are a few parts
+1. Powershell - 
+- it will read/display the Excel at start in table
+-- BG Find those Todo and pass the request and file content to coding agent (ollama local API). Ask it to give agent note before ==== and htm code thereafter as will paste back into htm. Update as Doing. 
+-- when agent fail, put back as Failed and put in agent note error message
+-- when agent done, save as Done, put agent note before === and those code after === back into htm
+- buttons below add (browsing file) then i key request and it will fill up as Todo
+- button to reset as Todo (prompt text to update) 
+- backup Excel if haven't for daily and weekly (check .week.bak and .day.bak if > 1 week or 1 day)
+
+2. Coding agent (which is just running on ollama local API).
+
+3. Excel file tasks.csv
+
+4. Files are in files folder
+- independent single-page htm/js files (which coding agent will read/update)
+

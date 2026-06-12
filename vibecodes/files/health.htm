@@ -1,0 +1,22 @@
+﻿<!DOCTYPE html>
+<html>
+<body>
+  <button id="startBtn">Start</button>
+  <div id="timerDisplay">00:00</div>
+  <script>
+    let startTime = null;
+    function startTimer() {
+      if (startTime === null) {
+        startTime = new Date().getTime();
+        setInterval(updateTimer, 1000);
+      }
+    }
+    function updateTimer() {
+      const elapsed = new Date().getTime() - startTime;
+      const minutes = Math.floor(elapsed / 60000);
+      const seconds = Math.floor((elapsed % 60000) / 1000);
+      document.getElementById('timerDisplay').innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+  </script>
+</body>
+</html>

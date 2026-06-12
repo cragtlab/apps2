@@ -1,0 +1,4 @@
+Status,Date Updated,My Request,Agent Notes,File Link / Name,Archived At
+Failed,2026-06-03,make it faster,Error: Exception calling GetResponse with 0 argument(s): The remote server returned an error: (404) Not Found.,test.html,2026-06-03 10:40:40
+Failed,2026-06-03,make it faster,Error: Exception calling GetResponse with 0 argument(s): The underlying connection was closed: The connection was closed unexpectedly.,test.html,2026-06-03 11:17:41
+Done,2026-06-04,"just change title to tomrrow date (actual date, not the text)t","[STUB] Would have called Ollama with model auto-selected. File: files/h2.htm (111 chars). Request: just change title to tomrrow date (actual date, not the text)t",h2.htm,2026-06-04 01:03:52
