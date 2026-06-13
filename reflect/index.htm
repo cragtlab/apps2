@@ -21,22 +21,22 @@
             background: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 15px;
+            padding: 5px;
             display: flex;
             justify-content: center;
         }
 
         .container {
             width: 100%;
-            max-width: 600px;
+            max-width: 650px;
         }
 
         .card {
             background: var(--card);
-            padding: 20px;
+            padding: 12px;
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         h1 {
@@ -289,7 +289,7 @@
 <body>
     <div class="container">
         <div class="card">
-            <h1 id="form-title">Reflect</h1>
+            <h1 id="form-title" class="hidden">Reflect</h1>
 
             <div class="input-group">
                 <div class="row">
@@ -318,9 +318,9 @@
                 <div class="row">
                     <select id="quick-links" onchange="if(this.value) window.open(this.value, '_blank'); this.value='';" style="font-size: 0.8rem; padding: 4px; border-radius: 4px; border: 1px solid var(--border);">
                         <option value="">Quick Links</option>
+                        <option value="https://docs.google.com/spreadsheets/d/1M8RQOwk1Cl0YMopYFDrGlTAm8bVHDnXKstrKWoip8C0/edit?gid=0#gid=0">Gdrive Spreadsheet</option>
                         <option value="https://google.com">Google</option>
                     </select>
-                    <a href="https://docs.google.com/spreadsheets/d/1M8RQOwk1Cl0YMopYFDrGlTAm8bVHDnXKstrKWoip8C0/edit?gid=0#gid=0" target="_blank" style="font-size: 0.8rem; color: var(--primary);">Gdrive Link</a>
                 </div>
             </div>
         </div>
@@ -428,8 +428,8 @@
             formTitle.innerText = "Update Event";
             actionBtns.innerHTML = `
                 <button class="btn-update" onclick="saveEvent()">Update</button>
-                <button class="btn-delete" onclick="deleteEvent()">Delete</button>
-                <button class="btn-cancel" onclick="resetForm()">Cancel</button>
+                <button class="btn-delete" title="Delete" onclick="deleteEvent()">🗑️</button>
+                <button class="btn-cancel" title="Cancel" onclick="resetForm()">X</button>
             `;
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
