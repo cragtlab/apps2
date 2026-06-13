@@ -67,6 +67,12 @@
             flex: 1;
         }
 
+        input[type="date"] {
+            font-size: 0.9rem;
+            padding: 8px;
+            max-width: 140px;
+        }
+
         .checkbox-group {
             display: flex;
             align-items: center;
@@ -90,6 +96,11 @@
             cursor: pointer;
             transition: opacity 0.2s;
             font-size: 0.9rem;
+        }
+
+        .btn-snooze {
+            font-size: 0.8rem;
+            padding: 8px 10px;
         }
 
         button:active {
@@ -257,9 +268,9 @@
             background: var(--primary);
             color: white;
             border-radius: 2px;
-            white-space: nowrap;
+            white-space: normal;
+            word-break: break-word;
             overflow: hidden;
-            text-overflow: ellipsis;
             cursor: pointer;
         }
 
@@ -295,8 +306,11 @@
             </div>
 
             <div class="clipboard-btns">
-                <button class="btn-secondary" onclick="copyToClipboard()">Copy CSV</button>
-                <button class="btn-secondary" onclick="pasteFromClipboard()">Paste CSV</button>
+                <div class="btn-group">
+                    <button class="btn-secondary" onclick="copyToClipboard()">Copy</button>
+                    <button class="btn-secondary" onclick="pasteFromClipboard()">Paste</button>
+                </div>
+                <a href="#" target="_blank" style="font-size: 0.8rem; color: var(--primary);">Gdrive Link</a>
             </div>
         </div>
 
@@ -326,10 +340,15 @@
         const actionBtns = document.getElementById('action-btns');
         const formTitle = document.getElementById('form-title');
 
+        // Get local YYYY-MM-DD string
+        function getLocalToday() {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        }
+
         // Set default date to today
         function setToday() {
-            const now = new Date();
-            dateInput.value = now.toISOString().split('T')[0];
+            dateInput.value = getLocalToday();
         }
         setToday();
 
@@ -373,7 +392,7 @@
         function snooze(days) {
             const d = new Date();
             d.setDate(d.getDate() + days);
-            dateInput.value = d.toISOString().split('T')[0];
+            dateInput.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
             if (editingId !== null) {
                 saveEvent();
@@ -419,6 +438,24 @@
             render();
         }
 
+        function escapeHTML(str) {
+            return str.replace(/[&<>"']/g, function(m) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[m];
+            });
+        }
+
+        function linkify(text) {
+            const escaped = escapeHTML(text);
+            const urlPattern = /(\b(https?):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+            return escaped.replace(urlPattern, '<a href="$1" target="_blank" onclick="event.stopPropagation()">$1</a>');
+        }
+
         function formatDate(dateStr) {
             if (!dateStr) return '';
             const [y, m, d] = dateStr.split('-').map(Number);
@@ -433,7 +470,7 @@
         function render() {
             const container = document.getElementById('event-display');
             const hidePast = document.getElementById('hide-past').checked;
-            const todayStr = new Date().toISOString().split('T')[0];
+            const todayStr = getLocalToday();
 
             let filteredEvents = [...events].sort((a, b) => a.date.localeCompare(b.date));
             if (hidePast) {
@@ -460,7 +497,7 @@
                             <div class="event-info">
                                 <span class="event-date">${formatDate(e.date)}</span>
                                 <span class="event-title">
-                                    ${e.title}
+                                    ${linkify(e.title)}
                                     ${e.isPromo ? '<span class="promo-tag">PROMO</span>' : ''}
                                 </span>
                             </div>
@@ -528,7 +565,7 @@
                         <div class="day-num">${day}</div>
                         ${dayEvents.map(e => `
                             <div class="cal-event ${e.isPromo ? 'is-promo' : ''}" onclick="event.stopPropagation(); editEvent(${e.id})">
-                                ${e.title}
+                                ${escapeHTML(e.title)}
                             </div>
                         `).join('')}
                     </div>
