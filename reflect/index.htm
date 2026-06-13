@@ -246,6 +246,11 @@
             display: flex;
             flex-direction: column;
             gap: 2px;
+            cursor: pointer;
+        }
+
+        .calendar-cell:hover {
+            background: #f1f5f9;
         }
 
         .calendar-cell.other-month {
@@ -310,14 +315,20 @@
                     <button class="btn-secondary" onclick="copyToClipboard()">Copy</button>
                     <button class="btn-secondary" onclick="pasteFromClipboard()">Paste</button>
                 </div>
-                <a href="https://docs.google.com/spreadsheets/d/1M8RQOwk1Cl0YMopYFDrGlTAm8bVHDnXKstrKWoip8C0/edit?gid=0#gid=0" target="_blank" style="font-size: 0.8rem; color: var(--primary);">Gdrive Link</a>
+                <div class="row">
+                    <select id="quick-links" onchange="if(this.value) window.open(this.value, '_blank'); this.value='';" style="font-size: 0.8rem; padding: 4px; border-radius: 4px; border: 1px solid var(--border);">
+                        <option value="">Quick Links</option>
+                        <option value="https://google.com">Google</option>
+                    </select>
+                    <a href="https://docs.google.com/spreadsheets/d/1M8RQOwk1Cl0YMopYFDrGlTAm8bVHDnXKstrKWoip8C0/edit?gid=0#gid=0" target="_blank" style="font-size: 0.8rem; color: var(--primary);">Gdrive Link</a>
+                </div>
             </div>
         </div>
 
         <div class="view-controls">
             <div class="view-toggles">
-                <button id="view-agenda" class="active" onclick="setView('agenda')">Agenda</button>
-                <button id="view-months" onclick="setView('months')">Months</button>
+                <button id="view-agenda" onclick="setView('agenda')">Agenda</button>
+                <button id="view-months" class="active" onclick="setView('months')">Months</button>
             </div>
             <label class="checkbox-group">
                 <input type="checkbox" id="hide-past" checked onchange="render()"> Hide Past
@@ -331,7 +342,7 @@
 
     <script>
         let events = JSON.parse(localStorage.getItem('reflect_events') || '[]');
-        let currentView = 'agenda';
+        let currentView = 'months';
         let editingId = null;
 
         const dateInput = document.getElementById('event-date');
@@ -397,6 +408,12 @@
             if (editingId !== null) {
                 saveEvent();
             }
+        }
+
+        function selectDate(dateStr) {
+            dateInput.value = dateStr;
+            titleInput.focus();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function editEvent(id) {
@@ -563,7 +580,7 @@
                 const isToday = dStr === todayStr;
 
                 html += `
-                    <div class="calendar-cell ${isToday ? 'today' : ''}">
+                    <div class="calendar-cell ${isToday ? 'today' : ''}" onclick="selectDate('${dStr}')">
                         <div class="day-num">${day}</div>
                         ${dayEvents.map(e => {
                             const cleanTitle = e.title.replace(/(\b(https?):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig, '').trim();
