@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflect - Event Tracker</title>
+    <style>
+        :root {
+            --primary: #4a6fa5;
+            --secondary: #166088;
+            --promo: #ff6b6b;
+            --bg: #f0f4f8;
+            --card: #ffffff;
+            --text: #2d3748;
+            --border: #cbd5e0;
+            --past: #a0aec0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 20px 0;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="date"], input[type="text"] {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            flex: 1;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-size: 0.9rem;
+        }
+
+        button:active {
+            opacity: 0.8;
+        }
+
+        .btn-add { background: var(--primary); color: white; flex: 2; }
+        .btn-update { background: #48bb78; color: white; flex: 2; }
+        .btn-delete { background: #f56565; color: white; }
+        .btn-cancel { background: #a0aec0; color: white; }
+        .btn-snooze { background: #ed8936; color: white; }
+        .btn-secondary { background: #e2e8f0; color: var(--text); }
+
+        .clipboard-btns {
+            margin-top: 10px;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .view-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .view-toggles {
+            display: flex;
+            background: #e2e8f0;
+            padding: 3px;
+            border-radius: 8px;
+        }
+
+        .view-toggles button {
+            background: transparent;
+            color: var(--text);
+            padding: 5px 12px;
+            border-radius: 6px;
+        }
+
+        .view-toggles button.active {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Listing Styles */
+        .event-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .event-item {
+            padding: 12px;
+            border-left: 4px solid var(--primary);
+            background: #f8fafc;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .event-item:hover {
+            background: #edf2f7;
+        }
+
+        .event-item.is-promo {
+            border-left-color: var(--promo);
+            background: #fff5f5;
+        }
+
+        .event-item.is-past {
+            opacity: 0.6;
+            border-left-color: var(--past);
+        }
+
+        .event-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .event-date {
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #718096;
+            text-transform: uppercase;
+        }
+
+        .event-title {
+            font-size: 1rem;
+        }
+
+        .promo-tag {
+            background: var(--promo);
+            color: white;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            vertical-align: middle;
+            font-weight: bold;
+        }
+
+        /* Month View Grid */
+        .month-view {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .month-header {
+            font-weight: bold;
+            font-size: 1.1rem;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            background: var(--border);
+            border: 1px solid var(--border);
+        }
+
+        .calendar-day-header {
+            background: #edf2f7;
+            padding: 5px;
+            text-align: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: #4a5568;
+        }
+
+        .calendar-cell {
+            background: white;
+            min-height: 60px;
+            padding: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .calendar-cell.other-month {
+            background: #f7fafc;
+            color: #cbd5e0;
+        }
+
+        .calendar-cell.today {
+            background: #ebf8ff;
+        }
+
+        .day-num {
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        .cal-event {
+            font-size: 0.6rem;
+            padding: 2px 4px;
+            background: var(--primary);
+            color: white;
+            border-radius: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+
+        .cal-event.is-promo {
+            background: var(--promo);
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1 id="form-title">Reflect</h1>
+
+            <div class="input-group">
+                <div class="row">
+                    <input type="date" id="event-date">
+                    <div class="btn-group">
+                        <button class="btn-snooze" onclick="snooze(1)">+1d</button>
+                        <button class="btn-snooze" onclick="snooze(7)">+1w</button>
+                    </div>
+                </div>
+                <input type="text" id="event-title" placeholder="Event description...">
+                <div class="row" style="justify-content: space-between;">
+                    <label class="checkbox-group">
+                        <input type="checkbox" id="event-promo"> Promo?
+                    </label>
+                    <div id="action-btns" class="btn-group" style="flex: 1; justify-content: flex-end;">
+                        <button class="btn-add" id="btn-save" onclick="saveEvent()">Add Event</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="clipboard-btns">
+                <button class="btn-secondary" onclick="copyToClipboard()">Copy CSV</button>
+                <button class="btn-secondary" onclick="pasteFromClipboard()">Paste CSV</button>
+            </div>
+        </div>
+
+        <div class="view-controls">
+            <div class="view-toggles">
+                <button id="view-agenda" class="active" onclick="setView('agenda')">Agenda</button>
+                <button id="view-months" onclick="setView('months')">Months</button>
+            </div>
+            <label class="checkbox-group">
+                <input type="checkbox" id="hide-past" checked onchange="render()"> Hide Past
+            </label>
+        </div>
+
+        <div id="event-display">
+            <!-- Agenda or Month view will be rendered here -->
+        </div>
+    </div>
+
+    <script>
+        let events = JSON.parse(localStorage.getItem('reflect_events') || '[]');
+        let currentView = 'agenda';
+        let editingId = null;
+
+        const dateInput = document.getElementById('event-date');
+        const titleInput = document.getElementById('event-title');
+        const promoInput = document.getElementById('event-promo');
+        const actionBtns = document.getElementById('action-btns');
+        const formTitle = document.getElementById('form-title');
+
+        // Set default date to today
+        function setToday() {
+            const now = new Date();
+            dateInput.value = now.toISOString().split('T')[0];
+        }
+        setToday();
+
+        function saveEvent() {
+            const date = dateInput.value;
+            const title = titleInput.value.trim();
+            const isPromo = promoInput.checked;
+
+            if (!date || !title) return alert('Please enter date and title');
+
+            if (editingId !== null) {
+                const idx = events.findIndex(e => e.id === editingId);
+                if (idx !== -1) {
+                    events[idx] = { ...events[idx], date, title, isPromo };
+                }
+                editingId = null;
+            } else {
+                const newEvent = {
+                    id: Date.now(),
+                    date,
+                    title,
+                    isPromo
+                };
+                events.push(newEvent);
+            }
+
+            saveAndRender();
+            resetForm();
+        }
+
+        function deleteEvent() {
+            if (editingId === null) return;
+            if (confirm('Delete this event?')) {
+                events = events.filter(e => e.id !== editingId);
+                editingId = null;
+                saveAndRender();
+                resetForm();
+            }
+        }
+
+        function snooze(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            dateInput.value = d.toISOString().split('T')[0];
+
+            if (editingId !== null) {
+                saveEvent();
+            }
+        }
+
+        function editEvent(id) {
+            const event = events.find(e => e.id === id);
+            if (!event) return;
+
+            editingId = id;
+            dateInput.value = event.date;
+            titleInput.value = event.title;
+            promoInput.checked = event.isPromo;
+
+            formTitle.innerText = "Update Event";
+            actionBtns.innerHTML = `
+                <button class="btn-update" onclick="saveEvent()">Update</button>
+                <button class="btn-delete" onclick="deleteEvent()">Delete</button>
+                <button class="btn-cancel" onclick="resetForm()">Cancel</button>
+            `;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetForm() {
+            editingId = null;
+            setToday();
+            titleInput.value = '';
+            promoInput.checked = false;
+            formTitle.innerText = "Reflect";
+            actionBtns.innerHTML = `<button class="btn-add" id="btn-save" onclick="saveEvent()">Add Event</button>`;
+        }
+
+        function setView(view) {
+            currentView = view;
+            document.getElementById('view-agenda').classList.toggle('active', view === 'agenda');
+            document.getElementById('view-months').classList.toggle('active', view === 'months');
+            render();
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('reflect_events', JSON.stringify(events));
+            render();
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const date = new Date(y, m - 1, d);
+            const day = String(d).padStart(2, '0');
+            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            return `${day}-${month}-${year}`;
+        }
+
+        function render() {
+            const container = document.getElementById('event-display');
+            const hidePast = document.getElementById('hide-past').checked;
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            let filteredEvents = [...events].sort((a, b) => a.date.localeCompare(b.date));
+            if (hidePast) {
+                filteredEvents = filteredEvents.filter(e => e.date >= todayStr);
+            }
+
+            if (currentView === 'agenda') {
+                renderAgenda(container, filteredEvents, todayStr);
+            } else {
+                renderMonths(container, filteredEvents, todayStr);
+            }
+        }
+
+        function renderAgenda(container, filteredEvents, todayStr) {
+            if (filteredEvents.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color: #718096;">No events found.</p>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="event-list">
+                    ${filteredEvents.map(e => `
+                        <div class="event-item ${e.isPromo ? 'is-promo' : ''} ${e.date < todayStr ? 'is-past' : ''}" onclick="editEvent(${e.id})">
+                            <div class="event-info">
+                                <span class="event-date">${formatDate(e.date)}</span>
+                                <span class="event-title">
+                                    ${e.title}
+                                    ${e.isPromo ? '<span class="promo-tag">PROMO</span>' : ''}
+                                </span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderMonths(container, filteredEvents, todayStr) {
+            if (filteredEvents.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color: #718096;">No events found.</p>';
+                return;
+            }
+
+            // Group events by year-month
+            const months = {};
+            filteredEvents.forEach(e => {
+                const ym = e.date.substring(0, 7); // yyyy-mm
+                if (!months[ym]) months[ym] = [];
+                months[ym].push(e);
+            });
+
+            const sortedMonths = Object.keys(months).sort();
+
+            container.innerHTML = `<div class="month-view">
+                ${sortedMonths.map(ym => {
+                    const [year, month] = ym.split('-').map(Number);
+                    const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                    return `
+                        <div class="month-block">
+                            <div class="month-header">${monthName}</div>
+                            ${renderCalendar(year, month - 1, months[ym], todayStr)}
+                        </div>
+                    `;
+                }).join('')}
+            </div>`;
+        }
+
+        function renderCalendar(year, month, monthEvents, todayStr) {
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let html = `<div class="calendar-grid">
+                <div class="calendar-day-header">S</div>
+                <div class="calendar-day-header">M</div>
+                <div class="calendar-day-header">T</div>
+                <div class="calendar-day-header">W</div>
+                <div class="calendar-day-header">T</div>
+                <div class="calendar-day-header">F</div>
+                <div class="calendar-day-header">S</div>
+            `;
+
+            for (let i = 0; i < firstDay; i++) {
+                html += '<div class="calendar-cell other-month"></div>';
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayEvents = monthEvents.filter(e => e.date === dStr);
+                const isToday = dStr === todayStr;
+
+                html += `
+                    <div class="calendar-cell ${isToday ? 'today' : ''}">
+                        <div class="day-num">${day}</div>
+                        ${dayEvents.map(e => `
+                            <div class="cal-event ${e.isPromo ? 'is-promo' : ''}" onclick="event.stopPropagation(); editEvent(${e.id})">
+                                ${e.title}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            const totalCells = firstDay + daysInMonth;
+            const remaining = (7 - (totalCells % 7)) % 7;
+            for (let i = 0; i < remaining; i++) {
+                html += '<div class="calendar-cell other-month"></div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        async function copyToClipboard() {
+            const header = "Date,Title,Promo\n";
+            const csv = events.map(e => `${formatDate(e.date)},"${e.title.replace(/"/g, '""')}",${e.isPromo ? 'Y' : ''}`).join('\n');
+            try {
+                await navigator.clipboard.writeText(header + csv);
+                alert('Copied CSV to clipboard!');
+            } catch (err) {
+                alert('Failed to copy');
+            }
+        }
+
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+                if (lines.length === 0) return;
+
+                const newEvents = [];
+                const monthsMap = {
+                    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+                    'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+                };
+
+                const startIdx = lines[0].toLowerCase().includes('date') ? 1 : 0;
+
+                for (let i = startIdx; i < lines.length; i++) {
+                    const row = lines[i];
+                    // Improved CSV row splitting to handle quotes
+                    const parts = [];
+                    let current = '';
+                    let inQuotes = false;
+                    for (let char of row) {
+                        if (char === '"') inQuotes = !inQuotes;
+                        else if (char === ',' && !inQuotes) {
+                            parts.push(current);
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                    parts.push(current);
+
+                    if (parts.length < 2) continue;
+
+                    const datePart = parts[0].trim().split('-');
+                    if (datePart.length !== 3) continue;
+
+                    const day = parseInt(datePart[0]);
+                    const month = monthsMap[datePart[1]];
+                    const year = parseInt(datePart[2]);
+
+                    if (isNaN(day) || month === undefined || isNaN(year)) continue;
+
+                    const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const title = parts[1].replace(/""/g, '"').trim();
+                    const isPromo = parts[2] ? parts[2].trim().toUpperCase() === 'Y' : false;
+
+                    newEvents.push({
+                        id: Date.now() + Math.random(),
+                        date: isoDate,
+                        title: title,
+                        isPromo: isPromo
+                    });
+                }
+
+                if (newEvents.length > 0) {
+                    if (confirm(`Replace all existing events with ${newEvents.length} events from clipboard?`)) {
+                        events = newEvents;
+                        saveAndRender();
+                    }
+                } else {
+                    alert('No valid events found in clipboard.');
+                }
+            } catch (err) {
+                alert('Failed to paste. Make sure you granted clipboard permissions.');
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
