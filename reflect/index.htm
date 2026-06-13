@@ -559,7 +559,64 @@
         function renderCalendar(year, month, monthEvents, todayStr) {
             const firstDay = new Date(year, month, 1).getDay();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
-            
+            const hidePast = document.getElementById('hide-past').checked;
+
+            // Group days into weeks
+            const weeks = [];
+            let currentWeek = [];
+
+            // Leading empty cells
+            for (let i = 0; i < firstDay; i++) {
+                currentWeek.push({ type: 'empty' });
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayEvents = monthEvents.filter(e => e.date === dStr);
+                currentWeek.push({ type: 'day', day, dStr, events: dayEvents, isToday: dStr === todayStr });
+
+                if (currentWeek.length === 7) {
+                    weeks.push(currentWeek);
+                    currentWeek = [];
+                }
+            }
+
+            // Trailing empty cells
+            if (currentWeek.length > 0) {
+                while (currentWeek.length < 7) {
+                    currentWeek.push({ type: 'empty' });
+                }
+                weeks.push(currentWeek);
+            }
+
+            // Filter weeks if hidePast is on
+            let visibleWeeks = weeks;
+            if (hidePast) {
+                const [ty, tm, td] = todayStr.split('-').map(Number);
+                const today = new Date(ty, tm - 1, td);
+                
+                // Set today to start of its day for comparison
+                today.setHours(0,0,0,0);
+
+                visibleWeeks = weeks.filter(week => {
+                    // Check if this week contains today or any future day OR has any events
+                    const hasFutureOrToday = week.some(cell => {
+                        if (cell.type !== 'day') return false;
+                        const [y, m, d] = cell.dStr.split('-').map(Number);
+                        const cellDate = new Date(y, m - 1, d);
+                        cellDate.setHours(0,0,0,0);
+                        return cellDate >= today;
+                    });
+                    const hasEvents = week.some(cell => cell.type === 'day' && cell.events.length > 0);
+                    
+                    return hasFutureOrToday || hasEvents;
+                });
+            }
+
+            if (visibleWeeks.length === 0) {
+                return '<p style="text-align:center; color: #718096; padding: 10px;">No upcoming weeks found.</p>';
+            }
+
             let html = `<div class="calendar-grid">
                 <div class="calendar-day-header">S</div>
                 <div class="calendar-day-header">M</div>
@@ -570,35 +627,27 @@
                 <div class="calendar-day-header">S</div>
             `;
 
-            for (let i = 0; i < firstDay; i++) {
-                html += '<div class="calendar-cell other-month"></div>';
-            }
-
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const dayEvents = monthEvents.filter(e => e.date === dStr);
-                const isToday = dStr === todayStr;
-
-                html += `
-                    <div class="calendar-cell ${isToday ? 'today' : ''}" onclick="selectDate('${dStr}')">
-                        <div class="day-num">${day}</div>
-                        ${dayEvents.map(e => {
-                            const cleanTitle = e.title.replace(/(\b(https?):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig, '').trim();
-                            return `
-                                <div class="cal-event ${e.isPromo ? 'is-promo' : ''}" onclick="event.stopPropagation(); editEvent(${e.id})">
-                                    ${escapeHTML(cleanTitle)}
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `;
-            }
-
-            const totalCells = firstDay + daysInMonth;
-            const remaining = (7 - (totalCells % 7)) % 7;
-            for (let i = 0; i < remaining; i++) {
-                html += '<div class="calendar-cell other-month"></div>';
-            }
+            visibleWeeks.forEach(week => {
+                week.forEach(cell => {
+                    if (cell.type === 'empty') {
+                        html += '<div class="calendar-cell other-month"></div>';
+                    } else {
+                        html += `
+                            <div class="calendar-cell ${cell.isToday ? 'today' : ''}" onclick="selectDate('${cell.dStr}')">
+                                <div class="day-num">${cell.day}</div>
+                                ${cell.events.map(e => {
+                                    const cleanTitle = e.title.replace(/(\b(https?):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig, '').trim();
+                                    return `
+                                        <div class="cal-event ${e.isPromo ? 'is-promo' : ''}" onclick="event.stopPropagation(); editEvent(${e.id})">
+                                            ${escapeHTML(cleanTitle)}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `;
+                    }
+                });
+            });
 
             html += '</div>';
             return html;
