@@ -543,7 +543,7 @@
             });
 
             const sortedMonths = Object.keys(months).sort();
-
+            
             container.innerHTML = `<div class="month-view">
                 ${sortedMonths.map(ym => {
                     const [year, month] = ym.split('-').map(Number);
@@ -596,7 +596,7 @@
             if (hidePast) {
                 const [ty, tm, td] = todayStr.split('-').map(Number);
                 const today = new Date(ty, tm - 1, td);
-
+                
                 // Set today to start of its day for comparison
                 today.setHours(0,0,0,0);
 
@@ -610,7 +610,7 @@
                         return cellDate >= today;
                     });
                     const hasEvents = week.some(cell => cell.type === 'day' && cell.events.length > 0);
-
+                    
                     return hasFutureOrToday || hasEvents;
                 });
             }
@@ -701,11 +701,11 @@
 
                     const datePart = parts[0].trim().split('-');
                     if (datePart.length !== 3) continue;
-
+                    
                     const day = parseInt(datePart[0]);
                     const month = monthsMap[datePart[1]];
                     const year = parseInt(datePart[2]);
-
+                    
                     if (isNaN(day) || month === undefined || isNaN(year)) continue;
 
                     const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
