@@ -546,11 +546,11 @@
         }
 
         async function copyToClipboard() {
-            const header = "Date,Title,Promo\n";
-            const csv = events.map(e => `${formatDate(e.date)},"${e.title.replace(/"/g, '""')}",${e.isPromo ? 'Y' : ''}`).join('\n');
+            const header = "Date\tTitle\tPromo\n";
+            const csv = events.map(e => `${formatDate(e.date)}\t"${e.title.replace(/"/g, '""')}"\t${e.isPromo ? 'Y' : ''}`).join('\n');
             try {
                 await navigator.clipboard.writeText(header + csv);
-                alert('Copied CSV to clipboard!');
+                alert('Copied (Tab-separated) to clipboard!');
             } catch (err) {
                 alert('Failed to copy');
             }
@@ -572,13 +572,13 @@
 
                 for (let i = startIdx; i < lines.length; i++) {
                     const row = lines[i];
-                    // Improved CSV row splitting to handle quotes
+                    // Split by tab
                     const parts = [];
                     let current = '';
                     let inQuotes = false;
                     for (let char of row) {
                         if (char === '"') inQuotes = !inQuotes;
-                        else if (char === ',' && !inQuotes) {
+                        else if (char === '\t' && !inQuotes) {
                             parts.push(current);
                             current = '';
                         } else {
