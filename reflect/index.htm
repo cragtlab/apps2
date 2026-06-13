@@ -274,7 +274,7 @@
     <div class="container">
         <div class="card">
             <h1 id="form-title">Reflect</h1>
-
+            
             <div class="input-group">
                 <div class="row">
                     <input type="date" id="event-date">
@@ -485,7 +485,7 @@
             });
 
             const sortedMonths = Object.keys(months).sort();
-
+            
             container.innerHTML = `<div class="month-view">
                 ${sortedMonths.map(ym => {
                     const [year, month] = ym.split('-').map(Number);
@@ -503,7 +503,7 @@
         function renderCalendar(year, month, monthEvents, todayStr) {
             const firstDay = new Date(year, month, 1).getDay();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
-
+            
             let html = `<div class="calendar-grid">
                 <div class="calendar-day-header">S</div>
                 <div class="calendar-day-header">M</div>
@@ -546,11 +546,11 @@
         }
 
         async function copyToClipboard() {
-            const header = "Date,Title,Promo\n";
-            const csv = events.map(e => `${formatDate(e.date)},"${e.title.replace(/"/g, '""')}",${e.isPromo ? 'Y' : ''}`).join('\n');
+            const header = "Date\tTitle\tPromo\n";
+            const csv = events.map(e => `${formatDate(e.date)}\t"${e.title.replace(/"/g, '""')}"\t${e.isPromo ? 'Y' : ''}`).join('\n');
             try {
                 await navigator.clipboard.writeText(header + csv);
-                alert('Copied CSV to clipboard!');
+                alert('Copied (Tab-separated) to clipboard!');
             } catch (err) {
                 alert('Failed to copy');
             }
@@ -572,13 +572,13 @@
 
                 for (let i = startIdx; i < lines.length; i++) {
                     const row = lines[i];
-                    // Improved CSV row splitting to handle quotes
+                    // Split by tab
                     const parts = [];
                     let current = '';
                     let inQuotes = false;
                     for (let char of row) {
                         if (char === '"') inQuotes = !inQuotes;
-                        else if (char === ',' && !inQuotes) {
+                        else if (char === '\t' && !inQuotes) {
                             parts.push(current);
                             current = '';
                         } else {
@@ -591,11 +591,11 @@
 
                     const datePart = parts[0].trim().split('-');
                     if (datePart.length !== 3) continue;
-
+                    
                     const day = parseInt(datePart[0]);
                     const month = monthsMap[datePart[1]];
                     const year = parseInt(datePart[2]);
-
+                    
                     if (isNaN(day) || month === undefined || isNaN(year)) continue;
 
                     const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
