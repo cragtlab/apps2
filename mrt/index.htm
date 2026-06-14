@@ -51,8 +51,6 @@ button { border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; f
 .trip-list { font-size: 13px; }
 .trip-item { background: #fafafa; border-radius: 8px; padding: 8px; margin-top: 6px; }
 .trip-item-btns { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
-.timer-running { color: #2e7d32; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
-
 .guess-result {
   background: #e3f2fd; border-radius: 8px; padding: 10px; margin-top: 8px;
   font-size: 13px; border-left: 3px solid #1976d2; line-height: 1.6;
@@ -110,14 +108,6 @@ textarea {
 .modal-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
 .modal-actions .ok-btn  { background: #2e7d32; color: white; }
 .modal-actions .no-btn  { background: #757575; color: white; }
-
-.route-coord-info { font-size: 11px; color: #777; margin: 4px 0 8px; display: flex; gap: 10px; flex-wrap: wrap; }
-.route-coord-chip {
-  background: #e8f5e9; color: #2e7d32; padding: 2px 8px;
-  border-radius: 999px; font-size: 11px; cursor: pointer; border: 1px solid #c8e6c9;
-}
-.route-coord-chip.end-chip { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
-.set-gps-btn { background: #f5f5f5; color: #444; border: 1px solid #ccc; padding: 3px 9px; font-size: 11px; border-radius: 999px; cursor: pointer; }
 
 /* Route add form */
 .add-route-form { background: #f9f9f9; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
@@ -418,11 +408,6 @@ function nearestCoord(lat, lng) {
    TRAVEL ROUTES
 ═══════════════════════════ */
 let travelRoutes = JSON.parse(localStorage.getItem('travel_routes') || '[]');
-travelRoutes = travelRoutes.map(r => ({
-  from: r.from||null, to: r.to||null, via: r.via||null,
-  startLat:null, startLng:null, endLat:null, endLng:null,
-  ...r
-}));
 
 function saveRoutes() { localStorage.setItem('travel_routes', JSON.stringify(travelRoutes)); }
 
@@ -467,11 +452,7 @@ function confirmAddRoute() {
 
   const route = {
     name, from, to, via,
-    trips: [], activeStart: null,
-    startLat: fromCoord ? parseLatLng(fromCoord.latlng)?.lat ?? null : null,
-    startLng: fromCoord ? parseLatLng(fromCoord.latlng)?.lng ?? null : null,
-    endLat:   toCoord   ? parseLatLng(toCoord.latlng)?.lat   ?? null : null,
-    endLng:   toCoord   ? parseLatLng(toCoord.latlng)?.lng   ?? null : null,
+    trips: []
   };
 
   travelRoutes.unshift(route);
@@ -479,46 +460,6 @@ function confirmAddRoute() {
   hideAddRouteForm();
 }
 
-/* Set GPS on route → also updates coord directory */
-function setRouteCoord(routeIndex, which) {
-  if (!navigator.geolocation) { alert('Geolocation not supported'); return; }
-  navigator.geolocation.getCurrentPosition(pos => {
-    const r   = travelRoutes[routeIndex];
-    const lat = pos.coords.latitude, lng = pos.coords.longitude;
-    const latlng = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-    if (which === 'start') { r.startLat=lat; r.startLng=lng; if (r.from) upsertCoord(r.from, latlng); }
-    else                   { r.endLat=lat;   r.endLng=lng;   if (r.to)   upsertCoord(r.to,   latlng); }
-    saveRoutes(); renderRoutes();
-  }, err => alert('Location error: '+err.message), { timeout:8000 });
-}
-
-function clearRouteCoord(routeIndex, which) {
-  const r = travelRoutes[routeIndex];
-  if (which==='start') { r.startLat=null; r.startLng=null; }
-  else                 { r.endLat=null;   r.endLng=null; }
-  saveRoutes(); renderRoutes();
-}
-
-/* Per-route timer (in card) */
-function startRoute(index) {
-  const r = travelRoutes[index];
-  if (r.activeStart) { alert('Timer already running'); return; }
-  r.activeStart = new Date().toISOString();
-  saveRoutes(); renderRoutes();
-}
-function stopRoute(index) {
-  const r = travelRoutes[index];
-  if (!r.activeStart) { alert('No timer running'); return; }
-  const mins = Math.max(1, Math.round((new Date()-new Date(r.activeStart))/60000));
-  r.trips.unshift({ start: r.activeStart, mins });
-  r.activeStart = null; saveRoutes(); renderRoutes();
-}
-function cancelRoute(index) {
-  const r = travelRoutes[index];
-  if (!r.activeStart) { alert('No timer running'); return; }
-  if (!confirm('Cancel timer?')) return;
-  r.activeStart = null; saveRoutes(); renderRoutes();
-}
 function deleteTrip(routeIndex, tripIndex) {
   if (!confirm('Delete this sample?')) return;
   travelRoutes[routeIndex].trips.splice(tripIndex,1); saveRoutes(); renderRoutes();
@@ -564,15 +505,6 @@ function calcStats(trips) {
   return {min:Math.min(...ms),avg:Math.round(ms.reduce((a,b)=>a+b,0)/ms.length),max:Math.max(...ms)};
 }
 
-function coordChip(lat,lng,routeIndex,which) {
-  if (lat==null) return `<button class="set-gps-btn" onclick="setRouteCoord(${routeIndex},'${which}')">📡 Set GPS</button>`;
-  const n = nearestCoord(lat,lng);
-  const label = n ? `${n.coord.label} (${n.dist.toFixed(2)} km)` : `${lat.toFixed(4)},${lng.toFixed(4)}`;
-  const cls   = which==='start' ? 'route-coord-chip' : 'route-coord-chip end-chip';
-  return `<span class="${cls}" onclick="clearRouteCoord(${routeIndex},'${which}')" title="Tap to clear">${label} ✕</span>
-          <button class="set-gps-btn" onclick="setRouteCoord(${routeIndex},'${which}')" title="Update GPS">↺</button>`;
-}
-
 function renderRoutes() {
   const c=document.getElementById('travelTracker');
   c.innerHTML='';
@@ -582,8 +514,6 @@ function renderRoutes() {
   travelRoutes.forEach((route,index) => {
     const stats=calcStats(route.trips);
     const div=document.createElement('div'); div.className='travel-card';
-    const running=route.activeStart
-      ? `<div class="timer-running">⏱ Running since ${new Date(route.activeStart).toLocaleTimeString()}</div>` : '';
     const tripsHtml=route.trips.slice(0,10).map((trip,ti)=>`
       <div class="trip-item">
         <div>${trip.mins} min — ${new Date(trip.start).toLocaleString()}</div>
@@ -597,11 +527,6 @@ function renderRoutes() {
         <div class="travel-title" style="margin-bottom:4px;">${route.name}</div>
         <button class="delete-btn" style="padding:4px 9px;font-size:12px;" onclick="deleteRoute(${index})">✕</button>
       </div>
-      <div class="route-coord-info">
-        <span>🟢 Start: ${coordChip(route.startLat,route.startLng,index,'start')}</span>
-        <span>🔵 End: ${coordChip(route.endLat,route.endLng,index,'end')}</span>
-      </div>
-      ${running}
       <div class="stats" style="margin-top:8px;">
         <div class="stat">Min: ${stats.min} m</div>
         <div class="stat">Avg: ${stats.avg} m</div>
@@ -609,10 +534,7 @@ function renderRoutes() {
         <div class="stat">n=${route.trips.length}</div>
       </div>
       <div class="travel-buttons">
-        <button class="start-btn"  onclick="startRoute(${index})">▶</button>
-        <button class="stop-btn"   onclick="stopRoute(${index})">■</button>
-        <button class="cancel-btn" onclick="cancelRoute(${index})">✕</button>
-        <button class="manual-btn" onclick="openManualModal(${index})">+ Manual</button>
+        <button class="manual-btn" style="flex:1;" onclick="openManualModal(${index})">+ Manual</button>
       </div>
       <div class="trip-list">${tripsHtml}</div>`;
     c.appendChild(div);
