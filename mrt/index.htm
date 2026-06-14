@@ -528,9 +528,7 @@ function renderRoutes() {
         <button class="delete-btn" style="padding:4px 9px;font-size:12px;" onclick="deleteRoute(${index})">✕</button>
       </div>
       <div class="stats" style="margin-top:8px;">
-        <div class="stat">Min: ${stats.min} m</div>
-        <div class="stat">Avg: ${stats.avg} m</div>
-        <div class="stat">Max: ${stats.max} m</div>
+        <div class="stat">avg ${stats.avg} m, ${stats.min} to ${stats.max}</div>
         <div class="stat">n=${route.trips.length}</div>
       </div>
       <div class="travel-buttons">
