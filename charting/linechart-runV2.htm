@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="utf-8">
+<title>Elon Timeline Clean</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Funky font -->
+
+<link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet">
+
+<style>
+body { margin:0; background:#111; }
+canvas { display:block; margin:auto; background:white; }
+</style>
+
+</head>
+<body>
+
+<canvas id="chart"></canvas>
+
+<script>
+const raw = {
+  "Elon": [
+    {x:2000,y:29},{x:2002,y:31},{x:2004,y:33},{x:2006,y:35},{x:2008,y:37},
+    {x:2010,y:39},{x:2012,y:41},{x:2013,y:42},{x:2016,y:45},{x:2018,y:47},
+    {x:2020,y:49},{x:2021,y:50},{x:2022,y:51},{x:2023,y:52},{x:2025,y:54}
+  ],
+  "Justine": [
+    {x:2000,y:28},{x:2002,y:30},{x:2004,y:32},{x:2006,y:34},{x:2008,y:36}
+  ],
+  "Talulah": [
+    {x:2008,y:23},{x:2010,y:25},{x:2012,y:27},{x:2013,y:28},{x:2016,y:31}
+  ],
+  "Grimes": [
+    {x:2018,y:30},{x:2020,y:32},{x:2021,y:33},{x:2022,y:34}
+  ],
+  "Shivon": [
+    {x:2021,y:35},{x:2023,y:37},{x:2025,y:39}
+  ]
+};
+
+function interp(series, year) {
+  for (let i=0;i<series.length-1;i++){
+    let a=series[i], b=series[i+1];
+    if (year>=a.x && year<=b.x){
+      let t=(year-a.x)/(b.x-a.x);
+      return a.y + t*(b.y-a.y);
+    }
+  }
+  return null;
+}
+
+function lastPoint(series, year) {
+  let last=null;
+  for (let p of series){
+    if(p.x<=year) last=p;
+  }
+  return last;
+}
+
+// LABEL + GAP DRAW
+const labelPlugin = {
+  id:'labels',
+  afterDraw(chart){
+    const {ctx} = chart;
+
+    // force white bg
+    ctx.save();
+    ctx.globalCompositeOperation='destination-over';
+    ctx.fillStyle='white';
+    ctx.fillRect(0,0,chart.width,chart.height);
+    ctx.restore();
+
+    const elonData = chart.data.datasets[0].data;
+    const elonLast = elonData[elonData.length-1];
+
+    chart.data.datasets.forEach((ds,i)=>{
+      if(!ds.data.length) return;
+
+      const meta = chart.getDatasetMeta(i);
+      const idx = ds.data.length-1;
+      const point = meta.data[idx];
+      if(!point) return;
+
+      const val = ds.data[idx].y;
+
+      // skip label for gap line
+      if(ds.label==="Gap") return;
+
+      let gapText="";
+      if(i!==0 && elonLast){
+        const key = Object.keys(raw)[i];
+        const lp = lastPoint(raw[key], elonLast.x);
+        if(lp){
+          const elonAt = interp(raw["Elon"], lp.x);
+          const gap = elonAt - lp.y;
+          gapText = " +" + gap.toFixed(0);
+        }
+      }
+
+      const text = ds.label + " " + val.toFixed(0) + gapText;
+
+      ctx.save();
+      ctx.font="14px 'Bangers'";
+      ctx.fillStyle="black";
+
+      ctx.fillText(text, point.x+8, point.y-8);
+
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 3, 0, 2*Math.PI);
+      ctx.fill();
+
+      ctx.restore();
+    });
+  }
+};
+
+const datasets = [
+  makeDS("Elon"),
+  makeDS("Justine"),
+  makeDS("Talulah"),
+  makeDS("Grimes"),
+  makeDS("Shivon"),
+  {
+    label:"Gap",
+    data:[],
+    borderWidth:2,
+    borderDash:[5,5],
+    tension:0.25
+  }
+];
+
+function makeDS(name){
+  return {label:name,data:[],borderWidth:2,tension:0.25};
+}
+
+const chart = new Chart(document.getElementById('chart'),{
+  type:'line',
+  data:{datasets},
+  options:{
+    animation:false,
+    parsing:false,
+    layout:{padding:{right:120}},
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{display:false},
+      y:{display:false}
+    }
+  },
+  plugins:[labelPlugin]
+});
+
+let duration=10000;
+let endPause=4000; // longer pause
+
+window.onload=()=>start();
+
+function start(){
+  const canvas=document.getElementById('chart');
+
+  setTimeout(()=>{
+    const stream=canvas.captureStream(60);
+    const recorder=new MediaRecorder(stream);
+    let chunks=[];
+
+    recorder.ondataavailable=e=>chunks.push(e.data);
+    recorder.onstop=()=>{
+      const blob=new Blob(chunks,{type:'video/webm'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download='clean_timeline.webm';
+      a.click();
+    };
+
+    recorder.start();
+
+    let startTime=null;
+
+    function animate(ts){
+      if(!startTime) startTime=ts;
+      let t=(ts-startTime)/duration;
+      if(t>1) t=1;
+
+      let year=2000+t*(2025-2000);
+
+      let elonNow=interp(raw["Elon"],year);
+
+      chart.data.datasets.forEach((ds,i)=>{
+        if(ds.label==="Gap") return;
+
+        let key=Object.keys(raw)[i];
+        let val=interp(raw[key],year);
+
+        if(val!==null){
+          ds.data.push({x:year,y:val});
+        }
+      });
+
+      // GAP LINE (avg gap of active partners)
+      let gaps=[];
+      ["Justine","Talulah","Grimes","Shivon"].forEach(name=>{
+        let lp=lastPoint(raw[name],year);
+        if(lp){
+          let elonAt=interp(raw["Elon"],lp.x);
+          gaps.push(elonAt-lp.y);
+        }
+      });
+
+      if(gaps.length){
+        let avg = gaps.reduce((a,b)=>a+b,0)/gaps.length;
+        chart.data.datasets[5].data.push({x:year,y:avg+20}); 
+        // +20 just to visually separate (design choice)
+      }
+
+      chart.update('none');
+
+      if(t<1){
+        requestAnimationFrame(animate);
+      } else {
+        setTimeout(()=>recorder.stop(), endPause);
+      }
+    }
+
+    requestAnimationFrame(animate);
+  },100);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>USDC Cross-Chain Arb Check</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --go: #22c55e;
+      --nogo: #ef4444;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 2rem;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 0.25rem; }
+    .sub { color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem; }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 0.85rem;
+    }
+    section h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+      font-weight: 600;
+    }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    @media (max-width: 620px) { .grid2 { grid-template-columns: 1fr; } }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.25rem; }
+    select, input[type="number"], input[type="text"] {
+      width: 100%;
+      padding: 0.5rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .price-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.35rem; }
+    .price-val { font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .price-val.below { color: #86efac; }
+    .price-val.above { color: #fde047; }
+    .badge { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 600; }
+    .badge.ok { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+    .badge.bad { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+    .badge.wait { background: rgba(139, 156, 179, 0.2); color: var(--muted); }
+    .badge.best { background: rgba(59, 130, 246, 0.25); color: #93c5fd; }
+    .verdict { text-align: center; padding: 1.25rem 1rem; border-radius: 10px; border: 2px solid var(--border); }
+    .verdict.go { border-color: var(--go); background: rgba(34, 197, 94, 0.08); }
+    .verdict.nogo { border-color: var(--nogo); background: rgba(239, 68, 68, 0.08); }
+    .verdict-label { font-size: 2rem; font-weight: 800; letter-spacing: 0.04em; }
+    .verdict.go .verdict-label { color: var(--go); }
+    .verdict.nogo .verdict-label { color: var(--nogo); }
+    .verdict-detail { font-size: 0.9rem; color: var(--muted); margin-top: 0.35rem; }
+    .net-profit { font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem; font-variant-numeric: tabular-nums; }
+    table { width: 100%; font-size: 0.82rem; border-collapse: collapse; }
+    table td, table th { padding: 0.4rem 0.35rem; border-bottom: 1px solid var(--border); text-align: left; }
+    table td:last-child, table th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+    table tr.best-row { background: rgba(59, 130, 246, 0.1); }
+    table tr:last-child td { border-bottom: none; }
+    .checks { list-style: none; padding: 0; margin: 0.75rem 0 0; font-size: 0.85rem; text-align: left; }
+    .checks li { padding: 0.25rem 0; display: flex; gap: 0.5rem; }
+    .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    button, .btn-link {
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 500;
+      text-decoration: none;
+      display: inline-block;
+    }
+    button:hover, .btn-link:hover { filter: brightness(1.1); }
+    button.secondary, .btn-link.secondary { background: var(--surface); color: var(--text); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.sm { padding: 0.2rem 0.5rem; font-size: 0.72rem; }
+    .status { font-size: 0.8rem; color: var(--muted); }
+    .status.err { color: #fca5a5; }
+    .footer { font-size: 0.75rem; color: var(--muted); margin-top: 1rem; line-height: 1.45; }
+    .footer code { background: var(--surface); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.7rem; }
+    .hint { font-size: 0.75rem; color: var(--warn); margin-top: 0.5rem; display: none; }
+    .hint.show { display: block; }
+    input.override { max-width: 7rem; font-size: 0.85rem; }
+    .wallet-bar {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      margin-bottom: 0.85rem;
+      padding: 0.6rem 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .wallet-addr { color: var(--muted); font-family: ui-monospace, monospace; font-size: 0.75rem; }
+    .dex-table { margin-top: 0.5rem; }
+    .dex-err { color: #fca5a5; font-size: 0.72rem; }
+    .source-tag { font-size: 0.7rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>USDC cross-chain arb check</h1>
+    <p class="sub">
+      Live swap quotes from multiple DEX aggregators (not oracle mid). Buy USDC &lt; $1 on chain A (max $1,000),
+      bridge, sell &gt; $1 on chain B — or swap immediately via wallet on EVM.
+    </p>
+
+    <div class="wallet-bar">
+      <button type="button" id="btnWallet" class="secondary">Connect wallet (EVM)</button>
+      <span class="wallet-addr" id="walletAddr">Not connected — needed for one-click swap on chain A/B (EVM only)</span>
+    </div>
+
+    <div class="toolbar">
+      <button type="button" id="btnRefresh">Refresh DEX quotes</button>
+      <label class="source-tag"><input type="checkbox" id="useDexPrices" checked /> Use best DEX quote for GO/NO-GO</label>
+      <span class="status" id="fetchStatus">Loading…</span>
+    </div>
+    <p class="hint" id="corsHint"></p>
+
+    <section>
+      <h2>Chain A — buy USDC (want &lt; $1)</h2>
+      <div class="grid2">
+        <div>
+          <label for="chainA">Chain</label>
+          <select id="chainA"></select>
+          <div class="price-row">
+            <span class="price-val" id="priceA">—</span>
+            <span class="badge wait" id="badgeA">—</span>
+          </div>
+          <label style="margin-top:0.5rem">Override price A</label>
+          <input type="number" class="override" id="overrideA" step="0.0001" min="0" placeholder="auto" />
+        </div>
+        <div>
+          <label>Pay with (stable on A)</label>
+          <input type="text" id="stableLabelA" readonly style="opacity:0.85" />
+        </div>
+      </div>
+      <div class="dex-table" id="dexTableA"></div>
+    </section>
+
+    <section>
+      <h2>Chain B — sell USDC (want &gt; $1)</h2>
+      <div class="grid2">
+        <div>
+          <label for="chainB">Chain</label>
+          <select id="chainB"></select>
+          <div class="price-row">
+            <span class="price-val" id="priceB">—</span>
+            <span class="badge wait" id="badgeB">—</span>
+          </div>
+          <label style="margin-top:0.5rem">Override price B</label>
+          <input type="number" class="override" id="overrideB" step="0.0001" min="0" placeholder="auto" />
+        </div>
+        <div>
+          <label>Receive (stable on B)</label>
+          <input type="text" id="stableLabelB" readonly style="opacity:0.85" />
+        </div>
+      </div>
+      <div class="dex-table" id="dexTableB"></div>
+    </section>
+
+    <section>
+      <h2>Trade size &amp; costs</h2>
+      <div class="grid2">
+        <div>
+          <label for="notional">USD to spend on chain A (max 1,000)</label>
+          <input type="number" id="notional" value="1000" min="1" max="1000" step="1" />
+        </div>
+        <div>
+          <label for="slippage">Extra slippage buffer (%)</label>
+          <input type="number" id="slippage" value="0.1" min="0" max="10" step="0.05" />
+        </div>
+        <div>
+          <label for="bridgeFee">Bridge fee ($)</label>
+          <input type="number" id="bridgeFee" value="3" min="0" step="0.01" />
+        </div>
+        <div>
+          <label for="gasA">Extra gas A ($) — DEX quotes include est. gas</label>
+          <input type="number" id="gasA" value="0" min="0" step="0.01" />
+        </div>
+        <div>
+          <label for="gasB">Extra gas B ($)</label>
+          <input type="number" id="gasB" value="0" min="0" step="0.01" />
+        </div>
+        <div>
+          <label for="cexFees">CEX deposit + withdraw ($)</label>
+          <input type="number" id="cexFees" value="0" min="0" step="0.01" />
+        </div>
+      </div>
+    </section>
+
+    <section class="verdict nogo" id="verdictBox">
+      <div class="verdict-label" id="verdictLabel">NO-GO</div>
+      <div class="verdict-detail" id="verdictDetail">Waiting for quotes…</div>
+      <div class="net-profit" id="netProfit">$0.00</div>
+      <ul class="checks" id="checks"></ul>
+      <table class="breakdown"><tbody id="breakdown"></tbody></table>
+    </section>
+
+    <p class="footer">
+      Quotes: KyberSwap, ParaSwap (EVM), Jupiter (Solana). Swaps execute via your wallet on-chain — not financial advice.
+      Run via <code>python -m http.server 8080</code> if APIs are blocked from <code>file://</code>.
+    </p>
+  </div>
+
+  <script>
+    const CLIENT_ID = "usdc-arb-check";
+    const MAX_NOTIONAL = 1000;
+    const STABLE_DECIMALS = 6;
+
+    const CHAINS = {
+      ethereum: {
+        label: "Ethereum",
+        evm: true,
+        kyber: "ethereum",
+        paraswap: 1,
+        coinKey: "ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        stable: { sym: "USDT", addr: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
+      },
+      arbitrum: {
+        label: "Arbitrum",
+        evm: true,
+        kyber: "arbitrum",
+        paraswap: 42161,
+        coinKey: "arbitrum:0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+        usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        stable: { sym: "USDT", addr: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b14FCbb9" },
+      },
+      base: {
+        label: "Base",
+        evm: true,
+        kyber: "base",
+        paraswap: 8453,
+        coinKey: "base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        stable: { sym: "USDC", addr: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
+        stableAlt: { sym: "DAI", addr: "0x50c5725949A6f0c72E6C4a641F24049A917DB0b" },
+      },
+      polygon: {
+        label: "Polygon",
+        evm: true,
+        kyber: "polygon",
+        paraswap: 137,
+        coinKey: "polygon:0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+        usdc: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+        stable: { sym: "USDT", addr: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
+      },
+      optimism: {
+        label: "Optimism",
+        evm: true,
+        kyber: "optimism",
+        paraswap: 10,
+        coinKey: "optimism:0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+        usdc: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+        stable: { sym: "USDT", addr: "0x94b008aA0059cBF9bbcE4eE9bB6B380f040AaE6" },
+      },
+      avax: {
+        label: "Avalanche",
+        evm: true,
+        kyber: "avalanche",
+        paraswap: 43114,
+        coinKey: "avax:0xb97ef9eef8738c6c5c1948b52a452115e343bc46",
+        usdc: "0xB97EF9Eef8738C6C5c1948B52a452115e343BC46",
+        stable: { sym: "USDT", addr: "0x9702230A8Ea53601f5cD2dc00fDBc03dCAD3fFb1" },
+      },
+      bsc: {
+        label: "BNB Chain",
+        evm: true,
+        kyber: "bsc",
+        paraswap: 56,
+        coinKey: "bsc:0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+        usdc: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+        usdcDecimals: 18,
+        stable: { sym: "USDT", addr: "0x55d398326f99059fF775485246999027B3197955", decimals: 18 },
+      },
+      solana: {
+        label: "Solana",
+        evm: false,
+        coinKey: "solana:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        usdc: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        stable: { sym: "USDT", addr: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" },
+      },
+    };
+
+    let livePrices = {};
+    let quotesA = [];
+    let quotesB = [];
+    let bestBuy = null;
+    let bestSell = null;
+    let walletAddress = null;
+    let kyberRoutes = { buy: null, sell: null };
+
+    const $ = (id) => document.getElementById(id);
+
+    function initSelectors() {
+      const opts = Object.entries(CHAINS)
+        .map(([id, c]) => `<option value="${id}">${c.label}</option>`)
+        .join("");
+      $("chainA").innerHTML = opts;
+      $("chainB").innerHTML = opts;
+      $("chainA").value = "ethereum";
+      $("chainB").value = "arbitrum";
+    }
+
+    function getStable(chain) {
+      if (chain.stable.addr.toLowerCase() === chain.usdc.toLowerCase()) {
+        return chain.stableAlt || chain.stable;
+      }
+      return chain.stable;
+    }
+
+    function fmtUsd(n, signed = false) {
+      if (n == null || Number.isNaN(n)) return "—";
+      const prefix = signed && n > 0 ? "+" : "";
+      return prefix + "$" + Math.abs(n).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+
+    function tokenDecimals(chain, tokenKind) {
+      if (tokenKind === "usdc") return chain.usdcDecimals ?? 6;
+      const st = getStable(chain);
+      return st.decimals ?? 6;
+    }
+
+    function toTokenWei(amountUsd, decimals) {
+      return BigInt(Math.round(amountUsd * 10 ** decimals));
+    }
+
+    function fromWei(wei, decimals = 6) {
+      return Number(wei) / 10 ** decimals;
+    }
+
+    function effectiveBuyPrice(notionalUsd, usdcOut) {
+      if (!usdcOut || usdcOut <= 0) return null;
+      return notionalUsd / usdcOut;
+    }
+
+    function effectiveSellPrice(usdcIn, stableOut) {
+      if (!usdcIn || usdcIn <= 0) return null;
+      return stableOut / usdcIn;
+    }
+
+    async function fetchKyber(chainId, tokenIn, tokenOut, amountInWei, side, decIn, decOut) {
+      const c = CHAINS[chainId];
+      if (!c.evm) return null;
+      const url = new URL(`https://aggregator-api.kyberswap.com/${c.kyber}/api/v1/routes`);
+      url.searchParams.set("tokenIn", tokenIn);
+      url.searchParams.set("tokenOut", tokenOut);
+      url.searchParams.set("amountIn", amountInWei.toString());
+      url.searchParams.set("source", CLIENT_ID);
+      const res = await fetch(url, { headers: { "X-Client-Id": CLIENT_ID } });
+      if (!res.ok) throw new Error("Kyber " + res.status);
+      const data = await res.json();
+      const rs = data.data?.routeSummary;
+      if (!rs) throw new Error("Kyber no route");
+      const out = BigInt(rs.amountOut);
+      const gasUsd = parseFloat(rs.gasUsd || 0);
+      const amountIn = fromWei(rs.amountIn ?? amountInWei, decIn);
+      const amountOut = fromWei(out, decOut);
+      const price =
+        side === "buy"
+          ? effectiveBuyPrice(amountIn, amountOut)
+          : effectiveSellPrice(amountIn, amountOut);
+      return {
+        dex: "KyberSwap",
+        usdcOut: side === "buy" ? amountOut : undefined,
+        stableOut: side === "sell" ? amountOut : undefined,
+        usdcIn: side === "sell" ? amountIn : undefined,
+        gasUsd,
+        price,
+        routeSummary: rs,
+        routerAddress: data.data?.routerAddress,
+        swapUrl: `https://kyberswap.com/swap/${c.kyber}/${getStable(c).sym.toLowerCase()}/usdc`,
+        error: null,
+      };
+    }
+
+    async function fetchParaswap(chainId, tokenIn, tokenOut, amountInWei, side, decIn, decOut) {
+      const c = CHAINS[chainId];
+      if (!c.evm || !c.paraswap) return null;
+      const url = new URL("https://apiv5.paraswap.io/prices/");
+      url.searchParams.set("srcToken", tokenIn);
+      url.searchParams.set("destToken", tokenOut);
+      url.searchParams.set("amount", amountInWei.toString());
+      url.searchParams.set("side", "SELL");
+      url.searchParams.set("network", String(c.paraswap));
+      url.searchParams.set("srcDecimals", String(decIn));
+      url.searchParams.set("destDecimals", String(decOut));
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("ParaSwap " + res.status);
+      const data = await res.json();
+      const destAmount = BigInt(data.priceRoute?.destAmount || 0);
+      const amountIn = fromWei(amountInWei, decIn);
+      const amountOut = fromWei(destAmount, decOut);
+      const gasUsd = parseFloat(data.priceRoute?.gasCostUSD || 0) || 0;
+      const price =
+        side === "buy"
+          ? effectiveBuyPrice(amountIn, amountOut)
+          : effectiveSellPrice(amountIn, amountOut);
+      return {
+        dex: "ParaSwap",
+        usdcOut: side === "buy" ? amountOut : undefined,
+        stableOut: side === "sell" ? amountOut : undefined,
+        usdcIn: side === "sell" ? amountIn : undefined,
+        gasUsd,
+        price,
+        priceRoute: data.priceRoute,
+        swapUrl: `https://app.paraswap.io/#/${c.paraswap}`,
+        error: null,
+      };
+    }
+
+    async function fetchJupiter(chainId, tokenIn, tokenOut, amountInWei, side, decIn, decOut) {
+      if (chainId !== "solana") return null;
+      const url = new URL("https://quote-api.jup.ag/v6/quote");
+      url.searchParams.set("inputMint", tokenIn);
+      url.searchParams.set("outputMint", tokenOut);
+      url.searchParams.set("amount", amountInWei.toString());
+      url.searchParams.set("slippageBps", "50");
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Jupiter " + res.status);
+      const data = await res.json();
+      const out = BigInt(data.outAmount || 0);
+      const amountIn = fromWei(amountInWei, decIn);
+      const amountOut = fromWei(out, decOut);
+      const price =
+        side === "buy"
+          ? effectiveBuyPrice(amountIn, amountOut)
+          : effectiveSellPrice(amountIn, amountOut);
+      return {
+        dex: "Jupiter",
+        usdcOut: side === "buy" ? amountOut : undefined,
+        stableOut: side === "sell" ? amountOut : undefined,
+        usdcIn: side === "sell" ? amountIn : undefined,
+        gasUsd: 0.01,
+        price,
+        jupiterQuote: data,
+        swapUrl: "https://jup.ag/swap/" + (side === "buy" ? "USDT-USDC" : "USDC-USDT"),
+        error: null,
+      };
+    }
+
+    async function fetchDexQuotes(chainId, side, notionalUsd, usdcAmountForSell) {
+      const chain = CHAINS[chainId];
+      const stable = getStable(chain);
+      const tasks = [];
+
+      const decStable = tokenDecimals(chain, "stable");
+      const decUsdc = tokenDecimals(chain, "usdc");
+
+      if (chain.evm) {
+        const tokenIn = side === "buy" ? stable.addr : chain.usdc;
+        const tokenOut = side === "buy" ? chain.usdc : stable.addr;
+        const decIn = side === "buy" ? decStable : decUsdc;
+        const decOut = side === "buy" ? decUsdc : decStable;
+        const amountUsd = side === "buy" ? notionalUsd : usdcAmountForSell || notionalUsd;
+        const amountInWei = toTokenWei(amountUsd, decIn);
+
+        tasks.push(
+          fetchKyber(chainId, tokenIn, tokenOut, amountInWei, side, decIn, decOut).catch((e) => ({
+            dex: "KyberSwap",
+            error: e.message,
+          }))
+        );
+        tasks.push(
+          fetchParaswap(chainId, tokenIn, tokenOut, amountInWei, side, decIn, decOut).catch((e) => ({
+            dex: "ParaSwap",
+            error: e.message,
+          }))
+        );
+      } else if (chainId === "solana") {
+        const tokenIn = side === "buy" ? stable.addr : chain.usdc;
+        const tokenOut = side === "buy" ? chain.usdc : stable.addr;
+        const decIn = side === "buy" ? decStable : decUsdc;
+        const decOut = side === "buy" ? decUsdc : decStable;
+        const amountUsd = side === "buy" ? notionalUsd : usdcAmountForSell || notionalUsd;
+        const amountInWei = toTokenWei(amountUsd, decIn);
+        tasks.push(
+          fetchJupiter(chainId, tokenIn, tokenOut, amountInWei, side, decIn, decOut).catch((e) => ({
+            dex: "Jupiter",
+            error: e.message,
+          }))
+        );
+      }
+
+      const results = await Promise.all(tasks);
+      return results.filter(Boolean);
+    }
+
+    function pickBestBuy(quotes) {
+      const ok = quotes.filter((q) => q.price != null && !q.error);
+      if (!ok.length) return null;
+      return ok.reduce((a, b) => (a.price < b.price ? a : b));
+    }
+
+    function pickBestSell(quotes) {
+      const ok = quotes.filter((q) => q.price != null && !q.error);
+      if (!ok.length) return null;
+      return ok.reduce((a, b) => (a.price > b.price ? a : b));
+    }
+
+    function renderDexTable(containerId, quotes, side, best) {
+      const el = $(containerId);
+      if (!quotes.length) {
+        el.innerHTML = "<p class='dex-err'>No DEX APIs for this chain.</p>";
+        return;
+      }
+      const rows = quotes
+        .map((q) => {
+          const isBest = best && q.dex === best.dex && q.price === best.price;
+          const priceStr = q.price != null ? "$" + q.price.toFixed(6) : "—";
+          const gasStr = q.gasUsd != null ? fmtUsd(q.gasUsd) : "—";
+          const outStr =
+            side === "buy" && q.usdcOut != null
+              ? q.usdcOut.toFixed(4) + " USDC"
+              : side === "sell" && q.stableOut != null
+              ? q.stableOut.toFixed(4) + " out"
+              : "—";
+          const err = q.error ? `<span class="dex-err">${q.error}</span>` : "";
+          const swapBtn = q.swapUrl
+            ? `<a class="btn-link sm secondary" href="${q.swapUrl}" target="_blank" rel="noopener">Open swap</a>`
+            : "";
+          const chainKey = $("chain" + (side === "buy" ? "A" : "B")).value;
+          const execBtn =
+            q.dex === "KyberSwap" && CHAINS[chainKey]?.evm
+              ? `<button type="button" class="sm secondary btn-kyber-swap" data-swap="${side}">Swap now</button>`
+              : q.dex === "Jupiter"
+              ? `<a class="btn-link sm" href="https://jup.ag/" target="_blank" rel="noopener">Jupiter</a>`
+              : "";
+          return `<tr class="${isBest ? "best-row" : ""}">
+            <td>${q.dex} ${isBest ? '<span class="badge best">BEST</span>' : ""} ${err}</td>
+            <td>${priceStr}</td>
+            <td>${outStr}</td>
+            <td>${gasStr}</td>
+            <td>${swapBtn} ${execBtn}</td>
+          </tr>`;
+        })
+        .join("");
+      el.innerHTML = `<table><thead><tr>
+        <th>DEX</th><th>Eff. price</th><th>Output</th><th>Est. gas</th><th>Action</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+
+      el.querySelectorAll(".btn-kyber-swap").forEach((btn) => {
+        btn.addEventListener("click", (ev) => executeKyberSwap(btn.dataset.swap, ev.target));
+      });
+    }
+
+    function getEffectivePrice(chainId, overrideEl, side) {
+      const ov = parseFloat(overrideEl.value);
+      if (!Number.isNaN(ov) && ov > 0) return ov;
+      if ($("useDexPrices").checked) {
+        const best = side === "buy" ? bestBuy : bestSell;
+        if (best?.price != null) return best.price;
+      }
+      const key = CHAINS[chainId].coinKey;
+      return livePrices[key]?.price ?? null;
+    }
+
+    function updatePriceDisplay(chainId, priceEl, badgeEl, wantBelow, side) {
+      const override = wantBelow ? $("overrideA") : $("overrideB");
+      const p = getEffectivePrice(chainId, override, side);
+      const src =
+        bestBuy && wantBelow && $("useDexPrices").checked && !override.value
+          ? bestBuy.dex
+          : bestSell && !wantBelow && $("useDexPrices").checked && !override.value
+          ? bestSell.dex
+          : "oracle";
+
+      priceEl.textContent = p == null ? "—" : "$" + p.toFixed(6);
+      priceEl.className = "price-val";
+      if (p != null) {
+        if (wantBelow && p < 1) priceEl.classList.add("below");
+        if (!wantBelow && p > 1) priceEl.classList.add("above");
+      }
+
+      if (p == null) {
+        badgeEl.textContent = "No data";
+        badgeEl.className = "badge wait";
+        return p;
+      }
+      const cond = wantBelow ? p < 1 : p > 1;
+      badgeEl.textContent = (wantBelow ? (p < 1 ? "< $1 ✓" : "≥ $1 ✗") : p > 1 ? "> $1 ✓" : "≤ $1 ✗") +
+        (src !== "oracle" ? ` (${src})` : "");
+      badgeEl.className = cond ? "badge ok" : "badge bad";
+      return p;
+    }
+
+    function calculate() {
+      const chainA = $("chainA").value;
+      const chainB = $("chainB").value;
+      let notional = parseFloat($("notional").value) || 0;
+      const slippagePct = (parseFloat($("slippage").value) || 0) / 100;
+      const bridgeFee = parseFloat($("bridgeFee").value) || 0;
+      const gasA = parseFloat($("gasA").value) || 0;
+      const gasB = parseFloat($("gasB").value) || 0;
+      const cexFees = parseFloat($("cexFees").value) || 0;
+      const dexGasA = bestBuy?.gasUsd || 0;
+      const dexGasB = bestSell?.gasUsd || 0;
+
+      if (notional > MAX_NOTIONAL) {
+        notional = MAX_NOTIONAL;
+        $("notional").value = MAX_NOTIONAL;
+      }
+
+      const priceA = updatePriceDisplay(chainA, $("priceA"), $("badgeA"), true, "buy");
+      const priceB = updatePriceDisplay(chainB, $("priceB"), $("badgeB"), false, "sell");
+
+      const checks = [];
+      const addCheck = (ok, text) => checks.push({ ok, text });
+
+      addCheck(chainA !== chainB, "Different chains selected");
+      addCheck(notional > 0 && notional <= MAX_NOTIONAL, `Notional $${notional.toFixed(0)} ≤ $${MAX_NOTIONAL}`);
+      addCheck(priceA != null && priceA < 1, priceA == null ? "Chain A price unknown" : `Buy ${priceA.toFixed(6)} < $1`);
+      addCheck(priceB != null && priceB > 1, priceB == null ? "Chain B price unknown" : `Sell ${priceB.toFixed(6)} > $1`);
+
+      let usdcReceived = bestBuy?.usdcOut ?? (priceA ? (notional / priceA) * (1 - slippagePct) : null);
+      let usdcAfterBridge = null;
+      let usdOut = null;
+      let grossProfit = null;
+      let net = null;
+
+      if (priceA != null && priceB != null && notional > 0) {
+        if (!bestBuy?.usdcOut && priceA > 0) {
+          usdcReceived = (notional / priceA) * (1 - slippagePct);
+        }
+        const bridgeUsdc = bridgeFee / priceB;
+        usdcAfterBridge = Math.max(0, (usdcReceived || 0) - bridgeUsdc);
+        if (bestSell?.stableOut != null) {
+          usdOut = bestSell.stableOut * (1 - slippagePct);
+        } else {
+          usdOut = usdcAfterBridge * priceB * (1 - slippagePct);
+        }
+        grossProfit = usdOut - notional;
+        net = usdOut - notional - gasA - gasB - cexFees - dexGasA - dexGasB;
+      }
+
+      addCheck(net != null && net > 0, net == null ? "Cannot compute net" : `Net ${fmtUsd(net, true)} (incl. DEX gas est.)`);
+
+      const allGo = checks.every((c) => c.ok);
+      $("verdictBox").className = "verdict " + (allGo ? "go" : "nogo");
+      $("verdictLabel").textContent = allGo ? "GO" : "NO-GO";
+      $("verdictDetail").textContent = allGo
+        ? "DEX quotes support paper edge — confirm bridge & execute swaps."
+        : "Failed checks or fees eat edge — try other chains or wait for depeg.";
+      $("netProfit").textContent = net != null ? fmtUsd(net, true) + " net" : "—";
+      $("netProfit").style.color = net > 0 ? "var(--go)" : net < 0 ? "var(--nogo)" : "var(--muted)";
+
+      $("checks").innerHTML = checks
+        .map((c) => `<li><span>${c.ok ? "✅" : "❌"}</span><span>${c.text}</span></li>`)
+        .join("");
+
+      const rows = [
+        ["Spend on A", fmtUsd(notional)],
+        ["USDC from best buy quote", usdcReceived != null ? usdcReceived.toFixed(4) + " USDC" : "—"],
+        ["Best buy DEX", bestBuy?.dex || "—"],
+        ["Bridge fee", fmtUsd(bridgeFee)],
+        ["USDC after bridge", usdcAfterBridge != null ? usdcAfterBridge.toFixed(4) : "—"],
+        ["USD on B (best sell)", usdOut != null ? fmtUsd(usdOut) : "—"],
+        ["Best sell DEX", bestSell?.dex || "—"],
+        ["DEX gas A + B", fmtUsd(dexGasA + dexGasB)],
+        ["Extra gas + CEX", fmtUsd(gasA + gasB + cexFees)],
+        ["Net profit", net != null ? fmtUsd(net, true) : "—"],
+      ];
+      if (net != null && notional > 0) {
+        rows.push(["ROI", ((net / notional) * 100).toFixed(2) + "%"]);
+      }
+      $("breakdown").innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+    }
+
+    async function fetchLlamaPrices() {
+      const keys = [...new Set(Object.values(CHAINS).map((c) => c.coinKey))].join(",");
+      const res = await fetch("https://coins.llama.fi/prices/current/" + keys);
+      if (!res.ok) throw new Error("Llama " + res.status);
+      const data = await res.json();
+      livePrices = data.coins || {};
+    }
+
+    async function refreshAll() {
+      const status = $("fetchStatus");
+      const hint = $("corsHint");
+      status.textContent = "Fetching DEX quotes…";
+      status.classList.remove("err");
+
+      const chainA = $("chainA").value;
+      const chainB = $("chainB").value;
+      let notional = Math.min(parseFloat($("notional").value) || 1000, MAX_NOTIONAL);
+
+      const ca = CHAINS[chainA];
+      const cb = CHAINS[chainB];
+      $("stableLabelA").value = `${getStable(ca).sym} → USDC`;
+      $("stableLabelB").value = `USDC → ${getStable(cb).sym}`;
+
+      try {
+        await fetchLlamaPrices().catch(() => {});
+        quotesA = await fetchDexQuotes(chainA, "buy", notional, null);
+        bestBuy = pickBestBuy(quotesA);
+        const kyberBuy = quotesA.find((q) => q.dex === "KyberSwap" && q.routeSummary);
+        kyberRoutes.buy = kyberBuy?.routeSummary || null;
+        if (kyberBuy) kyberRoutes.buyRouter = quotesA.find((q) => q.dex === "KyberSwap")?.routerAddress;
+
+        const usdcForSell = bestBuy?.usdcOut || notional;
+        quotesB = await fetchDexQuotes(chainB, "sell", notional, usdcForSell);
+        bestSell = pickBestSell(quotesB);
+        const kyberSell = quotesB.find((q) => q.dex === "KyberSwap" && q.routeSummary);
+        kyberRoutes.sell = kyberSell?.routeSummary || null;
+
+        renderDexTable("dexTableA", quotesA, "buy", bestBuy);
+        renderDexTable("dexTableB", quotesB, "sell", bestSell);
+
+        status.textContent = "Updated " + new Date().toLocaleTimeString();
+        hint.classList.remove("show");
+      } catch (e) {
+        status.textContent = "Error";
+        status.classList.add("err");
+        hint.textContent =
+          location.protocol === "file:"
+            ? "Use: python -m http.server 8080 → http://localhost:8080/usdc-cross-chain-arb.html"
+            : e.message;
+        hint.classList.add("show");
+      }
+      calculate();
+    }
+
+    async function connectWallet() {
+      if (!window.ethereum) {
+        alert("Install MetaMask or another EVM wallet.");
+        return;
+      }
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      walletAddress = accounts[0];
+      $("walletAddr").textContent = walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4);
+      $("btnWallet").textContent = "Connected";
+    }
+
+    async function executeKyberSwap(side, btn) {
+      if (!walletAddress) {
+        alert("Connect wallet first.");
+        return;
+      }
+      const chainId = side === "buy" ? $("chainA").value : $("chainB").value;
+      const chain = CHAINS[chainId];
+      if (!chain.evm) {
+        alert("Wallet swap is EVM only. Use Jupiter link for Solana.");
+        return;
+      }
+      const routeSummary = side === "buy" ? kyberRoutes.buy : kyberRoutes.sell;
+      if (!routeSummary) {
+        alert("No Kyber route — refresh quotes.");
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+
+      try {
+        const slippage = Math.round((parseFloat($("slippage").value) || 0.5) * 100);
+        const buildUrl = `https://aggregator-api.kyberswap.com/${chain.kyber}/api/v1/route/build`;
+        const body = {
+          routeSummary,
+          sender: walletAddress,
+          recipient: walletAddress,
+          slippageTolerance: slippage,
+        };
+        const res = await fetch(buildUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Client-Id": CLIENT_ID,
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error("Build failed " + res.status);
+        const data = await res.json();
+        const tx = data.data;
+        if (!tx?.data) throw new Error("No encoded swap data");
+
+        const hash = await window.ethereum.request({
+          method: "eth_sendTransaction",
+          params: [{
+            from: walletAddress,
+            to: tx.routerAddress || tx.to,
+            data: tx.data,
+            value: tx.transactionValue ? "0x" + BigInt(tx.transactionValue).toString(16) : "0x0",
+            gas: tx.gas ? "0x" + BigInt(tx.gas).toString(16) : undefined,
+          }],
+        });
+        alert("Tx submitted: " + hash);
+      } catch (e) {
+        alert("Swap failed: " + e.message);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    function wireEvents() {
+      [
+        "chainA", "chainB", "notional", "slippage", "bridgeFee",
+        "gasA", "gasB", "cexFees", "overrideA", "overrideB", "useDexPrices",
+      ].forEach((id) => {
+        $(id).addEventListener("input", () => {
+          if (["chainA", "chainB", "notional"].includes(id)) refreshAll();
+          else calculate();
+        });
+        $(id).addEventListener("change", () => {
+          if (["chainA", "chainB", "notional"].includes(id)) refreshAll();
+          else calculate();
+        });
+      });
+      $("btnRefresh").addEventListener("click", refreshAll);
+      $("btnWallet").addEventListener("click", connectWallet);
+    }
+
+    initSelectors();
+    wireEvents();
+    refreshAll();
+    setInterval(refreshAll, 90000);
+  </script>
+</body>
+</html>

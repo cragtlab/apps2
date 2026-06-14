@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zhuge Liang TD - MVP</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: Arial, sans-serif;
+  background: radial-gradient(circle at top, #17313e 0%, #091014 55%, #040709 100%);
+  color:#f2f5f7;
+}
+.container { max-width:1240px; margin:0 auto; padding:20px; }
+h2 { text-align:center; margin-bottom:20px; color:#7bdff2; letter-spacing:0.04em; }
+.controls {
+  background:#101a20;
+  padding:16px;
+  border-radius:12px;
+  margin-bottom:18px;
+  border:1px solid #28404b;
+}
+.control-row {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:center;
+  gap:18px;
+}
+.control-group { text-align:center; }
+.control-group label {
+  display:block;
+  font-size:12px;
+  color:#95a9b3;
+  margin-bottom:8px;
+  font-weight:bold;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+}
+button {
+  background:#1c7c74;
+  color:#fff;
+  border:none;
+  padding:10px 14px;
+  margin:4px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+  transition:0.2s;
+}
+button:hover { background:#23a094; }
+button.active { background:#ffd166; color:#14212a; }
+button:disabled { background:#4a5962; color:#b7c4ca; cursor:not-allowed; }
+.battlefield {
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) 320px;
+  gap:18px;
+  align-items:start;
+}
+.board-panel, #storyBox, #stats {
+  background:#101a20;
+  border:1px solid #28404b;
+  border-radius:12px;
+}
+.board-panel { padding:18px; }
+#gameStage {
+  position:relative;
+  display:inline-block;
+  max-width:100%;
+}
+#gameArea {
+  overflow:auto;
+  display:flex;
+  justify-content:center;
+}
+.grid {
+  display:grid;
+  grid-template-columns:repeat(10, 56px);
+  gap:4px;
+  background:#0a1116;
+  padding:10px;
+  border-radius:12px;
+  border:1px solid #1f3038;
+}
+.cell {
+  width:56px;
+  height:56px;
+  border:1px solid #314149;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  cursor:pointer;
+  background:#162127;
+  transition:0.16s;
+  font-size:10px;
+  position:relative;
+}
+.cell:hover { background:#223038; }
+.path {
+  background:linear-gradient(135deg, #6f8f42 0%, #597436 100%);
+  border-color:#8fa65e;
+}
+.path:hover { background:linear-gradient(135deg, #7e9b4f 0%, #6b8842 100%); }
+.tower {
+  background:linear-gradient(160deg, #2f8f53 0%, #235d39 100%);
+  border-color:#6ad38d;
+  color:#fff;
+}
+.tower:hover { background:linear-gradient(160deg, #37a15f 0%, #2b7145 100%); }
+.enemy { background:linear-gradient(160deg, #db3f45 0%, #8e1f27 100%); border-color:#ff7b81; }
+.enemy-brute { background:linear-gradient(160deg, #ff8552 0%, #9f4725 100%); border-color:#ffb48f; }
+.enemy-firecart { background:linear-gradient(160deg, #ffca3a 0%, #bf7b00 100%); border-color:#ffe28a; color:#1e1a07; }
+.stunned { box-shadow: inset 0 0 0 3px #71c7ec; }
+.attacking { box-shadow: inset 0 0 0 3px #bcf8a9; }
+.targeted { box-shadow: inset 0 0 0 3px #fff3a3; }
+.unit-symbol { font-weight:bold; font-size:13px; line-height:1; }
+.unit-meta { font-size:9px; line-height:1.1; text-align:center; }
+#attackLayer {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  overflow:visible;
+}
+.trail {
+  stroke-width:4;
+  stroke-linecap:round;
+  opacity:0.95;
+  animation:fadeTrail 0.8s ease-out forwards;
+}
+.trail-guan { stroke:#ff6b6b; }
+.trail-zhang { stroke:#9be564; }
+.trail-zhuge { stroke:#4cc9f0; }
+.trail-spell { stroke:#ffd166; stroke-dasharray:8 6; }
+@keyframes fadeTrail {
+  from { opacity:1; }
+  to { opacity:0; }
+}
+#storyBox { padding:16px; }
+#storyTitle { color:#ffd166; margin-bottom:8px; }
+#storySummary, #chapterSummary, #chapterHint, #attackSummary, #spellSummary, #statusText {
+  font-size:14px;
+  line-height:1.5;
+  color:#d6e3e8;
+}
+#chapterSummary, #chapterHint, #attackSummary, #spellSummary, #statusText { margin-top:10px; }
+#stats {
+  margin-top:18px;
+  padding:14px 16px;
+}
+.stats-grid {
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:10px;
+}
+.stat-card {
+  background:#0a1116;
+  border:1px solid #21343d;
+  border-radius:10px;
+  padding:10px;
+  text-align:center;
+}
+.stat-label {
+  display:block;
+  font-size:11px;
+  color:#91a4ad;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+}
+.stat-value {
+  display:block;
+  margin-top:6px;
+  color:#7bdff2;
+  font-weight:bold;
+  font-size:18px;
+}
+.board-note {
+  margin-top:12px;
+  font-size:13px;
+  color:#b5c4cb;
+  text-align:center;
+}
+@media (max-width: 980px) {
+  .battlefield { grid-template-columns:1fr; }
+}
+@media (max-width: 720px) {
+  .container { padding:14px; }
+  .grid { grid-template-columns:repeat(10, 46px); gap:3px; padding:8px; }
+  .cell { width:46px; height:46px; }
+  .stats-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Zhuge Liang Tower Defense</h2>
+
+  <div class="controls">
+    <div class="control-row">
+      <div class="control-group">
+        <label>Select Chapter</label>
+        <button class="chapter-button active" data-chapter="1" onclick="startChapter(1, this)">Chapter 1</button>
+        <button class="chapter-button" data-chapter="2" onclick="startChapter(2, this)">Chapter 2</button>
+      </div>
+      <div class="control-group">
+        <label>Select Hero</label>
+        <button class="tower-button active" data-type="guan" onclick="selectTower('guan', this)">Guan Yu</button>
+        <button class="tower-button" data-type="zhang" onclick="selectTower('zhang', this)">Zhang Fei</button>
+        <button class="tower-button" data-type="zhuge" onclick="selectTower('zhuge', this)">Zhuge Liang</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="battlefield">
+    <div>
+      <div class="board-panel">
+        <div id="gameArea">
+          <div id="gameStage">
+            <div id="game"></div>
+            <svg id="attackLayer" aria-hidden="true"></svg>
+          </div>
+        </div>
+        <div class="board-note">Each chapter lasts 2 minutes. Survive until the timer hits 0.</div>
+      </div>
+
+      <div id="stats">
+        <div class="stats-grid">
+          <div class="stat-card"><span class="stat-label">Defeated</span><span class="stat-value" id="score">0</span></div>
+          <div class="stat-card"><span class="stat-label">Lives</span><span class="stat-value" id="lives">5</span></div>
+          <div class="stat-card"><span class="stat-label">Wave</span><span class="stat-value" id="wave">0</span></div>
+          <div class="stat-card"><span class="stat-label">On Field</span><span class="stat-value" id="enemyCount">0</span></div>
+          <div class="stat-card"><span class="stat-label">Timer</span><span class="stat-value" id="timer">2:00</span></div>
+          <div class="stat-card"><span class="stat-label">Zhuge Spell</span><span class="stat-value" id="spellCooldown">Ready</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="storyBox">
+      <h3 id="storyTitle">Campaign Brief</h3>
+      <div id="storySummary"></div>
+      <div id="chapterSummary"></div>
+      <div id="chapterHint"></div>
+      <div id="attackSummary"></div>
+      <div id="spellSummary"></div>
+      <div id="statusText"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const size = 10;
+const tickMs = 1000;
+const chapterDuration = 120;
+
+let grid = [];
+let towers = [];
+let enemies = [];
+let selected = "guan";
+let chapter = 1;
+let score = 0;
+let lives = 5;
+let gameActive = false;
+let gameLoop = null;
+let wave = 0;
+let waveSpawnRemaining = 0;
+let spawnTimer = 0;
+let timeLeft = chapterDuration;
+let statusText = "Select a chapter to begin the defense.";
+let lastAttacks = [];
+let currentPath = [];
+
+const chapterPaths = {
+  1: [
+    [0,1],[1,1],[2,1],[2,2],[2,3],[3,3],[4,3],[5,3],[5,4],[5,5],[4,5],[3,5],[3,6],[3,7],[4,7],[5,7],[6,7],[7,7],[7,6],[7,5],[8,5],[9,5]
+  ],
+  2: [
+    [0,8],[1,8],[2,8],[2,7],[2,6],[3,6],[4,6],[4,5],[4,4],[5,4],[6,4],[6,3],[6,2],[7,2],[8,2],[8,3],[8,4],[8,5],[9,5]
+  ]
+};
+
+const towerData = {
+  guan: {
+    name: "Guan Yu",
+    symbol: "G",
+    damage: 3,
+    range: 2,
+    cadence: 1,
+    color: "trail-guan",
+    hint: "Best at chopping down the lead target near bends.",
+    attack: "Single target slash, 3 damage, range 2."
+  },
+  zhang: {
+    name: "Zhang Fei",
+    symbol: "Z",
+    damage: 1,
+    range: 1,
+    cadence: 1,
+    color: "trail-zhang",
+    cleave: true,
+    hint: "Short reach, but lane bends let him hit stacked enemies.",
+    attack: "Short-range cleave, 1 damage to every nearby enemy."
+  },
+  zhuge: {
+    name: "Zhuge Liang",
+    symbol: "L",
+    damage: 1,
+    range: 3,
+    cadence: 1,
+    color: "trail-zhuge",
+    burn: 1,
+    hint: "Controls long sightlines and unlocks an auto-cast strategy spell.",
+    attack: "Long-range feather bolt, 1 damage plus burn. Chapter 2 burn is stronger."
+  }
+};
+
+const spellData = {
+  name: "Eight Trigrams Command",
+  cooldown: 8,
+  summary: "Auto-cast when Zhuge is deployed. If the lane is crowded, he stuns the front line. Otherwise he fires a bonus command strike."
+};
+
+const enemyData = {
+  raider: { hp: 4, speed: 1, symbol: "R", className: "enemy" },
+  brute: { hp: 8, speed: 1, symbol: "B", className: "enemy-brute" },
+  firecart: { hp: 6, speed: 2, symbol: "F", className: "enemy-firecart" }
+};
+
+const chapterData = {
+  1: {
+    title: "Chapter 1: Hold the River Road",
+    summary: "A narrow mountain road twists across the ridge. Zhuge Liang must bleed off raiders before they punch through the center.",
+    hint: "Use the inner corners. Guan Yu works best where the front enemy pauses inside his range."
+  },
+  2: {
+    title: "Chapter 2: Borrowed Fire",
+    summary: "Fire carts race through a canyon switchback. Zhuge Liang turns the terrain itself into a trap while flame units rush the exit.",
+    hint: "Long lanes favor Zhuge Liang, but Zhang Fei is stronger at the two sharp bends."
+  }
+};
+
+function createGrid() {
+  const game = document.getElementById("game");
+  game.innerHTML = "";
+  game.className = "grid";
+  grid = [];
+  currentPath = chapterPaths[chapter];
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      if (isPath(x, y)) {
+        cell.classList.add("path");
+      }
+      cell.onclick = () => placeTower(x, y, cell);
+      game.appendChild(cell);
+      grid.push({ x, y, el: cell });
+    }
+  }
+}
+
+function isPath(x, y) {
+  return currentPath.some(point => point[0] === x && point[1] === y);
+}
+
+function getCell(x, y) {
+  return grid.find(c => c.x === x && c.y === y).el;
+}
+
+function formatTimer(value) {
+  const minutes = Math.floor(value / 60);
+  const seconds = String(value % 60).padStart(2, "0");
+  return minutes + ":" + seconds;
+}
+
+function placeTower(x, y, cell) {
+  if (!gameActive) return;
+  if (cell.classList.contains("path") || towers.some(t => t.x === x && t.y === y)) return;
+  if (towers.some(t => t.type === selected)) {
+    statusText = "Only one " + towerData[selected].name + " can be deployed.";
+    updateStory();
+    updateStats();
+    return;
+  }
+
+  towers.push({
+    x,
+    y,
+    type: selected,
+    cooldown: 0,
+    spellCooldown: selected === "zhuge" ? 0 : undefined
+  });
+  statusText = towerData[selected].name + " deployed on the bend.";
+  syncTowerButtons();
+  updateStory();
+  renderBoard();
+  updateStats();
+}
+
+function spawnEnemy() {
+  if (!gameActive || timeLeft <= 0) return;
+  const roster = chapter === 2
+    ? ["raider", "firecart", "brute", "raider", "firecart"]
+    : ["raider", "raider", "brute", "raider"];
+  const enemyType = roster[(wave + waveSpawnRemaining) % roster.length];
+  const template = enemyData[enemyType];
+  enemies.push({
+    id: "enemy-" + Date.now() + "-" + Math.random().toString(16).slice(2, 6),
+    type: enemyType,
+    i: 0,
+    hp: template.hp + Math.floor((wave - 1) / 2),
+    maxHp: template.hp + Math.floor((wave - 1) / 2),
+    speed: template.speed,
+    stun: 0
+  });
+}
+
+function endChapter(success, message) {
+  gameActive = false;
+  if (gameLoop) clearInterval(gameLoop);
+  gameLoop = null;
+  statusText = message;
+  renderBoard();
+  updateStory();
+  updateStats();
+  setTimeout(() => {
+    alert(message + " Defeated: " + score);
+    reset(false);
+  }, 60);
+}
+
+function updateEnemies() {
+  enemies = enemies.filter(enemy => {
+    if (!gameActive) return false;
+    if (enemy.stun > 0) {
+      enemy.stun--;
+      return true;
+    }
+
+    enemy.i += enemy.speed;
+    if (enemy.i >= currentPath.length) {
+      lives--;
+      if (lives <= 0) {
+        endChapter(false, "The line broke. Chapter failed.");
+      }
+      return false;
+    }
+    return true;
+  });
+}
+
+function sortTargets(list) {
+  return [...list].sort((a, b) => b.i - a.i || a.hp - b.hp);
+}
+
+function addTrail(fromX, fromY, toX, toY, className) {
+  lastAttacks.push({ fromX, fromY, toX, toY, className });
+}
+
+function castZhugeSpell() {
+  const zhuge = towers.find(t => t.type === "zhuge");
+  if (!zhuge || !gameActive) return;
+
+  if (zhuge.spellCooldown === undefined) {
+    zhuge.spellCooldown = spellData.cooldown;
+  }
+
+  if (zhuge.spellCooldown > 0) {
+    zhuge.spellCooldown--;
+    return;
+  }
+
+  const targets = sortTargets(enemies);
+  if (!targets.length) return;
+
+  if (targets.length >= 3) {
+    targets.slice(0, 2).forEach(target => {
+      const pos = currentPath[target.i];
+      target.stun = Math.max(target.stun, 2);
+      target.hp -= 1;
+      addTrail(zhuge.x, zhuge.y, pos[0], pos[1], "trail-spell");
+    });
+    statusText = "Zhuge Liang casts Wind Snare and freezes the vanguard.";
+  } else {
+    const target = targets[0];
+    const pos = currentPath[target.i];
+    target.hp -= chapter === 2 ? 3 : 2;
+    addTrail(zhuge.x, zhuge.y, pos[0], pos[1], "trail-spell");
+    statusText = "Zhuge Liang orders a command strike.";
+  }
+
+  zhuge.spellCooldown = spellData.cooldown;
+}
+
+function towersAttack() {
+  lastAttacks = [];
+
+  towers.forEach(tower => {
+    if (tower.cooldown > 0) {
+      tower.cooldown--;
+      return;
+    }
+
+    const data = towerData[tower.type];
+    const inRange = sortTargets(enemies.filter(enemy => {
+      const pos = currentPath[enemy.i];
+      const distance = Math.abs(tower.x - pos[0]) + Math.abs(tower.y - pos[1]);
+      return distance <= data.range;
+    }));
+
+    if (!inRange.length) return;
+
+    if (data.cleave) {
+      inRange.forEach(enemy => {
+        const pos = currentPath[enemy.i];
+        enemy.hp -= data.damage;
+        addTrail(tower.x, tower.y, pos[0], pos[1], data.color);
+      });
+      statusText = data.name + " sweeps the bend.";
+    } else {
+      const target = inRange[0];
+      const pos = currentPath[target.i];
+      target.hp -= data.damage;
+      if (data.burn) {
+        target.hp -= chapter === 2 ? data.burn + 1 : data.burn;
+      }
+      addTrail(tower.x, tower.y, pos[0], pos[1], data.color);
+      statusText = data.name + " focuses the lead " + target.type + ".";
+    }
+
+    tower.cooldown = data.cadence;
+  });
+
+  castZhugeSpell();
+
+  let defeatedThisTick = 0;
+  enemies = enemies.filter(enemy => {
+    if (enemy.hp > 0) return true;
+    defeatedThisTick++;
+    score++;
+    return false;
+  });
+
+  if (defeatedThisTick > 0) {
+    statusText = "Routed " + defeatedThisTick + " enemy" + (defeatedThisTick > 1 ? " units." : " unit.");
+  }
+}
+
+function prepareWave() {
+  waveSpawnRemaining = 4 + wave;
+  spawnTimer = chapter === 2 ? 1 : 2;
+  statusText = "Wave " + wave + " enters the pass.";
+}
+
+function handleSpawns() {
+  if (timeLeft <= 0) return;
+
+  if (waveSpawnRemaining > 0) {
+    spawnTimer--;
+    if (spawnTimer <= 0) {
+      spawnEnemy();
+      waveSpawnRemaining--;
+      spawnTimer = Math.max(1, 3 - Math.floor(wave / 2));
+    }
+    return;
+  }
+
+  if (enemies.length === 0) {
+    wave++;
+    prepareWave();
+  }
+}
+
+function tickClock() {
+  timeLeft = Math.max(0, timeLeft - 1);
+  if (timeLeft === 0 && gameActive) {
+    endChapter(true, "The defense held for 2 minutes. Chapter cleared.");
+  }
+}
+
+function startGameLoop() {
+  gameActive = true;
+  wave = 1;
+  timeLeft = chapterDuration;
+  prepareWave();
+  updateStory();
+  updateStats();
+
+  gameLoop = setInterval(() => {
+    if (!gameActive) return;
+    tickClock();
+    if (!gameActive) return;
+    handleSpawns();
+    updateEnemies();
+    if (!gameActive) return;
+    towersAttack();
+    renderBoard();
+    updateStory();
+    updateStats();
+  }, tickMs);
+}
+
+function selectTower(type, button) {
+  selected = type;
+  document.querySelectorAll(".tower-button").forEach(btn => btn.classList.remove("active"));
+  button.classList.add("active");
+  statusText = towerData[type].hint;
+  updateStory();
+  updateStats();
+}
+
+function syncTowerButtons() {
+  document.querySelectorAll(".tower-button").forEach(button => {
+    const type = button.dataset.type;
+    const used = towers.some(t => t.type === type);
+    button.disabled = used;
+    button.textContent = used ? towerData[type].name + " Deployed" : towerData[type].name;
+  });
+}
+
+function startChapter(targetChapter, button) {
+  chapter = targetChapter;
+  document.querySelectorAll(".chapter-button").forEach(btn => btn.classList.remove("active"));
+  button.classList.add("active");
+  reset(false);
+  startGameLoop();
+}
+
+function reset(keepChapter) {
+  towers = [];
+  enemies = [];
+  score = 0;
+  lives = 5;
+  wave = 0;
+  waveSpawnRemaining = 0;
+  spawnTimer = 0;
+  timeLeft = chapterDuration;
+  lastAttacks = [];
+  gameActive = false;
+  statusText = "Select a hero and hold the route.";
+  if (gameLoop) clearInterval(gameLoop);
+  gameLoop = null;
+  if (!keepChapter) {
+    currentPath = chapterPaths[chapter];
+  }
+  createGrid();
+  syncTowerButtons();
+  renderBoard();
+  updateStory();
+  updateStats();
+}
+
+function drawAttackLayer() {
+  const layer = document.getElementById("attackLayer");
+  const stage = document.getElementById("gameStage");
+  const stageWidth = stage.clientWidth;
+  const stageHeight = stage.clientHeight;
+  layer.setAttribute("viewBox", "0 0 " + stageWidth + " " + stageHeight);
+  layer.innerHTML = "";
+
+  lastAttacks.forEach(attack => {
+    const from = getCell(attack.fromX, attack.fromY);
+    const to = getCell(attack.toX, attack.toY);
+    if (!from || !to) return;
+
+    const x1 = from.offsetLeft + from.offsetWidth / 2;
+    const y1 = from.offsetTop + from.offsetHeight / 2;
+    const x2 = to.offsetLeft + to.offsetWidth / 2;
+    const y2 = to.offsetTop + to.offsetHeight / 2;
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", x1);
+    line.setAttribute("y1", y1);
+    line.setAttribute("x2", x2);
+    line.setAttribute("y2", y2);
+    line.setAttribute("class", "trail " + attack.className);
+    layer.appendChild(line);
+  });
+}
+
+function renderBoard() {
+  grid.forEach(cellData => {
+    const cell = cellData.el;
+    cell.classList.remove("tower", "enemy", "enemy-brute", "enemy-firecart", "stunned", "attacking", "targeted");
+    cell.innerHTML = "";
+  });
+
+  towers.forEach(tower => {
+    const cell = getCell(tower.x, tower.y);
+    cell.classList.add("tower");
+    cell.innerHTML =
+      '<div class="unit-symbol">' + towerData[tower.type].symbol + '</div>' +
+      '<div class="unit-meta">' + towerData[tower.type].name.split(" ")[0] + '</div>';
+  });
+
+  const occupied = new Map();
+  enemies.forEach(enemy => {
+    const key = currentPath[enemy.i].join(",");
+    if (!occupied.has(key)) occupied.set(key, []);
+    occupied.get(key).push(enemy);
+  });
+
+  occupied.forEach((stack, key) => {
+    const [x, y] = key.split(",").map(Number);
+    const cell = getCell(x, y);
+    const front = sortTargets(stack)[0];
+    const extra = stack.length > 1 ? " +" + (stack.length - 1) : "";
+    cell.classList.add("enemy", enemyData[front.type].className);
+    if (front.stun > 0) cell.classList.add("stunned");
+    cell.innerHTML =
+      '<div class="unit-symbol">' + enemyData[front.type].symbol + extra + '</div>' +
+      '<div class="unit-meta">HP ' + Math.max(0, front.hp) + (front.stun > 0 ? ' | STUN' : '') + '</div>';
+  });
+
+  lastAttacks.forEach(attack => {
+    getCell(attack.fromX, attack.fromY).classList.add("attacking");
+    getCell(attack.toX, attack.toY).classList.add("targeted");
+  });
+
+  drawAttackLayer();
+}
+
+function updateStory() {
+  const story = chapterData[chapter];
+  const deployed = Object.keys(towerData)
+    .map(type => towerData[type].name + (towers.some(t => t.type === type) ? " deployed" : " available"))
+    .join(" | ");
+  const zhuge = towers.find(t => t.type === "zhuge");
+  const spellReady = zhuge ? (zhuge.spellCooldown && zhuge.spellCooldown > 0 ? zhuge.spellCooldown + "s" : "Ready") : "Needs Zhuge";
+
+  document.getElementById("storySummary").textContent =
+    "Story: Liu Bei's rear guard is outnumbered, so Zhuge Liang uses terrain, timing, and feints to force every enemy column through a killing curve.";
+  document.getElementById("chapterSummary").textContent = story.title + " - " + story.summary;
+  document.getElementById("chapterHint").textContent =
+    "Tactical note: " + story.hint + " Current hero: " + towerData[selected].name + ".";
+  document.getElementById("attackSummary").textContent =
+    "Attack: " + towerData[selected].attack + " One copy per hero. Roster: " + deployed + ".";
+  document.getElementById("spellSummary").textContent =
+    "Strategy spell: " + spellData.name + ". " + spellData.summary + " Cooldown: " + spellReady + ".";
+  document.getElementById("statusText").textContent = statusText;
+}
+
+function updateStats() {
+  const zhuge = towers.find(t => t.type === "zhuge");
+  const spellReady = zhuge ? (zhuge.spellCooldown && zhuge.spellCooldown > 0 ? zhuge.spellCooldown + "s" : "Ready") : "Locked";
+  document.getElementById("score").textContent = score;
+  document.getElementById("lives").textContent = lives;
+  document.getElementById("wave").textContent = wave;
+  document.getElementById("enemyCount").textContent = enemies.length;
+  document.getElementById("timer").textContent = formatTimer(timeLeft);
+  document.getElementById("spellCooldown").textContent = spellReady;
+  document.getElementById("statusText").textContent = statusText;
+}
+
+window.addEventListener("resize", () => {
+  if (grid.length) drawAttackLayer();
+});
+
+createGrid();
+syncTowerButtons();
+renderBoard();
+updateStory();
+updateStats();
+</script>
+
+</body>
+</html>

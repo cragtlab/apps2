@@ -1,0 +1,992 @@
+<!--  todo at finishing screen show the list of unique completed words and missed words. chinese version -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mario Runner</title>
+    <style>
+        :root {
+            --sky-top: #69c8ff;
+            --sky-bottom: #d9f3ff;
+            --grass: #57b44b;
+            --dirt: #76533a;
+            --panel: rgba(15, 21, 31, 0.76);
+            --panel-border: rgba(255, 255, 255, 0.16);
+            --ground-height: 120px;
+            --mario-scale: 1;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            background:
+                radial-gradient(circle at top, rgba(255, 255, 255, 0.4), transparent 30%),
+                linear-gradient(140deg, #134e5e 0%, #71b280 100%);
+        }
+
+        .game-container {
+            position: relative;
+            width: min(1100px, 94vw);
+            height: min(680px, 92vh);
+            overflow: hidden;
+            border: 6px solid #1d2430;
+            border-radius: 28px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+            background:
+                radial-gradient(circle at 18% 16%, rgba(255, 255, 255, 0.75), transparent 8%),
+                radial-gradient(circle at 72% 22%, rgba(255, 255, 255, 0.65), transparent 7%),
+                linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-bottom) 68%, var(--grass) 68%, var(--grass) 74%, var(--dirt) 74%, var(--dirt) 100%);
+            isolation: isolate;
+            cursor: pointer;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .game-container::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(90deg, rgba(255, 255, 255, 0.12) 0 4%, transparent 4% 100%),
+                linear-gradient(transparent 0 77%, rgba(0, 0, 0, 0.08) 77% 100%);
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        .hud {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            right: 18px;
+            z-index: 20;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .panel {
+            min-width: 150px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            color: #fff8d6;
+            backdrop-filter: blur(8px);
+        }
+
+        .panel-label {
+            display: block;
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            opacity: 0.85;
+        }
+
+        .panel-value {
+            display: block;
+            margin-top: 4px;
+            font-size: 1.55rem;
+            font-weight: 700;
+        }
+
+        .instruction-bar {
+            position: absolute;
+            left: 50%;
+            bottom: 18px;
+            transform: translateX(-50%);
+            z-index: 20;
+            padding: 12px 18px;
+            border-radius: 999px;
+            background: rgba(18, 23, 33, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 0.95rem;
+            text-align: center;
+            max-width: calc(100% - 36px);
+        }
+
+        .cloud {
+            position: absolute;
+            top: 80px;
+            width: 120px;
+            height: 42px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.9);
+            filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.08));
+        }
+
+        .cloud::before,
+        .cloud::after {
+            content: "";
+            position: absolute;
+            background: inherit;
+            border-radius: inherit;
+        }
+
+        .cloud::before {
+            width: 56px;
+            height: 56px;
+            left: 14px;
+            top: -24px;
+        }
+
+        .cloud::after {
+            width: 74px;
+            height: 74px;
+            right: 16px;
+            top: -34px;
+        }
+
+        .hill {
+            position: absolute;
+            bottom: calc(var(--ground-height) - 24px);
+            width: 260px;
+            height: 160px;
+            border-radius: 50% 50% 0 0;
+            background: linear-gradient(to bottom, #60bc55, #3e8f38);
+            opacity: 0.95;
+        }
+
+        .mario {
+            position: absolute;
+            left: 86px;
+            bottom: var(--ground-height);
+            width: 68px;
+            height: 104px;
+            z-index: 10;
+            transform-origin: center bottom;
+        }
+
+        .mario-body {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            animation: run 0.32s steps(2) infinite;
+        }
+
+        .mario.jumping .mario-body {
+            animation-duration: 0.5s;
+        }
+
+        .mario-head {
+            position: absolute;
+            left: 12px;
+            top: 18px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: #f3ba85;
+            border: 2px solid #9f5c2b;
+        }
+
+        .mario-hat {
+            position: absolute;
+            left: 8px;
+            top: 0;
+            width: 48px;
+            height: 24px;
+            border-radius: 16px 16px 6px 6px;
+            background: #d11d2f;
+            border: 2px solid #8c0917;
+        }
+
+        .mario-hat::before {
+            content: "M";
+            position: absolute;
+            left: 17px;
+            top: 1px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .mario-eyes,
+        .mario-eyes::after {
+            position: absolute;
+            width: 6px;
+            height: 8px;
+            border-radius: 50%;
+            background: #1f1f1f;
+            content: "";
+        }
+
+        .mario-eyes {
+            left: 13px;
+            top: 14px;
+        }
+
+        .mario-eyes::after {
+            left: 16px;
+            top: 0;
+        }
+
+        .mario-mouth {
+            position: absolute;
+            left: 16px;
+            top: 25px;
+            width: 12px;
+            height: 3px;
+            border-radius: 2px;
+            background: #592410;
+        }
+
+        .mario-mustache {
+            position: absolute;
+            left: 10px;
+            top: 20px;
+            width: 20px;
+            height: 8px;
+            border-radius: 0 0 12px 12px;
+            border-bottom: 4px solid #332018;
+        }
+
+        .mario-torso {
+            position: absolute;
+            left: 13px;
+            top: 58px;
+            width: 40px;
+            height: 24px;
+            border-radius: 8px 8px 4px 4px;
+            background: #d11d2f;
+            border: 2px solid #8c0917;
+        }
+
+        .mario-overalls {
+            position: absolute;
+            left: 10px;
+            top: 70px;
+            width: 46px;
+            height: 24px;
+            border-radius: 8px;
+            background: #265cdb;
+            border: 2px solid #153a9c;
+        }
+
+        .mario-overalls::before,
+        .mario-overalls::after {
+            content: "";
+            position: absolute;
+            top: -18px;
+            width: 10px;
+            height: 20px;
+            background: #265cdb;
+            border: 2px solid #153a9c;
+        }
+
+        .mario-overalls::before {
+            left: 6px;
+        }
+
+        .mario-overalls::after {
+            right: 6px;
+        }
+
+        .mario-legs,
+        .mario-legs::after {
+            position: absolute;
+            top: 94px;
+            width: 14px;
+            height: 10px;
+            border-radius: 4px;
+            background: #7d4e23;
+            content: "";
+        }
+
+        .mario-legs {
+            left: 12px;
+        }
+
+        .mario-legs::after {
+            left: 28px;
+        }
+
+        .mario::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 12px;
+            width: 42px;
+            height: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 50%;
+            filter: blur(4px);
+        }
+
+        .obstacle,
+        .word-pickup {
+            position: absolute;
+            bottom: var(--ground-height);
+            z-index: 9;
+        }
+
+        .obstacle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #f8ecd2;
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #b66a2e 0%, #7f4213 60%, #5a2d11 100%);
+            border: 4px solid #40200c;
+            box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.12);
+        }
+
+        .obstacle::before,
+        .obstacle::after {
+            content: "?";
+            position: absolute;
+            color: rgba(255, 245, 214, 0.95);
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .obstacle::before {
+            top: 6px;
+            left: 10px;
+        }
+
+        .obstacle::after {
+            right: 10px;
+            bottom: 8px;
+        }
+
+        .word-pickup {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 72px;
+            height: 42px;
+            padding: 0 14px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #fff6b8 0%, #ffe27a 50%, #ffca44 100%);
+            border: 3px solid #cf9200;
+            box-shadow: 0 0 0 3px rgba(255, 236, 130, 0.28);
+            color: #4c3300;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: lowercase;
+            white-space: nowrap;
+        }
+
+        .word-pickup::before {
+            content: "abc";
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: #fffdf0;
+            border: 1px solid rgba(76, 51, 0, 0.14);
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .word-pickup.sparkle {
+            animation: spin 1.1s ease-in-out infinite;
+        }
+
+        .word-pickup.collected {
+            animation: collect 0.45s ease-out forwards;
+        }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 25;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(12, 17, 26, 0.52);
+        }
+
+        .overlay.visible {
+            display: flex;
+        }
+
+        .overlay-card {
+            width: min(420px, calc(100% - 32px));
+            padding: 24px;
+            border-radius: 24px;
+            background: rgba(17, 24, 36, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: white;
+            text-align: center;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .overlay-card h1 {
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            color: #ffd95b;
+        }
+
+        .overlay-card p {
+            margin-top: 10px;
+            line-height: 1.5;
+            color: #dde8f5;
+        }
+
+        .overlay-card button {
+            margin-top: 18px;
+            padding: 12px 22px;
+            border: 0;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #ffd54d, #ff9c24);
+            color: #221300;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        @keyframes run {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-2px) rotate(-2deg); }
+        }
+
+        @keyframes spin {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-6px) scale(1.04); }
+        }
+
+        @keyframes collect {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-55px) scale(1.35); }
+        }
+
+        @media (max-width: 700px) {
+            :root {
+                --ground-height: 104px;
+                --mario-scale: 0.9;
+            }
+
+            .game-container {
+                height: min(720px, 96vh);
+                border-radius: 20px;
+            }
+
+            .mario {
+                left: 42px;
+            }
+
+            .panel {
+                min-width: 120px;
+                padding: 10px 12px;
+            }
+
+            .instruction-bar {
+                font-size: 0.84rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="game" aria-label="Mario runner game">
+        <div class="cloud" style="left: 9%;"></div>
+        <div class="cloud" style="left: 68%; top: 130px; transform: scale(0.86);"></div>
+        <div class="hill" style="left: -30px;"></div>
+        <div class="hill" style="left: 56%; width: 320px; height: 180px;"></div>
+
+        <div class="hud">
+            <div class="panel">
+                <span class="panel-label">WORDS</span>
+                <span class="panel-value" id="word-counter">0</span>
+            </div>
+            <div class="panel">
+                <span class="panel-label">DISTANCE</span>
+                <span class="panel-value" id="distance-counter">0 m</span>
+            </div>
+            <div class="panel">
+                <span class="panel-label">LATEST</span>
+                <span class="panel-value" id="latest-word">none</span>
+            </div>
+            <div class="panel">
+                <span class="panel-label">STATUS</span>
+                <span class="panel-value" id="status-label">Running</span>
+            </div>
+        </div>
+
+        <div class="mario" id="mario">
+            <div class="mario-body">
+                <div class="mario-hat"></div>
+                <div class="mario-head">
+                    <div class="mario-eyes"></div>
+                    <div class="mario-mouth"></div>
+                    <div class="mario-mustache"></div>
+                </div>
+                <div class="mario-torso"></div>
+                <div class="mario-overalls"></div>
+                <div class="mario-legs"></div>
+            </div>
+        </div>
+
+        <div class="instruction-bar" id="instruction">
+            Press <strong>Space</strong>, <strong>Arrow Up</strong>, or tap anywhere to jump. Collect reading words and avoid the boxes.
+        </div>
+
+        <div class="overlay visible" id="overlay">
+            <div class="overlay-card">
+                <h1>Mario Runner</h1>
+                <p>Jump through a stream of reading words for 7-year-olds while dodging the boxes.</p>
+                <p>Press jump or use the button below to start.</p>
+                <button id="start-button" type="button">Start Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const game = document.getElementById("game");
+        const mario = document.getElementById("mario");
+        const wordCounter = document.getElementById("word-counter");
+        const distanceCounter = document.getElementById("distance-counter");
+        const latestWord = document.getElementById("latest-word");
+        const statusLabel = document.getElementById("status-label");
+        const instruction = document.getElementById("instruction");
+        const overlay = document.getElementById("overlay");
+        const startButton = document.getElementById("start-button");
+        const speechSynthesisApi = window.speechSynthesis;
+        const supportsSpeech = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+
+        const wordLibrary = [
+            "able", "about", "above", "across", "after", "again", "air", "along", "always", "animal",
+            "apple", "around", "ask", "away", "baby", "back", "ball", "banana", "barn", "because",
+            "bed", "bee", "before", "began", "behind", "bell", "best", "bird", "blue", "boat",
+            "book", "both", "box", "bread", "bring", "brother", "brown", "bug", "build", "busy",
+            "cake", "call", "came", "carry", "cat", "chair", "cheese", "chicken", "children", "city",
+            "clean", "climb", "clock", "cloud", "coat", "cold", "color", "come", "corn", "could",
+            "cow", "crayon", "dance", "day", "deep", "deer", "dog", "door", "down", "draw",
+            "drink", "duck", "early", "earth", "eat", "egg", "every", "eye", "face", "farm",
+            "fast", "father", "feet", "find", "fire", "first", "fish", "five", "floor", "flower",
+            "fly", "food", "foot", "forest", "four", "friend", "frog", "from", "game", "garden",
+            "girl", "give", "glad", "goat", "good", "grass", "green", "grow", "hand", "happy",
+            "hat", "head", "help", "hill", "home", "horse", "house", "jump", "keep", "kind",
+            "kite", "know", "lady", "lake", "laugh", "leaf", "left", "light", "like", "little",
+            "long", "look", "lunch", "made", "make", "many", "milk", "moon", "morning", "mother",
+            "mouse", "mouth", "music", "name", "near", "nest", "night", "nose", "open", "orange",
+            "outside", "paint", "paper", "park", "party", "pencil", "people", "pet", "picture", "plant",
+            "play", "please", "pretty", "pull", "purple", "rabbit", "rain", "read", "red", "right",
+            "river", "road", "rock", "room", "run", "school", "sea", "seed", "seven", "sheep",
+            "shine", "shoe", "short", "sing", "sister", "sleep", "small", "smile", "snow", "song",
+            "soon", "sound", "spring", "star", "stick", "stone", "stop", "story", "street", "sun"
+        ];
+
+        const marioState = {
+            x: 86,
+            width: 68,
+            height: 104,
+            y: 0,
+            velocityY: 0
+        };
+
+        const state = {
+            gravity: 1900,
+            jumpVelocity: 760,
+            baseSpeed: 370,
+            speed: 370,
+            maxObstacles: 4,
+            spawnCooldown: 0,
+            wordSpawnCooldown: 0,
+            wordsCollected: 0,
+            lastWord: "none",
+            distance: 0,
+            running: false,
+            gameOver: false,
+            lastTime: 0,
+            obstacles: [],
+            wordsOnTrack: [],
+            wordDeck: []
+        };
+
+        const speechState = {
+            enabled: supportsSpeech,
+            voice: null
+        };
+
+        function randomBetween(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        function shuffleWords(words) {
+            const deck = [...words];
+
+            for (let i = deck.length - 1; i > 0; i -= 1) {
+                const swapIndex = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[swapIndex]] = [deck[swapIndex], deck[i]];
+            }
+
+            return deck;
+        }
+
+        function getNextWord() {
+            if (state.wordDeck.length === 0) {
+                state.wordDeck = shuffleWords(wordLibrary);
+            }
+
+            return state.wordDeck.pop();
+        }
+
+        function selectSpeechVoice() {
+            if (!speechState.enabled) {
+                return;
+            }
+
+            const voices = speechSynthesisApi.getVoices();
+
+            if (!voices.length) {
+                return;
+            }
+
+            speechState.voice =
+                voices.find((voice) => voice.lang.toLowerCase().startsWith("en") && voice.name.includes("Google")) ||
+                voices.find((voice) => voice.lang.toLowerCase().startsWith("en")) ||
+                voices[0];
+        }
+
+        function speakWord(word) {
+            if (!speechState.enabled || !word) {
+                return;
+            }
+
+            if (!speechState.voice) {
+                selectSpeechVoice();
+            }
+
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.lang = speechState.voice?.lang || "en-US";
+            utterance.rate = 0.92;
+            utterance.pitch = 1.08;
+
+            if (speechState.voice) {
+                utterance.voice = speechState.voice;
+            }
+
+            speechSynthesisApi.cancel();
+            speechSynthesisApi.speak(utterance);
+        }
+
+        function setOverlay(title, body, buttonLabel) {
+            overlay.querySelector("h1").textContent = title;
+            overlay.querySelectorAll("p")[0].textContent = body;
+            overlay.querySelectorAll("p")[1].textContent = buttonLabel === "Restart Game"
+                ? "Press jump, click, or tap to restart."
+                : "Press jump or use the button below to start.";
+            startButton.textContent = buttonLabel;
+            overlay.classList.add("visible");
+        }
+
+        function hideOverlay() {
+            overlay.classList.remove("visible");
+        }
+
+        function updateHud() {
+            wordCounter.textContent = String(state.wordsCollected);
+            distanceCounter.textContent = `${Math.floor(state.distance)} m`;
+            latestWord.textContent = state.lastWord;
+            statusLabel.textContent = state.gameOver ? "Crashed" : state.running ? "Running" : "Ready";
+        }
+
+        function updateMario() {
+            const scale = getComputedStyle(document.documentElement).getPropertyValue("--mario-scale").trim() || "1";
+            mario.style.transform = `translateY(${-marioState.y}px) scale(${scale})`;
+            mario.classList.toggle("jumping", marioState.y > 0.5);
+        }
+
+        function clearTrack() {
+            state.obstacles.forEach((obstacle) => obstacle.element.remove());
+            state.wordsOnTrack.forEach((wordPickup) => wordPickup.element.remove());
+            state.obstacles = [];
+            state.wordsOnTrack = [];
+        }
+
+        function resetGame() {
+            clearTrack();
+            state.speed = state.baseSpeed;
+            state.spawnCooldown = 0.8;
+            state.wordSpawnCooldown = 1.2;
+            state.wordsCollected = 0;
+            state.lastWord = "none";
+            state.distance = 0;
+            state.running = false;
+            state.gameOver = false;
+            state.lastTime = 0;
+            state.wordDeck = shuffleWords(wordLibrary);
+            marioState.y = 0;
+            marioState.velocityY = 0;
+            instruction.textContent = "Press Space, Arrow Up, or tap anywhere to jump. Collect reading words and avoid the boxes.";
+            updateMario();
+            updateHud();
+            setOverlay("Mario Runner", `Jump through a library of ${wordLibrary.length} reading words for 7-year-olds while dodging the boxes.`, "Start Game");
+        }
+
+        function spawnObstacle() {
+            const size = randomBetween(48, 80);
+            const element = document.createElement("div");
+            element.className = "obstacle";
+            element.style.width = `${size}px`;
+            element.style.height = `${size}px`;
+            element.style.left = `${game.clientWidth + size}px`;
+            element.style.bottom = "var(--ground-height)";
+            game.appendChild(element);
+
+            state.obstacles.push({
+                element,
+                x: game.clientWidth + size,
+                width: size,
+                height: size
+            });
+        }
+
+        function spawnWordPickup() {
+            const element = document.createElement("div");
+            element.className = "word-pickup sparkle";
+            element.textContent = getNextWord();
+            const x = game.clientWidth + 40;
+            const heightAboveGround = randomBetween(70, 165);
+            element.style.left = `${x}px`;
+            element.style.bottom = `calc(var(--ground-height) + ${heightAboveGround}px)`;
+            game.appendChild(element);
+
+            state.wordsOnTrack.push({
+                element,
+                x,
+                width: element.offsetWidth,
+                height: element.offsetHeight,
+                word: element.textContent,
+                y: heightAboveGround
+            });
+        }
+
+        function intersects(a, b) {
+            return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+        }
+
+        function getMarioHitbox() {
+            const groundHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ground-height"));
+            const left = marioState.x + 10;
+            const right = left + marioState.width - 20;
+            const top = groundHeight + marioState.y + 8;
+            const bottom = groundHeight + marioState.height + marioState.y;
+
+            return { left, right, top, bottom };
+        }
+
+        function getObstacleHitbox(obstacle) {
+            const groundHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ground-height"));
+            const obstacleBottom = groundHeight + obstacle.height;
+            const obstacleTop = groundHeight;
+
+            return {
+                left: obstacle.x,
+                right: obstacle.x + obstacle.width,
+                top: obstacleTop,
+                bottom: obstacleBottom
+            };
+        }
+
+        function getWordHitbox(wordPickup) {
+            const groundHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ground-height"));
+            const top = groundHeight + wordPickup.y;
+
+            return {
+                left: wordPickup.x,
+                right: wordPickup.x + wordPickup.width,
+                top,
+                bottom: top + wordPickup.height
+            };
+        }
+
+        function jump() {
+            if (state.gameOver) {
+                startGame();
+                return;
+            }
+
+            if (!state.running) {
+                startGame();
+            }
+
+            if (marioState.y === 0) {
+                marioState.velocityY = state.jumpVelocity;
+                updateMario();
+            }
+        }
+
+        function endGame() {
+            state.gameOver = true;
+            state.running = false;
+            statusLabel.textContent = "Crashed";
+            instruction.textContent = `Crash at ${Math.floor(state.distance)} m. Words collected: ${state.wordsCollected}.`;
+            setOverlay("Game Over", `Mario hit a box after ${Math.floor(state.distance)} meters and collected ${state.wordsCollected} reading words.`, "Restart Game");
+        }
+
+        function startGame() {
+            if (state.running) {
+                return;
+            }
+
+            if (state.gameOver) {
+                clearTrack();
+                state.wordsCollected = 0;
+                state.lastWord = "none";
+                state.distance = 0;
+                marioState.y = 0;
+                marioState.velocityY = 0;
+                state.speed = state.baseSpeed;
+                state.spawnCooldown = 0.75;
+                state.wordSpawnCooldown = 1.15;
+                state.gameOver = false;
+                state.wordDeck = shuffleWords(wordLibrary);
+            }
+
+            instruction.textContent = "Collect reading words and clear the boxes.";
+            state.running = true;
+            state.lastTime = 0;
+            updateMario();
+            updateHud();
+            hideOverlay();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateEntities(dt) {
+            const marioHitbox = getMarioHitbox();
+
+            state.obstacles = state.obstacles.filter((obstacle) => {
+                obstacle.x -= state.speed * dt;
+                obstacle.element.style.left = `${obstacle.x}px`;
+
+                if (intersects(marioHitbox, getObstacleHitbox(obstacle))) {
+                    endGame();
+                    return false;
+                }
+
+                if (obstacle.x + obstacle.width < -10) {
+                    obstacle.element.remove();
+                    return false;
+                }
+
+                return true;
+            });
+
+            state.wordsOnTrack = state.wordsOnTrack.filter((wordPickup) => {
+                wordPickup.x -= state.speed * dt;
+                wordPickup.element.style.left = `${wordPickup.x}px`;
+
+                if (intersects(marioHitbox, getWordHitbox(wordPickup))) {
+                    state.wordsCollected += 1;
+                    state.lastWord = wordPickup.word;
+                    speakWord(wordPickup.word);
+                    wordPickup.element.classList.remove("sparkle");
+                    wordPickup.element.classList.add("collected");
+                    setTimeout(() => wordPickup.element.remove(), 450);
+                    updateHud();
+                    return false;
+                }
+
+                if (wordPickup.x + wordPickup.width < -10) {
+                    wordPickup.element.remove();
+                    return false;
+                }
+
+                return true;
+            });
+        }
+
+        function maybeSpawn(dt) {
+            state.spawnCooldown -= dt;
+            state.wordSpawnCooldown -= dt;
+
+            const rightmostObstacle = state.obstacles[state.obstacles.length - 1];
+            const safeGap = !rightmostObstacle || rightmostObstacle.x < game.clientWidth - randomBetween(240, 420);
+
+            if (state.spawnCooldown <= 0 && state.obstacles.length < state.maxObstacles && safeGap) {
+                spawnObstacle();
+                state.spawnCooldown = randomBetween(0.9, 1.55);
+            }
+
+            if (state.wordSpawnCooldown <= 0) {
+                spawnWordPickup();
+                state.wordSpawnCooldown = randomBetween(0.8, 1.4);
+            }
+        }
+
+        function updatePhysics(dt) {
+            marioState.velocityY -= state.gravity * dt;
+            marioState.y += marioState.velocityY * dt;
+
+            if (marioState.y <= 0) {
+                marioState.y = 0;
+                marioState.velocityY = 0;
+            }
+
+            updateMario();
+        }
+
+        function gameLoop(timestamp) {
+            if (!state.running) {
+                return;
+            }
+
+            if (state.lastTime === 0) {
+                state.lastTime = timestamp;
+            }
+
+            const dt = Math.min((timestamp - state.lastTime) / 1000, 0.032);
+            state.lastTime = timestamp;
+            state.speed = Math.min(state.baseSpeed + state.distance * 0.55, 620);
+            state.distance += dt * (state.speed / 22);
+
+            updatePhysics(dt);
+            updateEntities(dt);
+            maybeSpawn(dt);
+            updateHud();
+
+            if (!state.gameOver) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function handleJumpInput(event) {
+            const jumpKeys = ["Space", "ArrowUp", "KeyW"];
+
+            if (event.type === "keydown" && !jumpKeys.includes(event.code)) {
+                return;
+            }
+
+            event.preventDefault();
+            jump();
+        }
+
+        document.addEventListener("keydown", handleJumpInput);
+        game.addEventListener("pointerdown", handleJumpInput);
+        startButton.addEventListener("click", startGame);
+        if (supportsSpeech) {
+            selectSpeechVoice();
+            speechSynthesisApi.addEventListener("voiceschanged", selectSpeechVoice);
+        }
+        window.addEventListener("resize", () => {
+            state.obstacles.forEach((obstacle) => {
+                obstacle.x = Math.min(obstacle.x, game.clientWidth + obstacle.width);
+            });
+
+            state.wordsOnTrack.forEach((wordPickup) => {
+                wordPickup.x = Math.min(wordPickup.x, game.clientWidth + wordPickup.width);
+            });
+        });
+
+        resetGame();
+    </script>
+</body>
+</html>
