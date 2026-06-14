@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ethereum Bot Scanner - Tx Discovery</title>
+  <style>
+    body { font-family: sans-serif; padding: 10px; line-height: 1.4; }
+    .config { margin-bottom: 20px; border: 1px solid #ccc; padding: 10px; }
+    .stats { margin-bottom: 20px; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; cursor: pointer; }
+    .hidden { display: none; }
+    .controls { margin-top: 10px; }
+    .rpc-list { width: 100%; height: 60px; }
+    progress { width: 100%; }
+    .btn { padding: 5px 10px; cursor: pointer; }
+    .btn-red { color: red; }
+    .row-hidden { opacity: 0.5; background: #eee; }
+  </style>
+</head>
+<body>
+
+  <h1>Ethereum Transaction Discovery</h1>
+  <p>Scan blocks for unique transaction types (function signatures) and find profitable bot patterns.</p>
+
+  <div class="config">
+    <div>
+      <label>Public RPC URLs (one per line):</label><br>
+      <textarea id="rpc-urls" class="rpc-list">https://cloudflare-eth.com
+https://eth.llamarpc.com
+https://rpc.ankr.com/eth</textarea>
+    </div>
+    <div class="controls">
+      <button id="btn-start" class="btn">Start Scan</button>
+      <button id="btn-stop" class="btn" disabled>Stop</button>
+      <button id="btn-clear" class="btn btn-red">Clear Cache</button>
+      <label style="margin-left: 20px;">
+        <input type="checkbox" id="show-hidden"> Show Hidden
+      </label>
+    </div>
+  </div>
+
+  <div class="stats" id="status-display">
+    Status: Idle | Blocks Scanned: <span id="blocks-scanned">0</span> | Txs Found: <span id="txs-found">0</span>
+  </div>
+  <progress id="scan-progress" value="0" max="100"></progress>
+
+  <table>
+    <thead>
+      <tr>
+        <th onclick="setSort('count')">Frequency <span id="sort-count-icon">▼</span></th>
+        <th onclick="setSort('method')">Method ID <span id="sort-method-icon"></span></th>
+        <th>Label / Function Name</th>
+        <th>Sample (Tx & To)</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="results-tbody">
+      <!-- Data will be injected here -->
+    </tbody>
+  </table>
+
+  <script>
+    // --- Configuration & Constants ---
+    const DB_NAME = 'BotScannerDB';
+    const DB_VERSION = 1;
+    const STORE_BLOCKS = 'blocks';     // { block: number, txs: [ { method: string, hash: string, to: string } ] }
+    const STORE_LABELS = 'labels';     // { method: string, label: string, hidden: boolean }
+
+    // Common boring signatures to hide by default
+    const DEFAULT_HIDDEN = {
+      '0x': 'Transfer (ETH)',
+      '0xa9059cbb': 'transfer(address,uint256)',
+      '0x095ea7b3': 'approve(address,uint256)',
+      '0x23b872dd': 'transferFrom(address,address,uint256)',
+      '0x70a08231': 'balanceOf(address)',
+    };
+
+    let db;
+    let isScanning = false;
+    let currentRpcIndex = 0;
+    let stopRequested = false;
+    let sortKey = 'count';
+    let sortDir = -1;
+
+    // --- DB Setup ---
+    async function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_BLOCKS)) {
+            db.createObjectStore(STORE_BLOCKS, { keyPath: 'block' });
+          }
+          if (!db.objectStoreNames.contains(STORE_LABELS)) {
+            db.createObjectStore(STORE_LABELS, { keyPath: 'method' });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => reject(e);
+      });
+    }
+
+    async function getLabels() {
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_LABELS, 'readonly');
+        const store = tx.objectStore(STORE_LABELS);
+        const request = store.getAll();
+        request.onsuccess = () => {
+          const result = {};
+          // Load default hidden ones first
+          for (const [m, l] of Object.entries(DEFAULT_HIDDEN)) {
+            result[m] = { method: m, label: l, hidden: true };
+          }
+          // Overlay user labels
+          request.result.forEach(item => {
+            result[item.method] = item;
+          });
+          resolve(result);
+        };
+      });
+    }
+
+    async function saveLabel(method, label, hidden) {
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_LABELS, 'readwrite');
+        const store = tx.objectStore(STORE_LABELS);
+        store.put({ method, label, hidden });
+        tx.oncomplete = () => resolve();
+      });
+    }
+
+    // --- RPC Helpers ---
+    function getRpcs() {
+      return document.getElementById('rpc-urls').value.split('\n').map(u => u.trim()).filter(u => u);
+    }
+
+    async function fetchRpc(method, params) {
+      const rpcs = getRpcs();
+      let attempts = 0;
+      while (attempts < rpcs.length) {
+        const rpc = rpcs[currentRpcIndex];
+        try {
+          const response = await fetch(rpc, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params })
+          });
+          const json = await response.json();
+          if (json.error) throw new Error(json.error.message);
+          return json.result;
+        } catch (err) {
+          console.warn(`RPC failed (${rpc}): ${err.message}`);
+          currentRpcIndex = (currentRpcIndex + 1) % rpcs.length;
+          attempts++;
+        }
+      }
+      throw new Error('All RPCs failed');
+    }
+
+    // --- Scanning Logic ---
+    let aggregation = { counts: {}, samples: {}, lastBlock: 0 };
+
+    async function scan() {
+      if (isScanning) return;
+      isScanning = true;
+      stopRequested = false;
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('btn-stop').disabled = false;
+
+      try {
+        const latestBlockHex = await fetchRpc('eth_blockNumber', []);
+        const latestBlock = parseInt(latestBlockHex, 16);
+        const targetBlocks = 50400; // ~7 days at 12s per block
+
+        let blocksScannedCount = 0;
+
+        // Reset aggregation on start
+        aggregation = { counts: {}, samples: {}, lastBlock: 0 };
+
+        // Cleanup old data (> 30 days)
+        await cleanupOldBlocks(latestBlock - 216000); // ~30 days
+
+        for (let b = latestBlock; b > latestBlock - targetBlocks; b--) {
+          if (stopRequested) break;
+
+          // Check cache
+          let blockData = await getBlockFromCache(b);
+          if (!blockData) {
+            const raw = await fetchRpc('eth_getBlockByNumber', ['0x' + b.toString(16), true]);
+            if (!raw) continue;
+            blockData = {
+              block: b,
+              txs: raw.transactions.map(t => ({
+                method: t.input.slice(0, 10),
+                hash: t.hash,
+                to: t.to
+              }))
+            };
+            await saveBlockToCache(b, blockData.txs);
+          }
+
+          // Incremental aggregation
+          blockData.txs.forEach(t => {
+            aggregation.counts[t.method] = (aggregation.counts[t.method] || 0) + 1;
+            if (!aggregation.samples[t.method]) aggregation.samples[t.method] = { hash: t.hash, to: t.to };
+          });
+
+          blocksScannedCount++;
+          updateProgress(blocksScannedCount, targetBlocks);
+
+          document.getElementById('blocks-scanned').textContent = blocksScannedCount;
+          if (blocksScannedCount % 100 === 0) await refreshUI(true);
+        }
+      } catch (err) {
+        alert('Scan stopped: ' + err.message);
+      } finally {
+        isScanning = false;
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-stop').disabled = true;
+        await refreshUI();
+      }
+    }
+
+    async function getBlockFromCache(blockNum) {
+      return new Promise(resolve => {
+        const tx = db.transaction(STORE_BLOCKS, 'readonly');
+        const request = tx.objectStore(STORE_BLOCKS).get(blockNum);
+        request.onsuccess = () => resolve(request.result);
+      });
+    }
+
+    async function saveBlockToCache(block, txs) {
+      return new Promise(resolve => {
+        const tx = db.transaction(STORE_BLOCKS, 'readwrite');
+        tx.objectStore(STORE_BLOCKS).put({ block, txs, timestamp: Date.now() });
+        tx.oncomplete = () => resolve();
+      });
+    }
+
+    async function cleanupOldBlocks(cutoffBlock) {
+      return new Promise(resolve => {
+        const tx = db.transaction(STORE_BLOCKS, 'readwrite');
+        const store = tx.objectStore(STORE_BLOCKS);
+        const request = store.openCursor(IDBKeyRange.upperBound(cutoffBlock));
+        request.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            cursor.delete();
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+      });
+    }
+
+    function updateProgress(current, total) {
+      const prog = document.getElementById('scan-progress');
+      prog.value = (current / total) * 100;
+    }
+
+    // --- UI Logic ---
+    async function refreshUI(useIncremental = false) {
+      const labels = await getLabels();
+      const showHidden = document.getElementById('show-hidden').checked;
+
+      if (useIncremental) {
+        renderTable(aggregation.counts, aggregation.samples, labels, showHidden);
+        return;
+      }
+
+      // Full aggregation from DB
+      const counts = {};
+      const samples = {};
+
+      return new Promise(resolve => {
+        const tx = db.transaction(STORE_BLOCKS, 'readonly');
+        const request = tx.objectStore(STORE_BLOCKS).openCursor();
+
+        request.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            cursor.value.txs.forEach(t => {
+              counts[t.method] = (counts[t.method] || 0) + 1;
+              if (!samples[t.method]) samples[t.method] = { hash: t.hash, to: t.to };
+            });
+            cursor.continue();
+          } else {
+            renderTable(counts, samples, labels, showHidden);
+            resolve();
+          }
+        };
+      });
+    }
+
+    function setSort(key) {
+      if (sortKey === key) {
+        sortDir *= -1;
+      } else {
+        sortKey = key;
+        sortDir = -1;
+      }
+      refreshUI();
+    }
+
+    function renderTable(counts, samples, labels, showHidden) {
+      const tbody = document.getElementById('results-tbody');
+
+      document.getElementById('sort-count-icon').textContent = sortKey === 'count' ? (sortDir === 1 ? '▲' : '▼') : '';
+      document.getElementById('sort-method-icon').textContent = sortKey === 'method' ? (sortDir === 1 ? '▲' : '▼') : '';
+
+      const sortedMethods = Object.keys(counts).sort((a, b) => {
+        if (sortKey === 'count') return (counts[a] - counts[b]) * sortDir;
+        if (sortKey === 'method') return a.localeCompare(b) * sortDir;
+        return 0;
+      });
+
+      let totalFound = 0;
+      tbody.innerHTML = '';
+
+      sortedMethods.forEach(m => {
+        const meta = labels[m] || { label: '', hidden: false };
+        if (!showHidden && meta.hidden) return;
+
+        totalFound++;
+        const tr = document.createElement('tr');
+        if (meta.hidden) tr.className = 'row-hidden';
+
+        const sample = samples[m] || {};
+        const toAddr = sample.to ? (sample.to.slice(0, 6) + '...' + sample.to.slice(-4)) : 'None';
+
+        const tdFreq = document.createElement('td');
+        tdFreq.textContent = counts[m];
+        tr.appendChild(tdFreq);
+
+        const tdMethod = document.createElement('td');
+        tdMethod.style.fontFamily = 'monospace';
+        tdMethod.textContent = m;
+        tr.appendChild(tdMethod);
+
+        const tdLabel = document.createElement('td');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.style.width = '90%';
+        input.value = meta.label;
+        input.onchange = (e) => updateLabel(m, e.target.value, meta.hidden);
+        tdLabel.appendChild(input);
+        tr.appendChild(tdLabel);
+
+        const tdSample = document.createElement('td');
+        const txLink = document.createElement('a');
+        txLink.href = `https://etherscan.io/tx/${sample.hash}`;
+        txLink.target = '_blank';
+        txLink.textContent = 'Tx';
+        tdSample.appendChild(txLink);
+        tdSample.appendChild(document.createTextNode(' | '));
+        const toLink = document.createElement('a');
+        toLink.href = `https://etherscan.io/address/${sample.to}`;
+        toLink.target = '_blank';
+        toLink.style.fontFamily = 'monospace';
+        toLink.textContent = toAddr;
+        tdSample.appendChild(toLink);
+        tr.appendChild(tdSample);
+
+        const tdActions = document.createElement('td');
+        const hideBtn = document.createElement('button');
+        hideBtn.textContent = meta.hidden ? 'Unhide' : 'Hide';
+        hideBtn.onclick = () => toggleHide(m, meta.label, !meta.hidden);
+        tdActions.appendChild(hideBtn);
+        tr.appendChild(tdActions);
+
+        tbody.appendChild(tr);
+      });
+      document.getElementById('txs-found').textContent = totalFound;
+    }
+
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return '';
+      return str.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[m];
+      });
+    }
+
+    window.updateLabel = async (method, label, hidden) => {
+      await saveLabel(method, label, hidden);
+      refreshUI(isScanning);
+    };
+
+    window.toggleHide = async (method, label, hidden) => {
+      await saveLabel(method, label, hidden);
+      refreshUI(isScanning);
+    };
+
+    document.getElementById('btn-start').onclick = scan;
+    document.getElementById('btn-stop').onclick = () => { stopRequested = true; };
+    document.getElementById('btn-clear').onclick = async () => {
+      if (!confirm('Clear all cached blocks? Labels will be kept.')) return;
+      const tx = db.transaction(STORE_BLOCKS, 'readwrite');
+      tx.objectStore(STORE_BLOCKS).clear();
+      tx.oncomplete = () => {
+        document.getElementById('blocks-scanned').textContent = '0';
+        refreshUI();
+      };
+    };
+    document.getElementById('show-hidden').onchange = refreshUI;
+
+    // Initialization
+    initDB().then(() => {
+      refreshUI();
+    });
+
+  </script>
+</body>
+</html>
