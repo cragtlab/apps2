@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><rect width='8' height='8' fill='%234a6fa5'/><rect x='3' y='3' width='2' height='2' fill='white'/></svg>">
     <title>Reflect - Event Tracker</title>
     <style>
         :root {
@@ -543,7 +544,7 @@
             });
 
             const sortedMonths = Object.keys(months).sort();
-            
+
             container.innerHTML = `<div class="month-view">
                 ${sortedMonths.map(ym => {
                     const [year, month] = ym.split('-').map(Number);
@@ -596,7 +597,7 @@
             if (hidePast) {
                 const [ty, tm, td] = todayStr.split('-').map(Number);
                 const today = new Date(ty, tm - 1, td);
-                
+
                 // Set today to start of its day for comparison
                 today.setHours(0,0,0,0);
 
@@ -610,7 +611,7 @@
                         return cellDate >= today;
                     });
                     const hasEvents = week.some(cell => cell.type === 'day' && cell.events.length > 0);
-                    
+
                     return hasFutureOrToday || hasEvents;
                 });
             }
@@ -701,11 +702,11 @@
 
                     const datePart = parts[0].trim().split('-');
                     if (datePart.length !== 3) continue;
-                    
+
                     const day = parseInt(datePart[0]);
                     const month = monthsMap[datePart[1]];
                     const year = parseInt(datePart[2]);
-                    
+
                     if (isNaN(day) || month === undefined || isNaN(year)) continue;
 
                     const isoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
