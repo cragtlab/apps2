@@ -29,8 +29,11 @@
     <div>
       <label>Public RPC URLs (one per line):</label><br>
       <textarea id="rpc-urls" class="rpc-list">https://cloudflare-eth.com
-https://eth.llamarpc.com
-https://rpc.ankr.com/eth</textarea>
+https://ethereum-rpc.publicnode.com
+https://1rpc.io/eth
+https://rpc.mevblocker.io
+// https://eth.llamarpc.com (CORS issue)
+// https://rpc.ankr.com/eth (Needs key)</textarea>
     </div>
     <div class="controls">
       <button id="btn-start" class="btn">Start Scan</button>
@@ -137,7 +140,9 @@ https://rpc.ankr.com/eth</textarea>
 
     // --- RPC Helpers ---
     function getRpcs() {
-      return document.getElementById('rpc-urls').value.split('\n').map(u => u.trim()).filter(u => u);
+      return document.getElementById('rpc-urls').value.split('\n')
+        .map(u => u.trim())
+        .filter(u => u && !u.startsWith('#') && !u.startsWith('//'));
     }
 
     async function fetchRpc(method, params) {
