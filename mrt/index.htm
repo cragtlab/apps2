@@ -626,6 +626,7 @@ let selectedStart = null;
 let selectedEnd = null;
 
 function openAddTripModal() {
+  trackLocation();
   selectedStart = null;
   selectedEnd = null;
   updateSelectionUI();
@@ -681,8 +682,9 @@ function renderRecordedIntervals() {
           <button class="refresh-btn" onclick="refreshInterval(event, ${i})" title="Refresh Nearest Label">↺</button>
         </div>
         <div class="interval-btns">
-          <button class="start-btn" style="padding:4px 8px; font-size:12px;" onclick="setTripStart(${i})">Set Start</button>
-          <button class="stop-btn" style="padding:4px 8px; font-size:12px;" onclick="setTripEnd(${i})">Set End</button>
+          <button class="start-btn"  style="padding:4px 8px; font-size:12px;" onclick="setTripStart(${i})">Set Start</button>
+          <button class="stop-btn"   style="padding:4px 8px; font-size:12px;" onclick="setTripEnd(${i})">Set End</button>
+          <button class="manual-btn" style="padding:4px 8px; font-size:12px; background:#e65100;" onclick="addToDir(${i})">Add to Dir</button>
         </div>
       </div>
     `;
@@ -699,29 +701,37 @@ function setTripEnd(i) {
   updateSelectionUI();
 }
 
-function refreshInterval(e, i) {
-  if (!navigator.geolocation) return;
-  const btn = e.currentTarget;
-  const oldText = btn.textContent;
-  btn.textContent = '…';
+function addToDir(i) {
+  const inv = recordedIntervals[i];
+  closeAddTripModal();
+  document.getElementById('newCoordLatLng').value = `${inv.lat.toFixed(6)},${inv.lng.toFixed(6)}`;
+  const labelInput = document.getElementById('newCoordLabel');
+  labelInput.scrollIntoView({ behavior:'smooth', block:'center' });
+  setTimeout(() => labelInput.focus(), 500);
+}
 
-  navigator.geolocation.getCurrentPosition(pos => {
-    const inv = recordedIntervals[i];
-    inv.lat = pos.coords.latitude;
-    inv.lng = pos.coords.longitude;
+function refreshInterval(e, i) {
+  const inv = recordedIntervals[i];
+  if (inv.lat == null || inv.lng == null) {
+    if (!navigator.geolocation) return;
+    const btn = e.currentTarget;
+    const oldText = btn.textContent;
+    btn.textContent = '…';
+    navigator.geolocation.getCurrentPosition(pos => {
+      inv.lat = pos.coords.latitude;
+      inv.lng = pos.coords.longitude;
+      const nearest = nearestCoord(inv.lat, inv.lng);
+      inv.locLabel = nearest ? nearest.coord.label : `${inv.lat.toFixed(4)},${inv.lng.toFixed(4)}`;
+      saveIntervals();
+      renderRecordedIntervals();
+      btn.textContent = oldText;
+    }, err => { alert('GPS Error: ' + err.message); btn.textContent = oldText; }, { timeout: 10000 });
+  } else {
     const nearest = nearestCoord(inv.lat, inv.lng);
     inv.locLabel = nearest ? nearest.coord.label : `${inv.lat.toFixed(4)},${inv.lng.toFixed(4)}`;
-
-    // Also update the end time to now since we just verified we are here
-    inv.endTime = new Date().toISOString();
-
     saveIntervals();
     renderRecordedIntervals();
-    btn.textContent = oldText;
-  }, err => {
-    alert('GPS Error: ' + err.message);
-    btn.textContent = oldText;
-  }, { timeout: 10000, enableHighAccuracy: true });
+  }
 }
 
 function reResolveLabels() {
@@ -779,6 +789,10 @@ function trackLocation() {
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
     const now = new Date();
+
+    // Populate Coord Directory GPS field
+    const gpsInput = document.getElementById('newCoordLatLng');
+    if (gpsInput) gpsInput.value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
 
     const nearest = nearestCoord(lat, lng);
     // Force resolve to nearest label if available, otherwise raw
