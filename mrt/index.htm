@@ -241,7 +241,10 @@ textarea {
     </div>
 
     <div class="modal-field">
-      <label>Assign to Route</label>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <label style="margin:0;">Assign to Route</label>
+        <button class="add-btn" style="padding:2px 8px; font-size:11px;" onclick="closeAddTripModal(); showAddRouteForm();">+ Add Route</button>
+      </div>
       <select id="tripRouteSelect">
         <option value="">-- pick route --</option>
       </select>
@@ -652,7 +655,7 @@ function updateSelectionUI() {
     ? `${new Date(selectedStart.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} (${selectedStart.locLabel})`
     : 'none';
   document.getElementById('selEndText').textContent = selectedEnd
-    ? `${new Date(selectedEnd.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} (${selectedEnd.locLabel})`
+    ? `${new Date(selectedEnd.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} (${selectedEnd.locLabel})`
     : 'none';
 }
 
@@ -665,15 +668,17 @@ function renderRecordedIntervals() {
 
   list.innerHTML = recordedIntervals.map((inv, i) => {
     const start = new Date(inv.startTime);
-    const end = new Date(inv.endTime);
     const dateStr = start.toLocaleDateString([], { day:'2-digit', month:'short' });
-    const timeStr = `${start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} - ${end.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+    const timeStr = start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
     return `
       <div class="interval-item">
         <div class="interval-header">
           <span>${dateStr}</span>
-          <span>${timeStr}</span>
+          <span style="display:flex; align-items:center; gap:5px;">
+            ${timeStr}
+            <button class="refresh-btn" style="padding:2px 5px;" onclick="editIntervalTime(${i})" title="Edit Time">🕒</button>
+          </span>
         </div>
         <div class="interval-loc">
           <div style="flex:1;">
@@ -699,6 +704,23 @@ function setTripStart(i) {
 
 function setTripEnd(i) {
   selectedEnd = recordedIntervals[i];
+  updateSelectionUI();
+}
+
+function editIntervalTime(i) {
+  const inv = recordedIntervals[i];
+  const d = new Date(inv.startTime);
+  const current = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+  const val = prompt('Edit arrival time (HH:MM):', current);
+  if (!val) return;
+  const parts = val.split(':');
+  if (parts.length !== 2) { alert('Format must be HH:MM'); return; }
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (isNaN(h) || h < 0 || h > 23 || isNaN(m) || m < 0 || m > 59) { alert('Invalid time'); return; }
+  d.setHours(h); d.setMinutes(m); d.setSeconds(0);
+  inv.startTime = d.toISOString();
+  saveIntervals();
+  renderRecordedIntervals();
   updateSelectionUI();
 }
 
@@ -742,6 +764,7 @@ function reResolveLabels() {
   });
   saveIntervals();
   renderRecordedIntervals();
+  updateSelectionUI();
 }
 
 function clearAllIntervals() {
@@ -760,10 +783,10 @@ function saveTrip() {
   if (!selectedStart || !selectedEnd) { alert('Select both start and end records'); return; }
 
   const startTime = new Date(selectedStart.startTime);
-  const endTime = new Date(selectedEnd.endTime);
+  const endTime = new Date(selectedEnd.startTime);
 
   if (endTime < startTime) {
-    if (!confirm('End time is before start time. Save anyway?')) return;
+    if (!confirm('End record is older than start record. Save anyway?')) return;
   }
 
   const mins = Math.max(1, Math.round((endTime - startTime) / 60000));
