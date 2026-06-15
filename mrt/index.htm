@@ -156,10 +156,6 @@ textarea {
 <!-- Travel Routes Modal -->
 <div class="modal-overlay" id="routesModal">
   <div class="modal" style="max-height: 95vh;">
-    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-      <h3 style="margin:0;">Travel Routes</h3>
-      <button class="add-btn" onclick="showAddRouteForm()">+ Add Route</button>
-    </div>
 
     <div class="add-route-form" id="addRouteForm" style="display:none;">
       <p style="font-size:12px;color:#555;margin:0 0 10px;">
@@ -189,6 +185,7 @@ textarea {
     <div id="travelTracker" style="max-height: 70vh; overflow-y: auto;"></div>
 
     <div class="modal-actions">
+      <button class="add-btn" onclick="showAddRouteForm()">+ Add Route</button>
       <button class="no-btn" onclick="closeRoutesModal()">Close</button>
     </div>
   </div>
@@ -197,9 +194,6 @@ textarea {
 <!-- Coord Directory Modal -->
 <div class="modal-overlay" id="coordModal">
   <div class="modal" style="max-height: 95vh;">
-    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-      <h3 style="margin:0;">📍 Coord Directory</h3>
-    </div>
 
     <div id="coordTableWrap" style="max-height: 50vh; overflow-y: auto; margin-bottom: 15px;"></div>
 
@@ -232,13 +226,6 @@ textarea {
 <!-- Add Trip Modal -->
 <div class="modal-overlay" id="addTripModal">
   <div class="modal" style="max-height: 95vh;">
-    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-      <h3 style="margin:0;">Add Trip</h3>
-      <div style="display:flex; gap:8px;">
-        <button class="manual-btn" style="background:#00838f;" onclick="reResolveLabels()" title="Re-resolve all labels from directory">↻ Labels</button>
-        <button class="clear-btn" onclick="clearAllIntervals()">Clear All</button>
-      </div>
-    </div>
 
     <div id="intervalsList" style="max-height: 60vh; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 8px;">
       <!-- Intervals will be rendered here -->
@@ -260,6 +247,9 @@ textarea {
     </div>
 
     <div class="modal-actions">
+      <button class="manual-btn" style="background:#00838f;" onclick="reResolveLabels()" title="Re-resolve all labels from directory">↻ Labels</button>
+      <button class="clear-btn" onclick="clearAllIntervals()">Clear All</button>
+      <div style="flex:1"></div>
       <button class="no-btn" onclick="closeAddTripModal()">Close</button>
       <button class="ok-btn" onclick="saveTrip()">Save Trip</button>
     </div>
@@ -269,7 +259,6 @@ textarea {
 <!-- Manual / Edit modal -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
-    <h3 id="modalTitle">Add Manual Time</h3>
     <div class="modal-field">
       <label>Date</label>
       <input type="date" id="modalDate">
@@ -560,7 +549,6 @@ function todayISO(){ return new Date().toISOString().slice(0,10); }
 
 function openManualModal(ri) {
   _mMode='manual';_mRoute=ri;_mTrip=null;
-  document.getElementById('modalTitle').textContent='Add Manual Time';
   const now=new Date();
   document.getElementById('modalDate').value=todayISO();
   document.getElementById('modalHour').value=now.getHours();
@@ -571,7 +559,6 @@ function openManualModal(ri) {
 function openEditModal(ri,ti) {
   _mMode='edit';_mRoute=ri;_mTrip=ti;
   const trip=travelRoutes[ri].trips[ti], d=new Date(trip.start);
-  document.getElementById('modalTitle').textContent='Edit Sample';
   document.getElementById('modalDate').value=d.toISOString().slice(0,10);
   document.getElementById('modalHour').value=d.getHours();
   document.getElementById('modalMin').value=d.getMinutes();
