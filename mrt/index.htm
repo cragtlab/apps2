@@ -145,22 +145,26 @@ textarea {
 <div class="header">
   <div class="line-buttons" id="lineButtons"></div>
   <div style="padding: 0 10px 10px; display: flex; gap: 8px;">
-    <button class="add-btn" style="flex: 1;" onclick="openAddTripModal()">+ Add Trip</button>
+    <button class="add-btn" style="flex: 1;" onclick="openAddTripModal()">+ Trip</button>
+    <button class="gps-btn" style="flex: 1;" onclick="openCoordModal()">📍 Coords</button>
+    <button class="save-btn" style="flex: 1; background: #6a1b9a;" onclick="openRoutesModal()">🛤️ Routes</button>
   </div>
 </div>
 
 <div id="stations"></div>
 
-<!-- Travel Routes -->
-<div class="section">
-  <div class="card">
-    <div class="card-title">Travel Routes</div>
+<!-- Travel Routes Modal -->
+<div class="modal-overlay" id="routesModal">
+  <div class="modal" style="max-height: 95vh;">
+    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <h3 style="margin:0;">Travel Routes</h3>
+      <button class="add-btn" onclick="showAddRouteForm()">+ Add Route</button>
+    </div>
 
-    <!-- Add Route Form -->
     <div class="add-route-form" id="addRouteForm" style="display:none;">
       <p style="font-size:12px;color:#555;margin:0 0 10px;">
-        Use single words (no spaces) for From/To — e.g. <em>Home</em>, <em>Work</em>, <em>Playfacto</em>.<br>
-        If the label matches a Coord Directory entry, its GPS will be used automatically.
+        Use single words (no spaces) for From/To — e.g. <em>Home</em>, <em>Work</em>.<br>
+        If label matches a Coord Directory entry, its GPS is used automatically.
       </p>
       <div class="form-row">
         <label>From</label>
@@ -182,22 +186,23 @@ textarea {
       </div>
     </div>
 
-    <div class="travel-buttons">
-      <button class="add-btn" onclick="showAddRouteForm()">+ Add Route</button>
+    <div id="travelTracker" style="max-height: 70vh; overflow-y: auto;"></div>
+
+    <div class="modal-actions">
+      <button class="no-btn" onclick="closeRoutesModal()">Close</button>
     </div>
-    <div id="travelTracker"></div>
   </div>
 </div>
 
-<!-- Coord Directory -->
-<div class="section">
-  <div class="card">
-    <div class="card-title">📍 Coord Directory</div>
-    <p style="font-size:12px;color:#666;margin:0 0 10px;">
-      One-word labels (no spaces). Coords as <code>lat,lng</code>.<br>
-      Matching route endpoints auto-use these coords. "Set GPS" on a route updates the entry here.
-    </p>
-    <div id="coordTableWrap"></div>
+<!-- Coord Directory Modal -->
+<div class="modal-overlay" id="coordModal">
+  <div class="modal" style="max-height: 95vh;">
+    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <h3 style="margin:0;">📍 Coord Directory</h3>
+    </div>
+
+    <div id="coordTableWrap" style="max-height: 50vh; overflow-y: auto; margin-bottom: 15px;"></div>
+
     <div class="coord-add-row">
       <input type="text"   id="newCoordLabel"  placeholder="Label (e.g. Home)" style="max-width:110px;">
       <input type="text"   id="newCoordLatLng" placeholder="1.3521,103.8198">
@@ -205,6 +210,10 @@ textarea {
       <button class="coord-save-btn" onclick="addCoord()">+ Add</button>
     </div>
     <div id="coordStatus" style="font-size:12px;color:#2e7d32;margin-top:6px;"></div>
+
+    <div class="modal-actions" style="margin-top: 20px;">
+      <button class="no-btn" onclick="closeCoordModal()">Close</button>
+    </div>
   </div>
 </div>
 
@@ -231,19 +240,19 @@ textarea {
       </div>
     </div>
 
+    <div id="intervalsList" style="max-height: 60vh; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 8px;">
+      <!-- Intervals will be rendered here -->
+    </div>
+
     <div class="selection-box" id="tripSelection">
       <div><strong>Start:</strong> <span id="selStartText">none</span></div>
       <div style="margin-top:4px;"><strong>End:</strong> <span id="selEndText">none</span></div>
     </div>
 
-    <div id="intervalsList" style="max-height: 50vh; overflow-y: auto; margin-bottom: 15px;">
-      <!-- Intervals will be rendered here -->
-    </div>
-
     <div class="modal-field">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
         <label style="margin:0;">Assign to Route</label>
-        <button class="add-btn" style="padding:2px 8px; font-size:11px;" onclick="closeAddTripModal(); showAddRouteForm();">+ Add Route</button>
+        <button class="add-btn" style="padding:2px 8px; font-size:11px;" onclick="closeAddTripModal(); openRoutesModal(); showAddRouteForm();">+ Add Route</button>
       </div>
       <select id="tripRouteSelect">
         <option value="">-- pick route --</option>
@@ -624,6 +633,25 @@ renderRoutes();
 renderCoordTable();
 
 /* ═══════════════════════════
+   MODAL MANAGEMENT
+═══════════════════════════ */
+function openRoutesModal() {
+  renderRoutes();
+  document.getElementById('routesModal').classList.add('open');
+}
+function closeRoutesModal() {
+  document.getElementById('routesModal').classList.remove('open');
+}
+
+function openCoordModal() {
+  renderCoordTable();
+  document.getElementById('coordModal').classList.add('open');
+}
+function closeCoordModal() {
+  document.getElementById('coordModal').classList.remove('open');
+}
+
+/* ═══════════════════════════
    ADD TRIP MODAL LOGIC
 ═══════════════════════════ */
 let selectedStart = null;
@@ -652,10 +680,10 @@ function closeAddTripModal() {
 
 function updateSelectionUI() {
   document.getElementById('selStartText').textContent = selectedStart
-    ? `${new Date(selectedStart.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} (${selectedStart.locLabel})`
+    ? `${new Date(selectedStart.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
     : 'none';
   document.getElementById('selEndText').textContent = selectedEnd
-    ? `${new Date(selectedEnd.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} (${selectedEnd.locLabel})`
+    ? `${new Date(selectedEnd.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
     : 'none';
 }
 
@@ -691,6 +719,7 @@ function renderRecordedIntervals() {
           <button class="start-btn"  style="padding:4px 8px; font-size:12px;" onclick="setTripStart(${i})">Set Start</button>
           <button class="stop-btn"   style="padding:4px 8px; font-size:12px;" onclick="setTripEnd(${i})">Set End</button>
           <button class="manual-btn" style="padding:4px 8px; font-size:12px; background:#e65100;" onclick="addToDir(${i})">Add to Dir</button>
+          <button class="delete-btn" style="padding:4px 8px; font-size:12px;" onclick="deleteInterval(${i})">🗑️</button>
         </div>
       </div>
     `;
@@ -727,6 +756,7 @@ function editIntervalTime(i) {
 function addToDir(i) {
   const inv = recordedIntervals[i];
   closeAddTripModal();
+  openCoordModal(); // Must open the modal so we can see the input
   document.getElementById('newCoordLatLng').value = `${inv.lat.toFixed(6)},${inv.lng.toFixed(6)}`;
   const labelInput = document.getElementById('newCoordLabel');
   labelInput.scrollIntoView({ behavior:'smooth', block:'center' });
@@ -765,6 +795,13 @@ function reResolveLabels() {
   saveIntervals();
   renderRecordedIntervals();
   updateSelectionUI();
+}
+
+function deleteInterval(i) {
+  if (!confirm('Delete this record?')) return;
+  recordedIntervals.splice(i, 1);
+  saveIntervals();
+  renderRecordedIntervals();
 }
 
 function clearAllIntervals() {
