@@ -652,7 +652,7 @@ function updateSelectionUI() {
     ? `${new Date(selectedStart.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} (${selectedStart.locLabel})`
     : 'none';
   document.getElementById('selEndText').textContent = selectedEnd
-    ? `${new Date(selectedEnd.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} (${selectedEnd.locLabel})`
+    ? `${new Date(selectedEnd.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} (${selectedEnd.locLabel})`
     : 'none';
 }
 
@@ -665,9 +665,8 @@ function renderRecordedIntervals() {
 
   list.innerHTML = recordedIntervals.map((inv, i) => {
     const start = new Date(inv.startTime);
-    const end = new Date(inv.endTime);
     const dateStr = start.toLocaleDateString([], { day:'2-digit', month:'short' });
-    const timeStr = `${start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} - ${end.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+    const timeStr = start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
     return `
       <div class="interval-item">
@@ -760,10 +759,10 @@ function saveTrip() {
   if (!selectedStart || !selectedEnd) { alert('Select both start and end records'); return; }
 
   const startTime = new Date(selectedStart.startTime);
-  const endTime = new Date(selectedEnd.endTime);
+  const endTime = new Date(selectedEnd.startTime);
 
   if (endTime < startTime) {
-    if (!confirm('End time is before start time. Save anyway?')) return;
+    if (!confirm('End record is older than start record. Save anyway?')) return;
   }
 
   const mins = Math.max(1, Math.round((endTime - startTime) / 60000));
