@@ -232,8 +232,8 @@ textarea {
     </div>
 
     <div class="selection-box" id="tripSelection">
-      <div><strong>Start:</strong> <span id="selStartText">none</span></div>
-      <div style="margin-top:4px;"><strong>End:</strong> <span id="selEndText">none</span></div>
+      <div><strong>Departure:</strong> <span id="selStartText">none</span></div>
+      <div style="margin-top:4px;"><strong>Arrival:</strong> <span id="selEndText">none</span></div>
     </div>
 
     <div class="modal-field">
@@ -641,8 +641,8 @@ function closeCoordModal() {
 /* ═══════════════════════════
    ADD TRIP MODAL LOGIC
 ═══════════════════════════ */
-let selectedStart = null;
-let selectedEnd = null;
+let selectedStart = null; // { interval, time }
+let selectedEnd = null;   // { interval, time }
 
 function openAddTripModal() {
   trackLocation();
@@ -667,10 +667,10 @@ function closeAddTripModal() {
 
 function updateSelectionUI() {
   document.getElementById('selStartText').textContent = selectedStart
-    ? `${new Date(selectedStart.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
+    ? `${new Date(selectedStart.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
     : 'none';
   document.getElementById('selEndText').textContent = selectedEnd
-    ? `${new Date(selectedEnd.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
+    ? `${new Date(selectedEnd.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
     : 'none';
 }
 
@@ -692,7 +692,6 @@ function renderRecordedIntervals() {
           <span>${dateStr}</span>
           <span style="display:flex; align-items:center; gap:5px;">
             ${timeStr}
-            <button class="refresh-btn" style="padding:2px 5px;" onclick="editIntervalTime(${i})" title="Edit Time">🕒</button>
           </span>
         </div>
         <div class="interval-loc">
@@ -714,29 +713,34 @@ function renderRecordedIntervals() {
 }
 
 function setTripStart(i) {
-  selectedStart = recordedIntervals[i];
+  const inv = recordedIntervals[i];
+  // Start of trip is when we LEAVE the starting location (endTime of interval)
+  const d = new Date(inv.endTime);
+  const currentStr = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+  const val = prompt('Departure time (HH:MM):', currentStr);
+  if (!val) return;
+  const parts = val.split(':');
+  if (parts.length !== 2) return;
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (isNaN(h) || h < 0 || h > 23 || isNaN(m) || m < 0 || m > 59) return;
+  d.setHours(h); d.setMinutes(m); d.setSeconds(0);
+  selectedStart = { interval: inv, time: d.toISOString() };
   updateSelectionUI();
 }
 
 function setTripEnd(i) {
-  selectedEnd = recordedIntervals[i];
-  updateSelectionUI();
-}
-
-function editIntervalTime(i) {
   const inv = recordedIntervals[i];
+  // End of trip is when we ARRIVE at the destination (startTime of interval)
   const d = new Date(inv.startTime);
-  const current = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
-  const val = prompt('Edit arrival time (HH:MM):', current);
+  const currentStr = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+  const val = prompt('Arrival time (HH:MM):', currentStr);
   if (!val) return;
   const parts = val.split(':');
-  if (parts.length !== 2) { alert('Format must be HH:MM'); return; }
+  if (parts.length !== 2) return;
   const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
-  if (isNaN(h) || h < 0 || h > 23 || isNaN(m) || m < 0 || m > 59) { alert('Invalid time'); return; }
+  if (isNaN(h) || h < 0 || h > 23 || isNaN(m) || m < 0 || m > 59) return;
   d.setHours(h); d.setMinutes(m); d.setSeconds(0);
-  inv.startTime = d.toISOString();
-  saveIntervals();
-  renderRecordedIntervals();
+  selectedEnd = { interval: inv, time: d.toISOString() };
   updateSelectionUI();
 }
 
@@ -761,14 +765,14 @@ function refreshInterval(e, i) {
       inv.lat = pos.coords.latitude;
       inv.lng = pos.coords.longitude;
       const nearest = nearestCoord(inv.lat, inv.lng);
-      inv.locLabel = nearest ? nearest.coord.label : `${inv.lat.toFixed(4)},${inv.lng.toFixed(4)}`;
+      inv.locLabel = (nearest && nearest.dist <= 0.1) ? nearest.coord.label : "unknown";
       saveIntervals();
       renderRecordedIntervals();
       btn.textContent = oldText;
     }, err => { alert('GPS Error: ' + err.message); btn.textContent = oldText; }, { timeout: 10000 });
   } else {
     const nearest = nearestCoord(inv.lat, inv.lng);
-    inv.locLabel = nearest ? nearest.coord.label : `${inv.lat.toFixed(4)},${inv.lng.toFixed(4)}`;
+    inv.locLabel = (nearest && nearest.dist <= 0.1) ? nearest.coord.label : "unknown";
     saveIntervals();
     renderRecordedIntervals();
   }
@@ -777,7 +781,7 @@ function refreshInterval(e, i) {
 function reResolveLabels() {
   recordedIntervals.forEach(inv => {
     const nearest = nearestCoord(inv.lat, inv.lng);
-    inv.locLabel = nearest ? nearest.coord.label : `${inv.lat.toFixed(4)},${inv.lng.toFixed(4)}`;
+    inv.locLabel = (nearest && nearest.dist <= 0.1) ? nearest.coord.label : "unknown";
   });
   saveIntervals();
   renderRecordedIntervals();
@@ -806,8 +810,8 @@ function saveTrip() {
   if (isNaN(routeIndex)) { alert('Pick a route'); return; }
   if (!selectedStart || !selectedEnd) { alert('Select both start and end records'); return; }
 
-  const startTime = new Date(selectedStart.startTime);
-  const endTime = new Date(selectedEnd.startTime);
+  const startTime = new Date(selectedStart.time);
+  const endTime = new Date(selectedEnd.time);
 
   if (endTime < startTime) {
     if (!confirm('End record is older than start record. Save anyway?')) return;
@@ -816,7 +820,7 @@ function saveTrip() {
   const mins = Math.max(1, Math.round((endTime - startTime) / 60000));
 
   travelRoutes[routeIndex].trips.unshift({
-    start: selectedStart.startTime,
+    start: selectedStart.time,
     mins: mins
   });
 
@@ -843,8 +847,10 @@ function trackLocation() {
     if (gpsInput) gpsInput.value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
 
     const nearest = nearestCoord(lat, lng);
-    // Force resolve to nearest label if available, otherwise raw
-    const locLabel = nearest ? nearest.coord.label : `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    let locLabel = "unknown";
+    if (nearest && nearest.dist <= 0.1) { // 100m = 0.1km
+      locLabel = nearest.coord.label;
+    }
 
     const last = recordedIntervals[0];
     const isSameDate = last && new Date(last.startTime).toDateString() === now.toDateString();
