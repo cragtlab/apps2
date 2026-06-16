@@ -1,7 +1,11 @@
-(function() {
+(async function() {
     const title = "Planning";
     const container = PluginAPI.add(title);
     const tabId = "tab_" + title.replace(/\s+/g, "_");
+
+    // Ensure the container has the expected ID for CSS scoping
+    // PluginAPI.add already sets div.id = tabId, but we'll be explicit
+    container.id = tabId;
 
     const style = document.createElement('style');
     style.textContent = `
@@ -137,8 +141,8 @@
         </div>
     `;
 
-    const STORAGE_KEY = 'yearly-tasks';
-    let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    const DATA_FILE_NAME = 'planning.txt';
+    let tasks = [];
 
     const calendar = container.querySelector('#planning-calendar');
     const modal = container.querySelector('#planning-task-modal');
@@ -151,8 +155,34 @@
     const deleteBtn = container.querySelector('#planning-delete-task');
     const closeBtn = container.querySelector('#planning-close-modal');
 
-    function saveToStorage() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    async function loadTasks() {
+        try {
+            const rootHandle = PluginAPI.getRootHandle();
+            if (!rootHandle) return;
+
+            const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: true });
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            tasks = text ? JSON.parse(text) : [];
+        } catch (err) {
+            console.error('Failed to load tasks:', err);
+            tasks = [];
+        }
+    }
+
+    async function saveTasks() {
+        try {
+            const rootHandle = PluginAPI.getRootHandle();
+            if (!rootHandle) return;
+
+            const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(JSON.stringify(tasks, null, 2));
+            await writable.close();
+        } catch (err) {
+            console.error('Failed to save tasks:', err);
+            alert('Failed to save changes to file.');
+        }
     }
 
     function sanitizeUrl(url) {
@@ -224,7 +254,7 @@
         };
     });
 
-    saveBtn.onclick = (e) => {
+    saveBtn.onclick = async (e) => {
         e.stopPropagation();
         const id = taskIdInput.value;
         const month = parseInt(taskMonthInput.value);
@@ -250,16 +280,16 @@
             });
         }
 
-        saveToStorage();
+        await saveTasks();
         renderTasks();
         closeModal();
     };
 
-    deleteBtn.onclick = (e) => {
+    deleteBtn.onclick = async (e) => {
         e.stopPropagation();
         const id = taskIdInput.value;
         tasks = tasks.filter(t => t.id !== id);
-        saveToStorage();
+        await saveTasks();
         renderTasks();
         closeModal();
     };
@@ -275,5 +305,6 @@
         }
     };
 
+    await loadTasks();
     renderTasks();
 })();
