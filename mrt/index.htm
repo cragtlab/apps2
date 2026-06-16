@@ -227,7 +227,7 @@ textarea {
 <div class="modal-overlay" id="addTripModal">
   <div class="modal" style="max-height: 95vh;">
 
-    <div id="intervalsList" style="max-height: 60vh; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 8px;">
+    <div id="intervalsList" style="max-height: 35vh; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 8px;">
       <!-- Intervals will be rendered here -->
     </div>
 
@@ -683,15 +683,17 @@ function renderRecordedIntervals() {
 
   list.innerHTML = recordedIntervals.map((inv, i) => {
     const start = new Date(inv.startTime);
+    const end = new Date(inv.endTime);
     const dateStr = start.toLocaleDateString([], { day:'2-digit', month:'short' });
-    const timeStr = start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const sStr = start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const eStr = end.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
     return `
       <div class="interval-item">
         <div class="interval-header">
           <span>${dateStr}</span>
           <span style="display:flex; align-items:center; gap:5px;">
-            ${timeStr}
+            ${sStr} - ${eStr}
           </span>
         </div>
         <div class="interval-loc">
@@ -716,8 +718,8 @@ function setTripStart(i) {
   const inv = recordedIntervals[i];
   // Start of trip is when we LEAVE the starting location (endTime of interval)
   const d = new Date(inv.endTime);
-  const currentStr = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
-  const val = prompt('Departure time (HH:MM):', currentStr);
+  const defaultStr = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+  const val = prompt('Departure time (HH:MM):', defaultStr);
   if (!val) return;
   const parts = val.split(':');
   if (parts.length !== 2) return;
@@ -732,8 +734,8 @@ function setTripEnd(i) {
   const inv = recordedIntervals[i];
   // End of trip is when we ARRIVE at the destination (startTime of interval)
   const d = new Date(inv.startTime);
-  const currentStr = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
-  const val = prompt('Arrival time (HH:MM):', currentStr);
+  const defaultStr = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+  const val = prompt('Arrival time (HH:MM):', defaultStr);
   if (!val) return;
   const parts = val.split(':');
   if (parts.length !== 2) return;
@@ -765,14 +767,15 @@ function refreshInterval(e, i) {
       inv.lat = pos.coords.latitude;
       inv.lng = pos.coords.longitude;
       const nearest = nearestCoord(inv.lat, inv.lng);
-      inv.locLabel = (nearest && nearest.dist <= 0.1) ? nearest.coord.label : "unknown";
+      inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
       saveIntervals();
       renderRecordedIntervals();
       btn.textContent = oldText;
     }, err => { alert('GPS Error: ' + err.message); btn.textContent = oldText; }, { timeout: 10000 });
   } else {
     const nearest = nearestCoord(inv.lat, inv.lng);
-    inv.locLabel = (nearest && nearest.dist <= 0.1) ? nearest.coord.label : "unknown";
+    inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
+    inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
     saveIntervals();
     renderRecordedIntervals();
   }
@@ -781,7 +784,7 @@ function refreshInterval(e, i) {
 function reResolveLabels() {
   recordedIntervals.forEach(inv => {
     const nearest = nearestCoord(inv.lat, inv.lng);
-    inv.locLabel = (nearest && nearest.dist <= 0.1) ? nearest.coord.label : "unknown";
+    inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
   });
   saveIntervals();
   renderRecordedIntervals();
@@ -848,7 +851,7 @@ function trackLocation() {
 
     const nearest = nearestCoord(lat, lng);
     let locLabel = "unknown";
-    if (nearest && nearest.dist <= 0.1) { // 100m = 0.1km
+    if (nearest && nearest.dist <= 0.5) { // 500m = 0.5km
       locLabel = nearest.coord.label;
     }
 
