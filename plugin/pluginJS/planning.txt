@@ -1,0 +1,310 @@
+(async function() {
+    const title = "Planning";
+    const container = PluginAPI.add(title);
+    const tabId = "tab_" + title.replace(/\s+/g, "_");
+
+    // Ensure the container has the expected ID for CSS scoping
+    // PluginAPI.add already sets div.id = tabId, but we'll be explicit
+    container.id = tabId;
+
+    const style = document.createElement('style');
+    style.textContent = `
+        #${tabId} h1 {
+            text-align: center;
+        }
+        #${tabId} .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        #${tabId} .month {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            min-height: 150px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        #${tabId} .month:hover {
+            transform: scale(1.02);
+            border-color: #aaa;
+        }
+        #${tabId} .month h3 {
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+            color: #333;
+        }
+        #${tabId} .task-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #${tabId} .task-item {
+            background-color: #e2f0ff;
+            border-radius: 4px;
+            padding: 5px 8px;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            cursor: pointer;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #${tabId} .task-item:hover {
+            background-color: #cce5ff;
+        }
+        #${tabId} .task-item a {
+            text-decoration: none;
+            color: #0066cc;
+        }
+
+        #${tabId} .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #${tabId} .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #${tabId} .modal-content input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #${tabId} .modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        #${tabId} button {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            border: none;
+        }
+        #${tabId} #planning-save-task { background-color: #28a745; color: white; }
+        #${tabId} #planning-delete-task { background-color: #dc3545; color: white; }
+        #${tabId} #planning-close-modal { background-color: #6c757d; color: white; }
+    `;
+    document.head.appendChild(style);
+
+    container.innerHTML = `
+        <h1>Yearly Recurring Tasks</h1>
+        <div id="planning-calendar" class="calendar-grid">
+            <div class="month" data-month="0"><h3>January</h3><div class="task-list"></div></div>
+            <div class="month" data-month="1"><h3>February</h3><div class="task-list"></div></div>
+            <div class="month" data-month="2"><h3>March</h3><div class="task-list"></div></div>
+            <div class="month" data-month="3"><h3>April</h3><div class="task-list"></div></div>
+            <div class="month" data-month="4"><h3>May</h3><div class="task-list"></div></div>
+            <div class="month" data-month="5"><h3>June</h3><div class="task-list"></div></div>
+            <div class="month" data-month="6"><h3>July</h3><div class="task-list"></div></div>
+            <div class="month" data-month="7"><h3>August</h3><div class="task-list"></div></div>
+            <div class="month" data-month="8"><h3>September</h3><div class="task-list"></div></div>
+            <div class="month" data-month="9"><h3>October</h3><div class="task-list"></div></div>
+            <div class="month" data-month="10"><h3>November</h3><div class="task-list"></div></div>
+            <div class="month" data-month="11"><h3>December</h3><div class="task-list"></div></div>
+        </div>
+
+        <div id="planning-task-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2 id="planning-modal-title">Add Task</h2>
+                <input type="hidden" id="planning-task-id">
+                <input type="hidden" id="planning-task-month">
+                <label for="planning-task-name">Title:</label>
+                <input type="text" id="planning-task-name" placeholder="Task Title">
+                <label for="planning-task-url">URL:</label>
+                <input type="url" id="planning-task-url" placeholder="https://example.com">
+                <div class="modal-buttons">
+                    <button id="planning-save-task">Save</button>
+                    <button id="planning-delete-task" style="display: none;">Delete</button>
+                    <button id="planning-close-modal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const DATA_FILE_NAME = 'planning.txt';
+    let tasks = [];
+
+    const calendar = container.querySelector('#planning-calendar');
+    const modal = container.querySelector('#planning-task-modal');
+    const modalTitle = container.querySelector('#planning-modal-title');
+    const taskIdInput = container.querySelector('#planning-task-id');
+    const taskMonthInput = container.querySelector('#planning-task-month');
+    const taskNameInput = container.querySelector('#planning-task-name');
+    const taskUrlInput = container.querySelector('#planning-task-url');
+    const saveBtn = container.querySelector('#planning-save-task');
+    const deleteBtn = container.querySelector('#planning-delete-task');
+    const closeBtn = container.querySelector('#planning-close-modal');
+
+    async function loadTasks() {
+        try {
+            const rootHandle = PluginAPI.getRootHandle();
+            if (!rootHandle) return;
+
+            const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: true });
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            tasks = text ? JSON.parse(text) : [];
+        } catch (err) {
+            console.error('Failed to load tasks:', err);
+            tasks = [];
+        }
+    }
+
+    async function saveTasks() {
+        try {
+            const rootHandle = PluginAPI.getRootHandle();
+            if (!rootHandle) return;
+
+            const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(JSON.stringify(tasks, null, 2));
+            await writable.close();
+        } catch (err) {
+            console.error('Failed to save tasks:', err);
+            alert('Failed to save changes to file.');
+        }
+    }
+
+    function sanitizeUrl(url) {
+        if (!url) return "#";
+        const trimmed = url.trim();
+        if (trimmed.toLowerCase().startsWith('javascript:')) {
+            return "about:blank";
+        }
+        return trimmed;
+    }
+
+    function renderTasks() {
+        container.querySelectorAll('.task-list').forEach(list => list.innerHTML = '');
+
+        tasks.forEach(task => {
+            const monthEl = container.querySelector(`.month[data-month="${task.month}"] .task-list`);
+            if (monthEl) {
+                const taskEl = document.createElement('div');
+                taskEl.className = 'task-item';
+
+                const link = document.createElement('a');
+                link.href = sanitizeUrl(task.url);
+                link.target = '_blank';
+                link.textContent = task.title;
+                link.onclick = (e) => e.stopPropagation();
+
+                taskEl.appendChild(link);
+
+                const editBtn = document.createElement('span');
+                editBtn.textContent = ' ✏️';
+                editBtn.style.cursor = 'pointer';
+                editBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    openModal(task);
+                };
+                taskEl.appendChild(editBtn);
+
+                monthEl.appendChild(taskEl);
+            }
+        });
+    }
+
+    function openModal(task = null, month = null) {
+        if (task) {
+            modalTitle.textContent = 'Edit Task';
+            taskIdInput.value = task.id;
+            taskMonthInput.value = task.month;
+            taskNameInput.value = task.title;
+            taskUrlInput.value = task.url;
+            deleteBtn.style.display = 'block';
+        } else {
+            modalTitle.textContent = 'Add Task';
+            taskIdInput.value = '';
+            taskMonthInput.value = month;
+            taskNameInput.value = '';
+            taskUrlInput.value = '';
+            deleteBtn.style.display = 'none';
+        }
+        modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+        modal.style.display = 'none';
+    }
+
+    container.querySelectorAll('.month').forEach(monthEl => {
+        monthEl.onclick = () => {
+            openModal(null, monthEl.dataset.month);
+        };
+    });
+
+    saveBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const id = taskIdInput.value;
+        const month = parseInt(taskMonthInput.value);
+        const title = taskNameInput.value.trim();
+        const url = taskUrlInput.value.trim();
+
+        if (!title) {
+            alert('Title is required');
+            return;
+        }
+
+        if (id) {
+            const index = tasks.findIndex(t => t.id === id);
+            if (index !== -1) {
+                tasks[index] = { ...tasks[index], title, url };
+            }
+        } else {
+            tasks.push({
+                id: Date.now().toString(),
+                month,
+                title,
+                url
+            });
+        }
+
+        await saveTasks();
+        renderTasks();
+        closeModal();
+    };
+
+    deleteBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const id = taskIdInput.value;
+        tasks = tasks.filter(t => t.id !== id);
+        await saveTasks();
+        renderTasks();
+        closeModal();
+    };
+
+    closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        closeModal();
+    };
+
+    modal.onclick = (event) => {
+        if (event.target == modal) {
+            closeModal();
+        }
+    };
+
+    await loadTasks();
+    renderTasks();
+})();
