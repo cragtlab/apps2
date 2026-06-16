@@ -7,11 +7,11 @@
 <title>MRT Door Finder</title>
 <style>
 * { box-sizing: border-box; }
-body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; font-size: 15px; }
+body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; font-size: 15px; padding-bottom: 110px; }
 
 .header {
-  position: sticky; top: 0; background: #1a1a2e; z-index: 20;
-  padding: 8px 10px 0;
+  position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; z-index: 20;
+  padding: 8px 10px 10px;
 }
 .line-buttons { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; }
 .line-btn {
@@ -142,15 +142,6 @@ textarea {
 </head>
 <body>
 
-<div class="header">
-  <div class="line-buttons" id="lineButtons"></div>
-  <div style="padding: 0 10px 10px; display: flex; gap: 8px;">
-    <button class="add-btn" style="flex: 1;" onclick="openAddTripModal()">+ Trip</button>
-    <button class="gps-btn" style="flex: 1;" onclick="openCoordModal()">📍 Coords</button>
-    <button class="save-btn" style="flex: 1; background: #6a1b9a;" onclick="openRoutesModal()">🛤️ Routes</button>
-  </div>
-</div>
-
 <div id="stations"></div>
 
 <!-- Travel Routes Modal -->
@@ -222,6 +213,14 @@ textarea {
   <div id="saveStatus"></div>
 </div>
 
+<div class="header">
+  <div class="line-buttons" id="lineButtons"></div>
+  <div style="padding: 0 10px 10px; display: flex; gap: 8px;">
+    <button class="add-btn" style="flex: 1;" onclick="openAddTripModal()">+ Trip</button>
+    <button class="gps-btn" style="flex: 1;" onclick="openCoordModal()">📍 Coords</button>
+    <button class="save-btn" style="flex: 1; background: #6a1b9a;" onclick="openRoutesModal()">🛤️ Routes</button>
+  </div>
+</div>
 
 <!-- Add Trip Modal -->
 <div class="modal-overlay" id="addTripModal">
