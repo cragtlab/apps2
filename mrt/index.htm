@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%2250%22 x=%2250%22 text-anchor=%22middle%22 dominant-baseline=%22central%22 font-size=%2280%22 font-weight=%22bold%22 fill=%22%231a1a2e%22 font-family=%22Arial,sans-serif%22>M</text></svg>">
 <title>MRT Door Finder</title>
 <style>
 * { box-sizing: border-box; }
 body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; font-size: 15px; }
 
 .header {
-  position: sticky; top: 0; background: #1a1a2e; z-index: 20;
+  background: #1a1a2e; z-index: 20;
   padding: 8px 10px 0;
 }
 .line-buttons { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; }
@@ -18,24 +19,6 @@ body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; font-size
   font-weight: bold; cursor: pointer; flex-shrink: 0; font-size: 14px;
 }
 .line-btn.active { outline: 3px solid rgba(255,255,255,0.5); }
-
-/* Quick Timer Bar */
-.quick-timer {
-  background: #12122a; border-top: 1px solid rgba(255,255,255,0.1);
-  padding: 8px 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-}
-.qt-status {
-  font-size: 12px; color: #aaa; flex: 1; min-width: 100px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.qt-status.running { color: #4caf50; font-weight: bold; }
-.qt-btn {
-  border: none; padding: 7px 13px; border-radius: 8px;
-  font-weight: bold; cursor: pointer; font-size: 13px; white-space: nowrap;
-}
-.qt-start  { background: #2e7d32; color: white; }
-.qt-stop   { background: #1565c0; color: white; }
-.qt-cancel { background: #7b1fa2; color: white; }
 
 #stations, .section { padding: 10px; }
 
@@ -69,8 +52,6 @@ button { border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; f
 .trip-list { font-size: 13px; }
 .trip-item { background: #fafafa; border-radius: 8px; padding: 8px; margin-top: 6px; }
 .trip-item-btns { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
-.timer-running { color: #2e7d32; font-weight: bold; margin-bottom: 8px; font-size: 13px; }
-
 .guess-result {
   background: #e3f2fd; border-radius: 8px; padding: 10px; margin-top: 8px;
   font-size: 13px; border-left: 3px solid #1976d2; line-height: 1.6;
@@ -129,14 +110,6 @@ textarea {
 .modal-actions .ok-btn  { background: #2e7d32; color: white; }
 .modal-actions .no-btn  { background: #757575; color: white; }
 
-.route-coord-info { font-size: 11px; color: #777; margin: 4px 0 8px; display: flex; gap: 10px; flex-wrap: wrap; }
-.route-coord-chip {
-  background: #e8f5e9; color: #2e7d32; padding: 2px 8px;
-  border-radius: 999px; font-size: 11px; cursor: pointer; border: 1px solid #c8e6c9;
-}
-.route-coord-chip.end-chip { background: #e3f2fd; color: #1565c0; border-color: #bbdefb; }
-.set-gps-btn { background: #f5f5f5; color: #444; border: 1px solid #ccc; padding: 3px 9px; font-size: 11px; border-radius: 999px; cursor: pointer; }
-
 /* Route add form */
 .add-route-form { background: #f9f9f9; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
 .add-route-form label { font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 3px; }
@@ -148,32 +121,37 @@ textarea {
 .form-row label { font-size: 13px; font-weight: bold; white-space: nowrap; }
 .form-row select { flex:1; margin-bottom:0; padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; background: white; }
 .form-row input  { flex:1; margin-bottom:0; padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; }
+
+/* Add Trip Modal specific styles */
+.interval-item {
+  background: #f8f9fa; border: 1px solid #eee; border-radius: 8px;
+  padding: 10px; margin-bottom: 8px; font-size: 13px;
+}
+.interval-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; }
+.interval-loc { color: #1565c0; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+.interval-btns { display: flex; gap: 5px; }
+.selection-box {
+  background: #fff9c4; padding: 10px; border-radius: 8px; margin-bottom: 15px;
+  font-size: 13px; border: 1px solid #fbc02d;
+}
+.refresh-btn {
+  background: #eee; color: #444; border: 1px solid #ccc;
+  padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="line-buttons" id="lineButtons"></div>
-  <div class="quick-timer">
-    <span class="qt-status" id="qtStatus">No timer running</span>
-    <button class="qt-btn qt-start"  onclick="qtStart()">▶ Start</button>
-    <button class="qt-btn qt-stop"   onclick="qtStop()">■ Stop</button>
-    <button class="qt-btn qt-cancel" onclick="qtCancel()">✕</button>
-  </div>
-</div>
-
 <div id="stations"></div>
 
-<!-- Travel Routes -->
-<div class="section">
-  <div class="card">
-    <div class="card-title">Travel Routes</div>
+<!-- Travel Routes Modal -->
+<div class="modal-overlay" id="routesModal">
+  <div class="modal" style="max-height: 95vh;">
 
-    <!-- Add Route Form -->
     <div class="add-route-form" id="addRouteForm" style="display:none;">
       <p style="font-size:12px;color:#555;margin:0 0 10px;">
-        Use single words (no spaces) for From/To — e.g. <em>Home</em>, <em>Work</em>, <em>Playfacto</em>.<br>
-        If the label matches a Coord Directory entry, its GPS will be used automatically.
+        Use single words (no spaces) for From/To — e.g. <em>Home</em>, <em>Work</em>.<br>
+        If label matches a Coord Directory entry, its GPS is used automatically.
       </p>
       <div class="form-row">
         <label>From</label>
@@ -195,22 +173,21 @@ textarea {
       </div>
     </div>
 
-    <div class="travel-buttons">
+    <div id="travelTracker" style="max-height: 70vh; overflow-y: auto;"></div>
+
+    <div class="modal-actions">
       <button class="add-btn" onclick="showAddRouteForm()">+ Add Route</button>
+      <button class="no-btn" onclick="closeRoutesModal()">Close</button>
     </div>
-    <div id="travelTracker"></div>
   </div>
 </div>
 
-<!-- Coord Directory -->
-<div class="section">
-  <div class="card">
-    <div class="card-title">📍 Coord Directory</div>
-    <p style="font-size:12px;color:#666;margin:0 0 10px;">
-      One-word labels (no spaces). Coords as <code>lat,lng</code>.<br>
-      Matching route endpoints auto-use these coords. "Set GPS" on a route updates the entry here.
-    </p>
-    <div id="coordTableWrap"></div>
+<!-- Coord Directory Modal -->
+<div class="modal-overlay" id="coordModal">
+  <div class="modal" style="max-height: 95vh;">
+
+    <div id="coordTableWrap" style="max-height: 50vh; overflow-y: auto; margin-bottom: 15px;"></div>
+
     <div class="coord-add-row">
       <input type="text"   id="newCoordLabel"  placeholder="Label (e.g. Home)" style="max-width:110px;">
       <input type="text"   id="newCoordLatLng" placeholder="1.3521,103.8198">
@@ -218,6 +195,19 @@ textarea {
       <button class="coord-save-btn" onclick="addCoord()">+ Add</button>
     </div>
     <div id="coordStatus" style="font-size:12px;color:#2e7d32;margin-top:6px;"></div>
+
+    <div class="modal-actions" style="margin-top: 20px;">
+      <button class="no-btn" onclick="closeCoordModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="header">
+  <div class="line-buttons" id="lineButtons"></div>
+  <div style="padding: 0 10px 10px; display: flex; gap: 8px;">
+    <button class="add-btn" style="flex: 1;" onclick="openAddTripModal()">+ Trip</button>
+    <button class="gps-btn" style="flex: 1;" onclick="openCoordModal()">📍 Coords</button>
+    <button class="save-btn" style="flex: 1; background: #6a1b9a;" onclick="openRoutesModal()">🛤️ Routes</button>
   </div>
 </div>
 
@@ -232,29 +222,36 @@ textarea {
   <div id="saveStatus"></div>
 </div>
 
-<!-- Stop modal: pick route -->
-<div class="modal-overlay" id="stopModal">
-  <div class="modal">
-    <h3>Save Trip</h3>
-    <p style="font-size:13px;color:#555;margin:0 0 14px;" id="stopModalElapsed"></p>
+
+<!-- Add Trip Modal -->
+<div class="modal-overlay" id="addTripModal">
+  <div class="modal" style="max-height: 95vh;">
+
+    <div id="intervalsList" style="max-height: 35vh; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 8px;">
+      <!-- Intervals will be rendered here -->
+    </div>
+
+    <div class="selection-box" id="tripSelection">
+      <div><strong>Departure:</strong> <span id="selStartText">none</span></div>
+      <div style="margin-top:4px;"><strong>Arrival:</strong> <span id="selEndText">none</span></div>
+    </div>
 
     <div class="modal-field">
-      <label>Assign to Route</label>
-      <select id="stopRouteSelect">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <label style="margin:0;">Assign to Route</label>
+        <button class="add-btn" style="padding:2px 8px; font-size:11px;" onclick="closeAddTripModal(); openRoutesModal(); showAddRouteForm();">+ Add Route</button>
+      </div>
+      <select id="tripRouteSelect">
         <option value="">-- pick route --</option>
       </select>
     </div>
 
-    <div class="modal-field">
-      <label>Guess route from GPS</label>
-      <select id="guessSelect" onchange="applyGuess()">
-        <option value="">-- tap to guess --</option>
-      </select>
-    </div>
-
     <div class="modal-actions">
-      <button class="no-btn" onclick="closeStopModal()">Cancel</button>
-      <button class="ok-btn" onclick="confirmStop()">Save</button>
+      <button class="manual-btn" style="background:#00838f;" onclick="reResolveLabels()" title="Re-resolve all labels from directory">↻ Labels</button>
+      <button class="clear-btn" onclick="clearAllIntervals()">Clear All</button>
+      <div style="flex:1"></div>
+      <button class="no-btn" onclick="closeAddTripModal()">Close</button>
+      <button class="ok-btn" onclick="saveTrip()">Save Trip</button>
     </div>
   </div>
 </div>
@@ -262,7 +259,6 @@ textarea {
 <!-- Manual / Edit modal -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
-    <h3 id="modalTitle">Add Manual Time</h3>
     <div class="modal-field">
       <label>Date</label>
       <input type="date" id="modalDate">
@@ -414,11 +410,6 @@ function nearestCoord(lat, lng) {
    TRAVEL ROUTES
 ═══════════════════════════ */
 let travelRoutes = JSON.parse(localStorage.getItem('travel_routes') || '[]');
-travelRoutes = travelRoutes.map(r => ({
-  from: r.from||null, to: r.to||null, via: r.via||null,
-  startLat:null, startLng:null, endLat:null, endLng:null,
-  ...r
-}));
 
 function saveRoutes() { localStorage.setItem('travel_routes', JSON.stringify(travelRoutes)); }
 
@@ -463,190 +454,23 @@ function confirmAddRoute() {
 
   const route = {
     name, from, to, via,
-    trips: [], activeStart: null,
-    startLat: fromCoord ? parseLatLng(fromCoord.latlng)?.lat ?? null : null,
-    startLng: fromCoord ? parseLatLng(fromCoord.latlng)?.lng ?? null : null,
-    endLat:   toCoord   ? parseLatLng(toCoord.latlng)?.lat   ?? null : null,
-    endLng:   toCoord   ? parseLatLng(toCoord.latlng)?.lng   ?? null : null,
+    trips: []
   };
 
   travelRoutes.unshift(route);
-  saveRoutes(); renderRoutes(); rebuildStopSelect();
+  saveRoutes(); renderRoutes();
   hideAddRouteForm();
 }
 
-/* Set GPS on route → also updates coord directory */
-function setRouteCoord(routeIndex, which) {
-  if (!navigator.geolocation) { alert('Geolocation not supported'); return; }
-  navigator.geolocation.getCurrentPosition(pos => {
-    const r   = travelRoutes[routeIndex];
-    const lat = pos.coords.latitude, lng = pos.coords.longitude;
-    const latlng = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-    if (which === 'start') { r.startLat=lat; r.startLng=lng; if (r.from) upsertCoord(r.from, latlng); }
-    else                   { r.endLat=lat;   r.endLng=lng;   if (r.to)   upsertCoord(r.to,   latlng); }
-    saveRoutes(); renderRoutes();
-  }, err => alert('Location error: '+err.message), { timeout:8000 });
-}
-
-function clearRouteCoord(routeIndex, which) {
-  const r = travelRoutes[routeIndex];
-  if (which==='start') { r.startLat=null; r.startLng=null; }
-  else                 { r.endLat=null;   r.endLng=null; }
-  saveRoutes(); renderRoutes();
-}
-
-/* Per-route timer (in card) */
-function startRoute(index) {
-  const r = travelRoutes[index];
-  if (r.activeStart) { alert('Timer already running'); return; }
-  r.activeStart = new Date().toISOString();
-  saveRoutes(); renderRoutes();
-}
-function stopRoute(index) {
-  const r = travelRoutes[index];
-  if (!r.activeStart) { alert('No timer running'); return; }
-  const mins = Math.max(1, Math.round((new Date()-new Date(r.activeStart))/60000));
-  r.trips.unshift({ start: r.activeStart, mins });
-  r.activeStart = null; saveRoutes(); renderRoutes();
-}
-function cancelRoute(index) {
-  const r = travelRoutes[index];
-  if (!r.activeStart) { alert('No timer running'); return; }
-  if (!confirm('Cancel timer?')) return;
-  r.activeStart = null; saveRoutes(); renderRoutes();
-}
 function deleteTrip(routeIndex, tripIndex) {
   if (!confirm('Delete this sample?')) return;
   travelRoutes[routeIndex].trips.splice(tripIndex,1); saveRoutes(); renderRoutes();
 }
 function deleteRoute(index) {
   if (!confirm(`Delete route "${travelRoutes[index].name}" and all trips?`)) return;
-  travelRoutes.splice(index,1); saveRoutes(); renderRoutes(); rebuildStopSelect();
+  travelRoutes.splice(index,1); saveRoutes(); renderRoutes();
 }
 
-/* ═══════════════════════════
-   QUICK TIMER (header)
-═══════════════════════════ */
-let qtActive = JSON.parse(localStorage.getItem('qt_active') || 'null');
-
-function qtStart() {
-  if (qtActive) { alert('Timer already running — stop or cancel first'); return; }
-  const startISO = new Date().toISOString();
-
-  const tryGPS = (cb) => {
-    if (!navigator.geolocation) { cb(null, null); return; }
-    document.getElementById('qtStatus').textContent = 'Getting GPS…';
-    navigator.geolocation.getCurrentPosition(
-      pos => cb(pos.coords.latitude, pos.coords.longitude),
-      ()  => cb(null, null),
-      { timeout: 6000 }
-    );
-  };
-
-  tryGPS((lat, lng) => {
-    qtActive = { startISO, lat, lng };
-    localStorage.setItem('qt_active', JSON.stringify(qtActive));
-    updateQTStatus();
-  });
-}
-
-function qtStop() {
-  if (!qtActive) { alert('No timer running'); return; }
-  openStopModal();
-}
-
-function qtCancel() {
-  if (!qtActive) return;
-  if (!confirm('Cancel running timer?')) return;
-  qtActive = null; localStorage.removeItem('qt_active'); updateQTStatus();
-}
-
-function updateQTStatus() {
-  const s = document.getElementById('qtStatus');
-  if (!qtActive) { s.className='qt-status'; s.textContent='No timer running'; return; }
-  const elapsed = Math.round((new Date()-new Date(qtActive.startISO))/60000);
-  let locStr = '';
-  if (qtActive.lat != null) {
-    const n = nearestCoord(qtActive.lat, qtActive.lng);
-    if (n) locStr = ` from ${n.coord.label}`;
-  }
-  s.className='qt-status running';
-  s.textContent=`▶ ${elapsed} min${locStr} — tap ■ to stop`;
-}
-setInterval(()=>{ if(qtActive) updateQTStatus(); }, 30000);
-
-/* ── Stop Modal ── */
-function rebuildStopSelect() {
-  const sel = document.getElementById('stopRouteSelect');
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">-- pick route --</option>';
-  travelRoutes.forEach((r,i) => {
-    const opt = document.createElement('option');
-    opt.value=i; opt.textContent=r.name; sel.appendChild(opt);
-  });
-  sel.value = prev;
-}
-
-function openStopModal() {
-  if (!qtActive) return;
-  const elapsed = Math.round((new Date()-new Date(qtActive.startISO))/60000);
-  document.getElementById('stopModalElapsed').textContent =
-    `Started ${new Date(qtActive.startISO).toLocaleTimeString()} — ${elapsed} min elapsed`;
-
-  rebuildStopSelect();
-
-  // Build guess dropdown
-  const guessSel = document.getElementById('guessSelect');
-  guessSel.innerHTML = '<option value="">-- tap to guess --</option>';
-
-  if (qtActive.lat != null) {
-    // Populate with routes sorted by distance from start GPS
-    const ranked = travelRoutes.map((r,i) => {
-      let dist = Infinity;
-      if (r.startLat != null) dist = haversine(qtActive.lat, qtActive.lng, r.startLat, r.startLng);
-      return { r, i, dist };
-    }).sort((a,b)=>a.dist-b.dist);
-
-    ranked.forEach(({r,i,dist}) => {
-      const opt = document.createElement('option');
-      opt.value = i;
-      const distStr = dist < Infinity ? ` (${dist.toFixed(2)} km)` : '';
-      opt.textContent = `${r.name}${distStr}`;
-      guessSel.appendChild(opt);
-    });
-
-    // Auto-select best if close enough
-    if (ranked[0] && ranked[0].dist < 1.0) {
-      guessSel.value = ranked[0].i;
-      document.getElementById('stopRouteSelect').value = ranked[0].i;
-    }
-  } else {
-    const opt = document.createElement('option');
-    opt.disabled = true; opt.textContent = 'No GPS captured at start';
-    guessSel.appendChild(opt);
-  }
-
-  document.getElementById('stopModal').classList.add('open');
-}
-
-function applyGuess() {
-  const v = document.getElementById('guessSelect').value;
-  if (v !== '') document.getElementById('stopRouteSelect').value = v;
-}
-
-function closeStopModal() {
-  document.getElementById('stopModal').classList.remove('open');
-}
-
-function confirmStop() {
-  const routeIndex = parseInt(document.getElementById('stopRouteSelect').value);
-  if (isNaN(routeIndex)) { alert('Pick a route'); return; }
-  const mins = Math.max(1, Math.round((new Date()-new Date(qtActive.startISO))/60000));
-  travelRoutes[routeIndex].trips.unshift({ start: qtActive.startISO, mins });
-  saveRoutes(); renderRoutes();
-  qtActive = null; localStorage.removeItem('qt_active'); updateQTStatus();
-  closeStopModal();
-}
 
 /* ═══════════════════════════
    RENDER STATIONS
@@ -683,15 +507,6 @@ function calcStats(trips) {
   return {min:Math.min(...ms),avg:Math.round(ms.reduce((a,b)=>a+b,0)/ms.length),max:Math.max(...ms)};
 }
 
-function coordChip(lat,lng,routeIndex,which) {
-  if (lat==null) return `<button class="set-gps-btn" onclick="setRouteCoord(${routeIndex},'${which}')">📡 Set GPS</button>`;
-  const n = nearestCoord(lat,lng);
-  const label = n ? `${n.coord.label} (${n.dist.toFixed(2)} km)` : `${lat.toFixed(4)},${lng.toFixed(4)}`;
-  const cls   = which==='start' ? 'route-coord-chip' : 'route-coord-chip end-chip';
-  return `<span class="${cls}" onclick="clearRouteCoord(${routeIndex},'${which}')" title="Tap to clear">${label} ✕</span>
-          <button class="set-gps-btn" onclick="setRouteCoord(${routeIndex},'${which}')" title="Update GPS">↺</button>`;
-}
-
 function renderRoutes() {
   const c=document.getElementById('travelTracker');
   c.innerHTML='';
@@ -701,8 +516,6 @@ function renderRoutes() {
   travelRoutes.forEach((route,index) => {
     const stats=calcStats(route.trips);
     const div=document.createElement('div'); div.className='travel-card';
-    const running=route.activeStart
-      ? `<div class="timer-running">⏱ Running since ${new Date(route.activeStart).toLocaleTimeString()}</div>` : '';
     const tripsHtml=route.trips.slice(0,10).map((trip,ti)=>`
       <div class="trip-item">
         <div>${trip.mins} min — ${new Date(trip.start).toLocaleString()}</div>
@@ -716,22 +529,12 @@ function renderRoutes() {
         <div class="travel-title" style="margin-bottom:4px;">${route.name}</div>
         <button class="delete-btn" style="padding:4px 9px;font-size:12px;" onclick="deleteRoute(${index})">✕</button>
       </div>
-      <div class="route-coord-info">
-        <span>🟢 Start: ${coordChip(route.startLat,route.startLng,index,'start')}</span>
-        <span>🔵 End: ${coordChip(route.endLat,route.endLng,index,'end')}</span>
-      </div>
-      ${running}
       <div class="stats" style="margin-top:8px;">
-        <div class="stat">Min: ${stats.min} m</div>
-        <div class="stat">Avg: ${stats.avg} m</div>
-        <div class="stat">Max: ${stats.max} m</div>
+        <div class="stat">avg ${stats.avg} m, ${stats.min} to ${stats.max}</div>
         <div class="stat">n=${route.trips.length}</div>
       </div>
       <div class="travel-buttons">
-        <button class="start-btn"  onclick="startRoute(${index})">▶</button>
-        <button class="stop-btn"   onclick="stopRoute(${index})">■</button>
-        <button class="cancel-btn" onclick="cancelRoute(${index})">✕</button>
-        <button class="manual-btn" onclick="openManualModal(${index})">+ Manual</button>
+        <button class="manual-btn" style="flex:1;" onclick="openManualModal(${index})">+ Manual</button>
       </div>
       <div class="trip-list">${tripsHtml}</div>`;
     c.appendChild(div);
@@ -746,7 +549,6 @@ function todayISO(){ return new Date().toISOString().slice(0,10); }
 
 function openManualModal(ri) {
   _mMode='manual';_mRoute=ri;_mTrip=null;
-  document.getElementById('modalTitle').textContent='Add Manual Time';
   const now=new Date();
   document.getElementById('modalDate').value=todayISO();
   document.getElementById('modalHour').value=now.getHours();
@@ -757,7 +559,6 @@ function openManualModal(ri) {
 function openEditModal(ri,ti) {
   _mMode='edit';_mRoute=ri;_mTrip=ti;
   const trip=travelRoutes[ri].trips[ti], d=new Date(trip.start);
-  document.getElementById('modalTitle').textContent='Edit Sample';
   document.getElementById('modalDate').value=d.toISOString().slice(0,10);
   document.getElementById('modalHour').value=d.getHours();
   document.getElementById('modalMin').value=d.getMinutes();
@@ -817,8 +618,266 @@ render();
 loadFeedback();
 renderRoutes();
 renderCoordTable();
-rebuildStopSelect();
-updateQTStatus();
+
+/* ═══════════════════════════
+   MODAL MANAGEMENT
+═══════════════════════════ */
+function openRoutesModal() {
+  renderRoutes();
+  document.getElementById('routesModal').classList.add('open');
+}
+function closeRoutesModal() {
+  document.getElementById('routesModal').classList.remove('open');
+}
+
+function openCoordModal() {
+  renderCoordTable();
+  document.getElementById('coordModal').classList.add('open');
+}
+function closeCoordModal() {
+  document.getElementById('coordModal').classList.remove('open');
+}
+
+/* ═══════════════════════════
+   ADD TRIP MODAL LOGIC
+═══════════════════════════ */
+let selectedStart = null; // { interval, time }
+let selectedEnd = null;   // { interval, time }
+
+function openAddTripModal() {
+  trackLocation();
+  selectedStart = null;
+  selectedEnd = null;
+  updateSelectionUI();
+
+  const sel = document.getElementById('tripRouteSelect');
+  sel.innerHTML = '<option value="">-- pick route --</option>';
+  travelRoutes.forEach((r,i) => {
+    const opt = document.createElement('option');
+    opt.value=i; opt.textContent=r.name; sel.appendChild(opt);
+  });
+
+  renderRecordedIntervals();
+  document.getElementById('addTripModal').classList.add('open');
+}
+
+function closeAddTripModal() {
+  document.getElementById('addTripModal').classList.remove('open');
+}
+
+function updateSelectionUI() {
+  document.getElementById('selStartText').textContent = selectedStart
+    ? `${new Date(selectedStart.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
+    : 'none';
+  document.getElementById('selEndText').textContent = selectedEnd
+    ? `${new Date(selectedEnd.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
+    : 'none';
+}
+
+function renderRecordedIntervals() {
+  const list = document.getElementById('intervalsList');
+  if (!recordedIntervals.length) {
+    list.innerHTML = '<div style="color:#999;text-align:center;padding:20px;">No records yet</div>';
+    return;
+  }
+
+  list.innerHTML = recordedIntervals.map((inv, i) => {
+    const start = new Date(inv.startTime);
+    const end = new Date(inv.endTime);
+    const dateStr = start.toLocaleDateString([], { day:'2-digit', month:'short' });
+    const sStr = start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const eStr = end.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+    return `
+      <div class="interval-item">
+        <div class="interval-header">
+          <span>${dateStr}</span>
+          <span style="display:flex; align-items:center; gap:5px;">
+            ${sStr} - ${eStr}
+          </span>
+        </div>
+        <div class="interval-loc">
+          <div style="flex:1;">
+            <div style="font-weight:bold;">📍 ${inv.locLabel}</div>
+            <div style="font-size:10px; color:#888;">${inv.lat.toFixed(6)}, ${inv.lng.toFixed(6)}</div>
+          </div>
+          <button class="refresh-btn" onclick="refreshInterval(event, ${i})" title="Refresh Nearest Label">↺</button>
+        </div>
+        <div class="interval-btns">
+          <button class="start-btn"  style="padding:4px 8px; font-size:12px;" onclick="setTripStart(${i})">Set Start</button>
+          <button class="stop-btn"   style="padding:4px 8px; font-size:12px;" onclick="setTripEnd(${i})">Set End</button>
+          <button class="manual-btn" style="padding:4px 8px; font-size:12px; background:#e65100;" onclick="addToDir(${i})">Add to Dir</button>
+          <button class="delete-btn" style="padding:4px 8px; font-size:12px;" onclick="deleteInterval(${i})">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setTripStart(i) {
+  const inv = recordedIntervals[i];
+  // Start of trip is when we LEAVE the starting location (endTime of interval)
+  const d = new Date(inv.endTime);
+  const defaultStr = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+  const val = prompt('Departure time (HH:MM):', defaultStr);
+  if (!val) return;
+  const parts = val.split(':');
+  if (parts.length !== 2) return;
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (isNaN(h) || h < 0 || h > 23 || isNaN(m) || m < 0 || m > 59) return;
+  d.setHours(h); d.setMinutes(m); d.setSeconds(0);
+  selectedStart = { interval: inv, time: d.toISOString() };
+  updateSelectionUI();
+}
+
+function setTripEnd(i) {
+  const inv = recordedIntervals[i];
+  // End of trip is when we ARRIVE at the destination (startTime of interval)
+  const d = new Date(inv.startTime);
+  const defaultStr = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+  const val = prompt('Arrival time (HH:MM):', defaultStr);
+  if (!val) return;
+  const parts = val.split(':');
+  if (parts.length !== 2) return;
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (isNaN(h) || h < 0 || h > 23 || isNaN(m) || m < 0 || m > 59) return;
+  d.setHours(h); d.setMinutes(m); d.setSeconds(0);
+  selectedEnd = { interval: inv, time: d.toISOString() };
+  updateSelectionUI();
+}
+
+function addToDir(i) {
+  const inv = recordedIntervals[i];
+  closeAddTripModal();
+  openCoordModal(); // Must open the modal so we can see the input
+  document.getElementById('newCoordLatLng').value = `${inv.lat.toFixed(6)},${inv.lng.toFixed(6)}`;
+  const labelInput = document.getElementById('newCoordLabel');
+  labelInput.scrollIntoView({ behavior:'smooth', block:'center' });
+  setTimeout(() => labelInput.focus(), 500);
+}
+
+function refreshInterval(e, i) {
+  const inv = recordedIntervals[i];
+  if (inv.lat == null || inv.lng == null) {
+    if (!navigator.geolocation) return;
+    const btn = e.currentTarget;
+    const oldText = btn.textContent;
+    btn.textContent = '…';
+    navigator.geolocation.getCurrentPosition(pos => {
+      inv.lat = pos.coords.latitude;
+      inv.lng = pos.coords.longitude;
+      const nearest = nearestCoord(inv.lat, inv.lng);
+      inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
+      saveIntervals();
+      renderRecordedIntervals();
+      btn.textContent = oldText;
+    }, err => { alert('GPS Error: ' + err.message); btn.textContent = oldText; }, { timeout: 10000 });
+  } else {
+    const nearest = nearestCoord(inv.lat, inv.lng);
+    inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
+    saveIntervals();
+    renderRecordedIntervals();
+  }
+}
+
+function reResolveLabels() {
+  recordedIntervals.forEach(inv => {
+    const nearest = nearestCoord(inv.lat, inv.lng);
+    inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
+  });
+  saveIntervals();
+  renderRecordedIntervals();
+  updateSelectionUI();
+}
+
+function deleteInterval(i) {
+  if (!confirm('Delete this record?')) return;
+  recordedIntervals.splice(i, 1);
+  saveIntervals();
+  renderRecordedIntervals();
+}
+
+function clearAllIntervals() {
+  if (!confirm('Clear all recorded locations?')) return;
+  recordedIntervals = [];
+  saveIntervals();
+  renderRecordedIntervals();
+  selectedStart = null;
+  selectedEnd = null;
+  updateSelectionUI();
+}
+
+function saveTrip() {
+  const routeIndex = parseInt(document.getElementById('tripRouteSelect').value);
+  if (isNaN(routeIndex)) { alert('Pick a route'); return; }
+  if (!selectedStart || !selectedEnd) { alert('Select both start and end records'); return; }
+
+  const startTime = new Date(selectedStart.time);
+  const endTime = new Date(selectedEnd.time);
+
+  if (endTime < startTime) {
+    if (!confirm('End record is older than start record. Save anyway?')) return;
+  }
+
+  const mins = Math.max(1, Math.round((endTime - startTime) / 60000));
+
+  travelRoutes[routeIndex].trips.unshift({
+    start: selectedStart.time,
+    mins: mins
+  });
+
+  saveRoutes();
+  renderRoutes();
+  closeAddTripModal();
+}
+
+/* ═══════════════════════════
+   BACKGROUND TRACKING
+═══════════════════════════ */
+let recordedIntervals = JSON.parse(localStorage.getItem('mrt_intervals') || '[]');
+function saveIntervals() { localStorage.setItem('mrt_intervals', JSON.stringify(recordedIntervals)); }
+
+function trackLocation() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const now = new Date();
+
+    // Populate Coord Directory GPS field
+    const gpsInput = document.getElementById('newCoordLatLng');
+    if (gpsInput) gpsInput.value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+
+    const nearest = nearestCoord(lat, lng);
+    let locLabel = "unknown";
+    if (nearest && nearest.dist <= 0.5) { // 500m = 0.5km
+      locLabel = nearest.coord.label;
+    }
+
+    const last = recordedIntervals[0];
+    const isSameDate = last && new Date(last.startTime).toDateString() === now.toDateString();
+    const isSameLoc = last && last.locLabel === locLabel;
+
+    if (last && isSameDate && isSameLoc) {
+      last.endTime = now.toISOString();
+    } else {
+      recordedIntervals.unshift({
+        startTime: now.toISOString(),
+        endTime: now.toISOString(),
+        locLabel: locLabel,
+        lat: lat,
+        lng: lng
+      });
+    }
+    saveIntervals();
+    if (document.getElementById('addTripModal').classList.contains('open')) {
+      renderRecordedIntervals();
+    }
+  }, err => console.warn('Tracking error:', err), { timeout: 10000, enableHighAccuracy: true });
+}
+
+setInterval(trackLocation, 60000);
+trackLocation();
 </script>
 </body>
 </html>
