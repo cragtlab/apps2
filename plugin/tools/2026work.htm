@@ -84,8 +84,11 @@ input{
 <br>
 
 <div id="dashboard" style="margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; background: #fff; display:none;">
-    <h3>Officer Dashboard</h3>
-    <div id="dashboardContent"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h3 style="margin:0;">Officer Dashboard</h3>
+        <label style="font-size:0.9em;"><input type="checkbox" id="showAllOfficers"> Show officers with only completed items</label>
+    </div>
+    <div id="dashboardContent" style="margin-top:10px;"></div>
 </div>
 
 <br>
@@ -112,32 +115,14 @@ input{
 const officerIndex = {};
 const statusIndex = {};
 const dashboardIndex = {};
-const officerAliasMap = {};
+const officerAliasMap = {
+    "chee jay sian": "jay sian",
+    "jansson tee zhong hui": "jansson tee"
+};
 function normalizeOfficer(raw) {
     if (!raw) return null;
-if(true) return raw.trim().replaceAll("@gra.gov.sg","").replaceAll("_"," ").toLowerCase();
-    let name = String(raw)
-        .toLowerCase()
-        .trim();
-
-    // remove emails → keep prefix name
-    name = name.replace(/@.*$/, "");
-
-    // replace separators
-    name = name.replace(/[_\.]/g, " ");
-    name = name.replace(/\s+/g, " ");
-
-    // crude cleanup rules
-    name = name.trim();
-
-    // alias compression: first + last token
-    const parts = name.split(" ").filter(Boolean);
-    if (parts.length >= 2) {
-        name = parts[0] + "_" + parts[parts.length - 1];
-    } else {
-        name = parts[0];
-    }
-
+    let name = raw.trim().replaceAll("@gra.gov.sg","").replaceAll("_"," ").toLowerCase();
+    if (officerAliasMap[name]) return officerAliasMap[name];
     return name;
 }
 function findOfficerColumn(headerRow) {
@@ -212,6 +197,14 @@ function indexDashboard(reportName, rows) {
         dashboardIndex[officer][status]++;
     }
 }
+function isStatusCompleted(status) {
+    if (!status) return false;
+    const s = status.toLowerCase();
+    return s.includes("closed") ||
+           s.includes("completed") ||
+           s.includes("rejected") ||
+           s.includes("withdraw");
+}
 function findStatusColumn(headerRow) {
     for (let i = 0; i < headerRow.length; i++) {
         const h = String(headerRow[i]).toLowerCase().trim();
@@ -271,6 +264,7 @@ function filterByDashboard(officer, status) {
 function refreshDashboard() {
     const dash = document.getElementById("dashboard");
     const content = document.getElementById("dashboardContent");
+    const showAll = document.getElementById("showAllOfficers").checked;
 
     content.innerHTML = "";
 
@@ -284,11 +278,17 @@ function refreshDashboard() {
     dash.style.display = "block";
 
     for (const o of officers) {
+        const statuses = Object.keys(dashboardIndex[o]).sort();
+
+        if (!showAll) {
+            const onlyCompleted = statuses.every(s => isStatusCompleted(s));
+            if (onlyCompleted) continue;
+        }
+
         const row = document.createElement("div");
         row.style.marginBottom = "5px";
         row.innerHTML = `<strong>${o}</strong> `;
 
-        const statuses = Object.keys(dashboardIndex[o]).sort();
         for (const s of statuses) {
             const count = dashboardIndex[o][s];
             const span = document.createElement("span");
@@ -303,6 +303,7 @@ function refreshDashboard() {
         content.appendChild(row);
     }
 }
+document.getElementById("showAllOfficers").onchange = refreshDashboard;
 function refreshStatusDropdown() {
     const sel = document.getElementById("statusFilter");
     const current = sel.value;
