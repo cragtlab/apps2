@@ -58,7 +58,9 @@ input{
 <h1>2026WORK HTML</h1>
 
 <button id="pickFolder">Select Folder</button>
-<button id="exportCombined">Export Combined</button>
+<label style="margin-left:10px;"><input type="checkbox" id="asyncLoad" checked> Async Load</label>
+<span id="timerDisplay" style="margin-left:20px; font-weight:bold;"></span>
+<button id="exportCombined" style="margin-left:20px;">Export Combined</button>
 
 <br><br>
 
@@ -430,6 +432,9 @@ async function loadReports(){
         return;
     }
 
+    const startTime = performance.now();
+    document.getElementById("timerDisplay").textContent = "Loading...";
+
     // Clear indices
     for (const key in officerIndex) delete officerIndex[key];
     for (const key in statusIndex) delete statusIndex[key];
@@ -442,23 +447,36 @@ async function loadReports(){
 
     tbody.innerHTML="";
 
-    const promises = [];
-    for (const reportName in reports) {
-        const report = reports[reportName];
-        if (report) {
-            promises.push((async () => {
-                log("Loading " + report.name);
+    const useAsync = document.getElementById("asyncLoad").checked;
+    const loadResults = [];
+
+    if (useAsync) {
+        const promises = [];
+        for (const reportName in reports) {
+            const report = reports[reportName];
+            if (report) {
+                promises.push((async () => {
+                    log("Loading " + report.name + " (async)");
+                    const data = await loadExcelFile(report.handle);
+                    return { reportName, data, report };
+                })());
+            }
+        }
+        loadResults.push(...(await Promise.all(promises)));
+    } else {
+        for (const reportName in reports) {
+            const report = reports[reportName];
+            if (report) {
+                log("Loading " + report.name + " (one-by-one)");
                 const data = await loadExcelFile(report.handle);
-                return { reportName, data, report };
-            })());
+                loadResults.push({ reportName, data, report });
+            }
         }
     }
 
-    const results = await Promise.all(promises);
-
     for (const reportName in reports) {
         const tr = document.createElement("tr");
-        const loaded = results.find(r => r.reportName === reportName);
+        const loaded = loadResults.find(r => r.reportName === reportName);
 
         if (loaded) {
             const { data, report } = loaded;
@@ -484,7 +502,9 @@ async function loadReports(){
 refreshOfficerDropdown();
 refreshStatusDropdown();
 refreshDashboard();
-    log("Finished loading.");
+    const duration = ((performance.now() - startTime) / 1000).toFixed(2);
+    document.getElementById("timerDisplay").textContent = `Loaded in ${duration}s`;
+    log(`Finished loading in ${duration}s.`);
 };
 
 function applyFilters() {
