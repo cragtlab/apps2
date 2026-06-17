@@ -115,7 +115,7 @@ const dashboardIndex = {};
 const officerAliasMap = {};
 function normalizeOfficer(raw) {
     if (!raw) return null;
-if(true) return raw.trim().replaceAll("@gra.gov.sg","").replaceAll("_"," ");
+if(true) return raw.trim().replaceAll("@gra.gov.sg","").replaceAll("_"," ").toLowerCase();
     let name = String(raw)
         .toLowerCase()
         .trim();
@@ -582,6 +582,10 @@ function applyFilters() {
     }
 
     renderResults(results);
+
+    if (results.length > 0) {
+        document.getElementById("results").scrollIntoView({ behavior: 'smooth' });
+    }
 }
 
 document.getElementById("searchBox").oninput = applyFilters;
