@@ -60,17 +60,19 @@
         #${tabId} .task-item:hover {
             background-color: #cce5ff;
         }
-        #${tabId} .task-item.done a {
+        #${tabId} .task-item.done .task-display {
             text-decoration: line-through;
             color: #888;
         }
-        #${tabId} .task-item a {
-            text-decoration: none;
-            color: #0066cc;
+        #${tabId} .task-display {
             flex-grow: 1;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        #${tabId} a.task-display {
+            text-decoration: none;
+            color: #0066cc;
         }
 
         #${tabId} .modal {
@@ -260,7 +262,7 @@
     setInterval(saveToFile, 60000);
 
     function sanitizeUrl(url) {
-        if (!url) return "#";
+        if (!url) return "";
         const trimmed = url.trim();
         if (trimmed.toLowerCase().startsWith('javascript:')) {
             return "about:blank";
@@ -303,13 +305,20 @@
                     taskEl.appendChild(cb);
                 }
 
-                const link = document.createElement('a');
-                link.href = sanitizeUrl(task.url);
-                link.target = '_blank';
-                link.textContent = task.title;
-                link.onclick = (e) => e.stopPropagation();
+                const sanitizedUrl = sanitizeUrl(task.url);
+                let displayEl;
+                if (sanitizedUrl && sanitizedUrl !== "#") {
+                    displayEl = document.createElement('a');
+                    displayEl.href = sanitizedUrl;
+                    displayEl.target = '_blank';
+                } else {
+                    displayEl = document.createElement('span');
+                }
+                displayEl.className = 'task-display';
+                displayEl.textContent = task.title;
+                displayEl.onclick = (e) => e.stopPropagation();
 
-                taskEl.appendChild(link);
+                taskEl.appendChild(displayEl);
 
                 const editBtn = document.createElement('span');
                 editBtn.textContent = ' ✏️';
@@ -344,12 +353,12 @@
             const newTasks = [];
             for (let i = 1; i < rows.length; i++) {
                 const cols = rows[i].split('\t');
-                if (cols.length >= 3) {
+                if (cols.length >= 2) {
                     newTasks.push({
                         id: Date.now().toString() + i,
                         month: parseInt(cols[0]),
-                        title: cols[1].trim(),
-                        url: cols[2].trim(),
+                        title: (cols[1] || "").trim(),
+                        url: (cols[2] || "").trim(),
                         done: cols[3] === 'true'
                     });
                 }
