@@ -114,7 +114,7 @@
         #${tabId} #planning-delete-task { background-color: #dc3545; color: white; }
         #${tabId} #planning-close-modal { background-color: #6c757d; color: white; }
 
-        #${tabId} .report-section {
+        #${tabId} .report-section, #${tabId} .clipboard-section {
             margin: 20px auto;
             max-width: 1000px;
             padding: 10px;
@@ -133,6 +133,10 @@
 
     container.innerHTML = `
         <h1>Yearly Recurring Tasks</h1>
+        <div class="clipboard-section">
+            <button id="export-tsv-btn">Export TSV</button>
+            <button id="import-tsv-btn">Import TSV</button>
+        </div>
         <div id="planning-calendar" class="calendar-grid">
             <div class="month" data-month="0"><h3>January</h3><div class="task-list"></div></div>
             <div class="month" data-month="1"><h3>February</h3><div class="task-list"></div></div>
@@ -175,6 +179,7 @@
     const STORAGE_KEY = 'yearly-tasks';
     let tasks = [];
     let needsFileSave = false;
+    let isSavingToFile = false;
 
     const calendar = container.querySelector('#planning-calendar');
     const modal = container.querySelector('#planning-task-modal');
@@ -188,17 +193,17 @@
     const closeBtn = container.querySelector('#planning-close-modal');
     const officerBtn = container.querySelector('#officer-view-btn');
     const reportOutput = container.querySelector('#report-output');
+    const exportBtn = container.querySelector('#export-tsv-btn');
+    const importBtn = container.querySelector('#import-tsv-btn');
 
     async function loadTasks() {
         let loaded = false;
-        // Try local storage first
         const localData = localStorage.getItem(STORAGE_KEY);
         if (localData) {
             tasks = JSON.parse(localData);
             loaded = true;
         }
 
-        // If local storage empty, try file
         if (!loaded) {
             try {
                 const rootHandle = PluginAPI.getRootHandle();
@@ -215,7 +220,6 @@
             }
         }
 
-        // Auto-reset "done" status for non-current months and persist
         const currentMonth = new Date().getMonth();
         let changed = false;
         tasks.forEach(t => {
@@ -228,14 +232,14 @@
     }
 
     function saveTasks() {
-        // Save to Local Storage immediately
         localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
         needsFileSave = true;
     }
 
     async function saveToFile() {
-        if (!needsFileSave) return;
+        if (!needsFileSave || isSavingToFile) return;
 
+        isSavingToFile = true;
         try {
             const rootHandle = PluginAPI.getRootHandle();
             if (rootHandle) {
@@ -248,10 +252,11 @@
             }
         } catch (err) {
             console.error('Failed to save tasks to file:', err);
+        } finally {
+            isSavingToFile = false;
         }
     }
 
-    // Periodically save to file every minute
     setInterval(saveToFile, 60000);
 
     function sanitizeUrl(url) {
@@ -319,6 +324,48 @@
             }
         });
     }
+
+    exportBtn.onclick = () => {
+        const header = "Month\tTitle\tURL\tDone\n";
+        const body = tasks.map(t => `${t.month}\t${t.title}\t${t.url}\t${t.done}`).join('\n');
+        navigator.clipboard.writeText(header + body).then(() => {
+            alert("Tasks exported to clipboard in TSV format.");
+        });
+    };
+
+    importBtn.onclick = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            const rows = text.trim().split('\n');
+            if (rows.length < 2) {
+                alert("Invalid TSV format.");
+                return;
+            }
+            const newTasks = [];
+            for (let i = 1; i < rows.length; i++) {
+                const cols = rows[i].split('\t');
+                if (cols.length >= 3) {
+                    newTasks.push({
+                        id: Date.now().toString() + i,
+                        month: parseInt(cols[0]),
+                        title: cols[1].trim(),
+                        url: cols[2].trim(),
+                        done: cols[3] === 'true'
+                    });
+                }
+            }
+            if (newTasks.length > 0) {
+                if (confirm(`Import ${newTasks.length} tasks? This will overwrite existing data.`)) {
+                    tasks = newTasks;
+                    saveTasks();
+                    renderTasks();
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Failed to import from clipboard.");
+        }
+    };
 
     officerBtn.onclick = async () => {
         const rootHandle = PluginAPI.getRootHandle();
