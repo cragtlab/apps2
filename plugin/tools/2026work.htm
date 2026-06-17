@@ -83,6 +83,13 @@ input{
 
 <br>
 
+<div id="dashboard" style="margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; background: #fff; display:none;">
+    <h3>Officer Dashboard</h3>
+    <div id="dashboardContent"></div>
+</div>
+
+<br>
+
 <h2>Search Results</h2>
 <input id="searchBox" placeholder="Search all loaded reports">
 <select id="officerFilter">
@@ -104,6 +111,7 @@ input{
 //// Officer & Status
 const officerIndex = {};
 const statusIndex = {};
+const dashboardIndex = {};
 const officerAliasMap = {};
 function normalizeOfficer(raw) {
     if (!raw) return null;
@@ -177,6 +185,33 @@ function indexOfficers(reportName, rows) {
         });
     }
 }
+function indexDashboard(reportName, rows) {
+    if (!rows || rows.length === 0) return;
+
+    const header = rows[0];
+    const officerCol = findOfficerColumn(header);
+    const statusCol = findStatusColumn(header);
+
+    if (officerCol === -1 || statusCol === -1) return;
+
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const officer = normalizeOfficer(row[officerCol]);
+        const status = (row[statusCol] || "").toString().trim();
+
+        if (!officer || !status) continue;
+
+        if (!dashboardIndex[officer]) {
+            dashboardIndex[officer] = {};
+        }
+
+        if (!dashboardIndex[officer][status]) {
+            dashboardIndex[officer][status] = 0;
+        }
+
+        dashboardIndex[officer][status]++;
+    }
+}
 function findStatusColumn(headerRow) {
     for (let i = 0; i < headerRow.length; i++) {
         const h = String(headerRow[i]).toLowerCase().trim();
@@ -227,6 +262,46 @@ function refreshOfficerDropdown() {
         sel.appendChild(opt);
     }
     sel.value = current;
+}
+function filterByDashboard(officer, status) {
+    document.getElementById("officerFilter").value = officer;
+    document.getElementById("statusFilter").value = status;
+    applyFilters();
+}
+function refreshDashboard() {
+    const dash = document.getElementById("dashboard");
+    const content = document.getElementById("dashboardContent");
+
+    content.innerHTML = "";
+
+    const officers = Object.keys(dashboardIndex).sort();
+
+    if (officers.length === 0) {
+        dash.style.display = "none";
+        return;
+    }
+
+    dash.style.display = "block";
+
+    for (const o of officers) {
+        const row = document.createElement("div");
+        row.style.marginBottom = "5px";
+        row.innerHTML = `<strong>${o}</strong> `;
+
+        const statuses = Object.keys(dashboardIndex[o]).sort();
+        for (const s of statuses) {
+            const count = dashboardIndex[o][s];
+            const span = document.createElement("span");
+            span.style.marginRight = "10px";
+            span.style.cursor = "pointer";
+            span.style.color = "blue";
+            span.style.textDecoration = "underline";
+            span.textContent = `${s} (${count})`;
+            span.onclick = () => filterByDashboard(o, s);
+            row.appendChild(span);
+        }
+        content.appendChild(row);
+    }
 }
 function refreshStatusDropdown() {
     const sel = document.getElementById("statusFilter");
@@ -408,6 +483,7 @@ async function loadReports(){
     // Clear indices
     for (const key in officerIndex) delete officerIndex[key];
     for (const key in statusIndex) delete statusIndex[key];
+    for (const key in dashboardIndex) delete dashboardIndex[key];
 
     await findLatestFiles();
 
@@ -433,6 +509,7 @@ async function loadReports(){
 	// NEW: build indices
 indexOfficers(reportName, data);
 indexStatus(reportName, data);
+indexDashboard(reportName, data);
             tr.innerHTML=`
                 <td>${reportName}</td>
                 <td class='loaded'>Loaded</td>
@@ -454,6 +531,7 @@ indexStatus(reportName, data);
     }
 refreshOfficerDropdown();
 refreshStatusDropdown();
+refreshDashboard();
     log("Finished loading.");
 };
 
