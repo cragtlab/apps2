@@ -16,150 +16,114 @@
         #${tabId} .view-section { display: none; }
         #${tabId} .view-section.active { display: block; }
 
-        #${tabId} .calendar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 1000px; margin: 0 auto; }
-        #${tabId} .month { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; min-height: 150px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s; }
-        #${tabId} .month:hover { transform: scale(1.02); border-color: #aaa; }
+        #${tabId} .calendar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 1200px; margin: 0 auto; }
+        #${tabId} .month { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; min-height: 150px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s; position: relative; }
+        #${tabId} .month:hover { transform: scale(1.01); border-color: #aaa; }
         #${tabId} .month.current-month { border: 2px solid #007BFF; background-color: #f8fbff; }
-        #${tabId} .month h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: #333; }
+        #${tabId} .month h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: #333; font-size: 1.1em; }
 
         #${tabId} .task-list { list-style: none; padding: 0; margin: 0; }
-        #${tabId} .task-item { background-color: #e2f0ff; border-radius: 4px; padding: 5px 8px; margin-bottom: 5px; font-size: 0.9em; overflow: hidden; display: flex; align-items: center; gap: 5px; border: 1px solid transparent; }
+        #${tabId} .task-item { background-color: #e2f0ff; border-radius: 4px; padding: 5px 8px; margin-bottom: 5px; font-size: 0.85em; overflow: hidden; display: flex; flex-direction: column; gap: 2px; border: 1px solid transparent; }
         #${tabId} .task-item:hover { background-color: #cce5ff; border-color: #b8daff; }
+        #${tabId} .task-item.done { opacity: 0.6; }
         #${tabId} .task-item.done .task-display { text-decoration: line-through; color: #888; }
-        #${tabId} .task-display { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #${tabId} .task-display { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
         #${tabId} a.task-display { text-decoration: none; color: #0066cc; cursor: pointer; }
-        #${tabId} a.task-display:hover { text-decoration: underline; }
+        #${tabId} .task-meta { font-size: 0.8em; color: #666; font-style: italic; }
 
-        #${tabId} .vision-container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-        #${tabId} .vision-card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        #${tabId} .vision-card h2 { margin-top: 0; color: #0056b3; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 1.25em; }
-        #${tabId} .team-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-        #${tabId} .member-card { background: #f9f9f9; padding: 12px; border-radius: 6px; border-left: 4px solid #28a745; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        #${tabId} .member-card input { width: 100%; border: none; background: transparent; font-weight: bold; font-size: 1.1em; border-bottom: 1px solid transparent; }
-        #${tabId} .member-card input:focus { outline: none; border-bottom: 1px solid #ccc; }
-        #${tabId} .member-card textarea { width: 100%; height: 70px; font-size: 0.85em; border: 1px solid #eee; border-radius: 3px; resize: vertical; padding: 5px; }
-
-        #${tabId} .reporting-section { max-width: 1000px; margin: 0 auto; }
-        #${tabId} .report-item { background: white; padding: 15px; margin-bottom: 15px; border-radius: 6px; border: 1px solid #ddd; border-left: 4px solid #17a2b8; }
-        #${tabId} .report-item strong { display: block; margin-bottom: 8px; color: #333; font-size: 1.1em; }
-        #${tabId} .report-item pre { white-space: pre-wrap; font-size: 0.85em; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #eee; overflow: auto; max-height: 300px; }
+        #${tabId} .officer-view-container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        #${tabId} .officer-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; border-left: 5px solid #28a745; }
+        #${tabId} .officer-card h2 { margin: 0 0 10px 0; font-size: 1.2em; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
 
         #${tabId} .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; }
-        #${tabId} .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 300px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-        #${tabId} .modal-content input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        #${tabId} .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 400px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        #${tabId} .modal-content input, #${tabId} .modal-content select, #${tabId} .modal-content textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
         #${tabId} .modal-buttons { display: flex; justify-content: space-between; margin-top: 10px; }
         #${tabId} button { padding: 8px 12px; cursor: pointer; border-radius: 4px; border: none; font-weight: 500; }
         #${tabId} .btn-primary { background-color: #007BFF; color: white; }
         #${tabId} .btn-success { background-color: #28a745; color: white; }
         #${tabId} .btn-danger { background-color: #dc3545; color: white; }
         #${tabId} .btn-secondary { background-color: #6c757d; color: white; }
+
+        #${tabId} .controls-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; align-items: center; }
+        #${tabId} .toggle-container { display: flex; align-items: center; gap: 5px; font-size: 0.9em; cursor: pointer; }
     `;
     document.head.appendChild(style);
 
-    container.innerHTML = `
-        <h1>Team Planning & Strategic Vision</h1>
-        <div class="nav-tabs">
-            <div class="nav-tab active" data-view="tasks">Monthly Tasks</div>
-            <div class="nav-tab" data-view="vision">Visionary Dashboard</div>
-            <div class="nav-tab" data-view="reporting">Officer Reporting</div>
-        </div>
-
-        <div id="tasks-view" class="view-section active">
-            <div style="margin-bottom: 20px; display: flex; justify-content: center; gap: 10px;">
-                <button id="export-tsv-btn" class="btn-secondary">Export TSV</button>
-                <button id="import-tsv-btn" class="btn-secondary">Import TSV</button>
-            </div>
-            <div id="planning-calendar" class="calendar-grid">
-                ${Array.from({length: 12}, (_, i) => `
-                    <div class="month" data-month="${i}">
-                        <h3>${new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</h3>
-                        <div class="task-list"></div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-
-        <div id="vision-view" class="view-section">
-            <div class="vision-container">
-                <div class="vision-card">
-                    <h2>North Star Vision</h2>
-                    <textarea id="vision-statement" style="width:100%; height:80px; padding:10px;" placeholder="What is our ultimate long-term goal?"></textarea>
-                </div>
-
-                <div class="vision-card">
-                    <h2>Quarterly Strategic Roadmap</h2>
-                    <div class="team-grid">
-                        <div class="member-card" style="border-left-color: #007BFF;"><strong>Q1</strong><textarea id="roadmap-q1" placeholder="Major objectives..."></textarea></div>
-                        <div class="member-card" style="border-left-color: #007BFF;"><strong>Q2</strong><textarea id="roadmap-q2" placeholder="Major objectives..."></textarea></div>
-                        <div class="member-card" style="border-left-color: #007BFF;"><strong>Q3</strong><textarea id="roadmap-q3" placeholder="Major objectives..."></textarea></div>
-                        <div class="member-card" style="border-left-color: #007BFF;"><strong>Q4</strong><textarea id="roadmap-q4" placeholder="Major objectives..."></textarea></div>
-                    </div>
-                </div>
-
-                <div class="vision-card">
-                    <h2>Weekly Big Rocks (Team Priorities)</h2>
-                    <textarea id="team-priorities" style="width:100%; height:60px; padding:10px;" placeholder="What are the 3 most important goals for the team this week?"></textarea>
-                </div>
-
-                <div class="vision-card">
-                    <h2>Team Success & Recognition Log</h2>
-                    <textarea id="success-log" style="width:100%; height:80px; padding:10px;" placeholder="Track and celebrate vision-aligned wins..."></textarea>
-                </div>
-
-                <div class="vision-card">
-                    <h2>Team Growth Matrix (Individual Development)</h2>
-                    <div id="team-growth-grid" class="team-grid">
-                        ${Array.from({length: 6}, (_, i) => `
-                            <div class="member-card">
-                                <input type="text" id="member-name-${i}" placeholder="Member Name">
-                                <textarea id="member-plan-${i}" placeholder="IDP, coaching notes, or next career milestone..."></textarea>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="reporting-view" class="view-section">
-            <div class="reporting-section">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <button id="officer-view-btn" class="btn-primary" style="padding: 10px 30px;">Scan Root for Reports (KPI & 2026work)</button>
-                </div>
-                <div id="report-output"></div>
-            </div>
-        </div>
-
-        <div id="planning-task-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <h2 id="planning-modal-title">Add Task</h2>
-                <input type="hidden" id="planning-task-id">
-                <input type="hidden" id="planning-task-month">
-                <label for="planning-task-name">Title:</label>
-                <input type="text" id="planning-task-name" placeholder="Task Title">
-                <label for="planning-task-url">URL:</label>
-                <input type="url" id="planning-task-url" placeholder="https://example.com">
-                <div class="modal-buttons">
-                    <button id="planning-save-task" class="btn-success">Save</button>
-                    <button id="planning-delete-task" class="btn-danger" style="display: none;">Delete</button>
-                    <button id="planning-close-modal" class="btn-secondary">Cancel</button>
-                </div>
-            </div>
-        </div>
-    `;
-
     const DATA_FILE_NAME = 'planningBak.txt';
-    const STORAGE_KEY = 'planning-data-v3';
-    let data = {
-        tasks: [],
-        vision: "",
-        roadmap: { q1: "", q2: "", q3: "", q4: "" },
-        priorities: "",
-        successLog: "",
-        team: Array.from({length: 6}, () => ({ name: "", plan: "" }))
+    const STORAGE_KEY = 'planning-data-v4';
+
+    let state = {
+        recurringTasks: [],
+        opsTasks: [],
+        hideDone: false
     };
 
     let needsFileSave = false;
     let isSavingToFile = false;
+    let currentView = "tasks"; // tasks, ops, officers
+
+    container.innerHTML = `
+        <h1>Team Planning & Actual Ops</h1>
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-view="tasks">Monthly Tasks</div>
+            <div class="nav-tab" data-view="ops">Actual Ops</div>
+            <div class="nav-tab" data-view="officers">Officer View</div>
+        </div>
+
+        <div class="controls-row">
+            <button id="export-tsv-btn" class="btn-secondary">Export TSV</button>
+            <button id="import-tsv-btn" class="btn-secondary">Import TSV</button>
+            <label class="toggle-container">
+                <input type="checkbox" id="hide-done-toggle"> Hide Done
+            </label>
+        </div>
+
+        <div id="tasks-view" class="view-section active">
+            <div id="recurring-calendar" class="calendar-grid"></div>
+        </div>
+
+        <div id="ops-view" class="view-section">
+            <div id="ops-calendar" class="calendar-grid"></div>
+        </div>
+
+        <div id="officers-view" class="view-section">
+            <div id="officer-list" class="officer-view-container"></div>
+        </div>
+
+        <div id="task-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2 id="modal-title">Edit Task</h2>
+                <input type="hidden" id="task-id">
+                <input type="hidden" id="task-type">
+
+                <label>Title:</label>
+                <input type="text" id="task-name" placeholder="Task Title">
+
+                <label>URL:</label>
+                <input type="url" id="task-url" placeholder="https://example.com">
+
+                <label>Month:</label>
+                <select id="task-month">
+                    ${Array.from({length: 12}, (_, i) => `<option value="${i}">${new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</option>`).join('')}
+                </select>
+
+                <div id="ops-fields" style="display:none;">
+                    <label>Officers (slash separated):</label>
+                    <input type="text" id="task-officers" placeholder="Thien Rong / Siew Mooi">
+
+                    <label>Remarks:</label>
+                    <textarea id="task-remarks" placeholder="Enter remarks..."></textarea>
+                </div>
+
+                <div class="modal-buttons">
+                    <button id="save-task-btn" class="btn-success">Save</button>
+                    <button id="delete-task-btn" class="btn-danger">Delete</button>
+                    <button id="close-modal-btn" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
 
     // View Switching
     container.querySelectorAll('.nav-tab').forEach(tab => {
@@ -167,33 +131,31 @@
             container.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
             container.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
             tab.classList.add('active');
-            container.querySelector(`#${tab.dataset.view}-view`).classList.add('active');
+            currentView = tab.dataset.view;
+            container.querySelector(`#${currentView}-view`).classList.add('active');
+            renderUI();
         };
     });
 
-    const calendar = container.querySelector('#planning-calendar');
-    const modal = container.querySelector('#planning-task-modal');
-    const modalTitle = container.querySelector('#planning-modal-title');
-    const taskIdInput = container.querySelector('#planning-task-id');
-    const taskMonthInput = container.querySelector('#planning-task-month');
-    const taskNameInput = container.querySelector('#planning-task-name');
-    const taskUrlInput = container.querySelector('#planning-task-url');
-    const saveBtn = container.querySelector('#planning-save-task');
-    const deleteBtn = container.querySelector('#planning-delete-task');
-    const closeBtn = container.querySelector('#planning-close-modal');
-    const officerBtn = container.querySelector('#officer-view-btn');
-    const reportOutput = container.querySelector('#report-output');
-    const exportBtn = container.querySelector('#export-tsv-btn');
-    const importBtn = container.querySelector('#import-tsv-btn');
+    const hideDoneToggle = container.querySelector('#hide-done-toggle');
+    hideDoneToggle.onchange = () => {
+        state.hideDone = hideDoneToggle.checked;
+        saveData();
+        renderUI();
+    };
 
     async function loadData() {
         let loaded = false;
+        // Try local storage first
         const localData = localStorage.getItem(STORAGE_KEY);
         if (localData) {
-            data = JSON.parse(localData);
-            loaded = true;
+            try {
+                state = JSON.parse(localData);
+                loaded = true;
+            } catch(e) {}
         }
 
+        // If local storage empty, try file
         if (!loaded) {
             try {
                 const rootHandle = PluginAPI.getRootHandle();
@@ -203,7 +165,7 @@
                     const text = await file.text();
                     const fileData = text ? JSON.parse(text) : null;
                     if (fileData) {
-                        data = { ...data, ...fileData };
+                        state = { ...state, ...fileData };
                         loaded = true;
                     }
                 }
@@ -212,17 +174,19 @@
             }
         }
 
-        // Migrate older versions if needed
-        const oldTasks = localStorage.getItem('planning-data-v2') || localStorage.getItem('yearly-tasks');
-        if (oldTasks && data.tasks.length === 0) {
-            const parsed = JSON.parse(oldTasks);
-            if (Array.isArray(parsed)) data.tasks = parsed;
-            else if (parsed.tasks) data.tasks = parsed.tasks;
+        // Migration from previous versions if state is empty
+        if (state.recurringTasks.length === 0 && state.opsTasks.length === 0) {
+             const oldV3 = localStorage.getItem('planning-data-v3');
+             if (oldV3) {
+                 const p = JSON.parse(oldV3);
+                 state.recurringTasks = p.tasks || [];
+             }
         }
 
+        // Auto-reset "done" status for RECURRING tasks not in current month
         const currentMonth = new Date().getMonth();
         let changed = false;
-        data.tasks.forEach(t => {
+        state.recurringTasks.forEach(t => {
             if (parseInt(t.month) !== currentMonth && t.done) {
                 t.done = false;
                 changed = true;
@@ -232,36 +196,21 @@
     }
 
     function saveData() {
-        // Collect UI data from vision view
-        data.vision = container.querySelector('#vision-statement').value;
-        data.priorities = container.querySelector('#team-priorities').value;
-        data.successLog = container.querySelector('#success-log').value;
-        data.roadmap.q1 = container.querySelector('#roadmap-q1').value;
-        data.roadmap.q2 = container.querySelector('#roadmap-q2').value;
-        data.roadmap.q3 = container.querySelector('#roadmap-q3').value;
-        data.roadmap.q4 = container.querySelector('#roadmap-q4').value;
-        for (let i = 0; i < 6; i++) {
-            data.team[i].name = container.querySelector(`#member-name-${i}`).value;
-            data.team[i].plan = container.querySelector(`#member-plan-${i}`).value;
-        }
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         needsFileSave = true;
     }
 
     async function saveToFile() {
         if (!needsFileSave || isSavingToFile) return;
-
         isSavingToFile = true;
         try {
             const rootHandle = PluginAPI.getRootHandle();
             if (rootHandle) {
                 const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: true });
                 const writable = await fileHandle.createWritable();
-                await writable.write(JSON.stringify(data, null, 2));
+                await writable.write(JSON.stringify(state, null, 2));
                 await writable.close();
                 needsFileSave = false;
-                console.log('Data saved to file successfully.');
             }
         } catch (err) {
             console.error('Failed to save to file:', err);
@@ -279,58 +228,46 @@
         return trimmed;
     }
 
-    function renderUI() {
+    function renderCalendar(gridId, tasks, type) {
+        const grid = container.querySelector(`#${gridId}`);
+        grid.innerHTML = '';
         const currentMonth = new Date().getMonth();
 
-        // Render Vision View Data
-        container.querySelector('#vision-statement').value = data.vision || "";
-        container.querySelector('#team-priorities').value = data.priorities || "";
-        container.querySelector('#success-log').value = data.successLog || "";
-        container.querySelector('#roadmap-q1').value = data.roadmap.q1 || "";
-        container.querySelector('#roadmap-q2').value = data.roadmap.q2 || "";
-        container.querySelector('#roadmap-q3').value = data.roadmap.q3 || "";
-        container.querySelector('#roadmap-q4').value = data.roadmap.q4 || "";
-        for (let i = 0; i < 6; i++) {
-            container.querySelector(`#member-name-${i}`).value = data.team[i].name || "";
-            container.querySelector(`#member-plan-${i}`).value = data.team[i].plan || "";
-        }
+        for (let i = 0; i < 12; i++) {
+            const monthEl = document.createElement('div');
+            monthEl.className = 'month' + (i === currentMonth ? ' current-month' : '');
+            monthEl.dataset.month = i;
+            monthEl.innerHTML = `<h3>${new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</h3><div class="task-list"></div>`;
+            monthEl.onclick = () => openModal(null, i, type);
 
-        // Add auto-save listeners
-        container.querySelectorAll('#vision-view textarea, #vision-view input').forEach(el => {
-            el.onchange = () => saveData();
-        });
+            const listEl = monthEl.querySelector('.task-list');
+            const monthTasks = tasks.filter(t => parseInt(t.month) === i);
 
-        // Render Tasks
-        container.querySelectorAll('.task-list').forEach(list => list.innerHTML = '');
-        container.querySelectorAll('.month').forEach(monthEl => {
-            if (parseInt(monthEl.dataset.month) === currentMonth) monthEl.classList.add('current-month');
-            else monthEl.classList.remove('current-month');
-        });
+            monthTasks.forEach(task => {
+                if (state.hideDone && task.done) return;
 
-        data.tasks.forEach(task => {
-            const isCurrentMonth = parseInt(task.month) === currentMonth;
-            const monthEl = container.querySelector(`.month[data-month="${task.month}"] .task-list`);
-            if (monthEl) {
                 const taskEl = document.createElement('div');
-                taskEl.className = 'task-item';
+                taskEl.className = 'task-item' + (task.done ? ' done' : '');
                 taskEl.onclick = (e) => e.stopPropagation();
-                if (task.done) taskEl.classList.add('done');
 
-                if (isCurrentMonth) {
-                    const cb = document.createElement('input');
-                    cb.type = 'checkbox';
-                    cb.checked = !!task.done;
-                    cb.onclick = (e) => {
-                        e.stopPropagation();
-                        task.done = cb.checked;
-                        saveData(); renderUI();
-                    };
-                    taskEl.appendChild(cb);
-                }
+                const topRow = document.createElement('div');
+                topRow.style.display = 'flex';
+                topRow.style.alignItems = 'center';
+                topRow.style.gap = '5px';
+
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = !!task.done;
+                cb.onclick = (e) => {
+                    e.stopPropagation();
+                    task.done = cb.checked;
+                    saveData(); renderUI();
+                };
+                topRow.appendChild(cb);
 
                 const sanitizedUrl = sanitizeUrl(task.url);
                 let displayEl;
-                if (sanitizedUrl && sanitizedUrl !== "#") {
+                if (sanitizedUrl) {
                     displayEl = document.createElement('a');
                     displayEl.href = sanitizedUrl;
                     displayEl.target = '_blank';
@@ -340,116 +277,174 @@
                 displayEl.className = 'task-display';
                 displayEl.textContent = task.title;
                 displayEl.onclick = (e) => e.stopPropagation();
-
-                taskEl.appendChild(displayEl);
+                topRow.appendChild(displayEl);
 
                 const editBtn = document.createElement('span');
                 editBtn.textContent = ' ✏️';
                 editBtn.style.cursor = 'pointer';
-                editBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    openModal(task);
-                };
-                taskEl.appendChild(editBtn);
+                editBtn.onclick = (e) => { e.stopPropagation(); openModal(task, i, type); };
+                topRow.appendChild(editBtn);
 
-                monthEl.appendChild(taskEl);
-            }
-        });
+                taskEl.appendChild(topRow);
+
+                if (task.officers) {
+                    const meta = document.createElement('div');
+                    meta.className = 'task-meta';
+                    meta.textContent = task.officers;
+                    taskEl.appendChild(meta);
+                }
+
+                listEl.appendChild(taskEl);
+            });
+            grid.appendChild(monthEl);
+        }
     }
 
-    exportBtn.onclick = () => {
-        const tsv = data.tasks.map(t => `${t.month}\t${t.title}\t${t.url}\t${t.done}`).join('\n');
-        navigator.clipboard.writeText("Month\tTitle\tURL\tDone\n" + tsv).then(() => alert("Tasks exported."));
-    };
+    function renderOfficerUI() {
+        const list = container.querySelector('#officer-list');
+        list.innerHTML = '';
 
-    importBtn.onclick = async () => {
-        try {
-            const text = await navigator.clipboard.readText();
-            const rows = text.trim().split('\n').slice(1);
-            data.tasks = rows.map((r, i) => {
-                const cols = r.split('\t');
-                return { id: Date.now().toString() + i, month: parseInt(cols[0]), title: cols[1], url: cols[2], done: cols[3] === 'true' };
-            }).filter(t => !isNaN(t.month));
-            saveData(); renderUI();
-        } catch (err) { alert("Import failed."); }
-    };
+        const officerMap = {};
+        state.opsTasks.forEach(task => {
+            if (state.hideDone && task.done) return;
+            const officers = (task.officers || "Unassigned").split('/').map(s => s.trim()).filter(s => s);
+            if (officers.length === 0) officers.push("Unassigned");
 
-    officerBtn.onclick = async () => {
-        const rootHandle = PluginAPI.getRootHandle();
-        if (!rootHandle) { alert("Load plugins first."); return; }
-        reportOutput.textContent = "Loading reports...";
-        try {
-            reportOutput.innerHTML = "";
-            let count = 0;
-            for await (const entry of rootHandle.values()) {
-                if (entry.kind === 'file') {
-                    const lowName = entry.name.toLowerCase();
-                    if (lowName.includes('kpi') || lowName.includes('2026work')) {
-                        const file = await entry.getFile();
-                        const text = await file.text();
+            officers.forEach(o => {
+                if (!officerMap[o]) officerMap[o] = [];
+                officerMap[o].push(task);
+            });
+        });
 
-                        const item = document.createElement('div');
-                        item.className = 'report-item';
-                        const title = document.createElement('strong');
-                        title.textContent = entry.name;
-                        const pre = document.createElement('pre');
-                        pre.textContent = text.substring(0, 1000) + (text.length > 1000 ? '...' : '');
+        const sortedOfficers = Object.keys(officerMap).sort();
+        sortedOfficers.forEach(o => {
+            const card = document.createElement('div');
+            card.className = 'officer-card';
+            card.innerHTML = `<h2>${o}</h2><div class="task-list"></div>`;
+            const taskList = card.querySelector('.task-list');
 
-                        item.appendChild(title);
-                        item.appendChild(pre);
-                        reportOutput.appendChild(item);
-                        count++;
-                    }
-                }
-            }
-            if (count === 0) reportOutput.textContent = "No KPI or 2026work files found in root.";
-        } catch (err) { reportOutput.textContent = "Error reading files: " + err.message; }
-    };
+            officerMap[o].forEach(task => {
+                const item = document.createElement('div');
+                item.className = 'task-item' + (task.done ? ' done' : '');
+                const monthName = new Date(2000, task.month, 1).toLocaleString('default', { month: 'short' });
+                item.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <input type="checkbox" ${task.done ? 'checked' : ''}>
+                        <span class="task-display">[${monthName}] ${task.title}</span>
+                    </div>
+                `;
+                item.querySelector('input').onclick = (e) => {
+                    task.done = e.target.checked;
+                    saveData(); renderUI();
+                };
+                taskList.appendChild(item);
+            });
+            list.appendChild(card);
+        });
 
-    function openModal(task = null, month = null) {
-        if (task) {
-            modalTitle.textContent = 'Edit Task';
-            taskIdInput.value = task.id;
-            taskMonthInput.value = task.month;
-            taskNameInput.value = task.title;
-            taskUrlInput.value = task.url;
-            deleteBtn.style.display = 'block';
-        } else {
-            modalTitle.textContent = 'Add Task';
-            taskIdInput.value = '';
-            taskMonthInput.value = month;
-            taskNameInput.value = '';
-            taskUrlInput.value = '';
-            deleteBtn.style.display = 'none';
+        if (sortedOfficers.length === 0) {
+            list.innerHTML = '<p style="text-align:center; color:#666;">No actual ops tasks found.</p>';
         }
+    }
+
+    function renderUI() {
+        hideDoneToggle.checked = state.hideDone;
+        if (currentView === "tasks") renderCalendar('recurring-calendar', state.recurringTasks, 'recurring');
+        else if (currentView === "ops") renderCalendar('ops-calendar', state.opsTasks, 'ops');
+        else if (currentView === "officers") renderOfficerUI();
+    }
+
+    function openModal(task, month, type) {
+        const modal = container.querySelector('#task-modal');
+        const opsFields = container.querySelector('#ops-fields');
+        container.querySelector('#task-id').value = task ? task.id : '';
+        container.querySelector('#task-type').value = type;
+        container.querySelector('#task-name').value = task ? task.title : '';
+        container.querySelector('#task-url').value = task ? task.url : '';
+        container.querySelector('#task-month').value = month;
+
+        if (type === 'ops') {
+            opsFields.style.display = 'block';
+            container.querySelector('#task-officers').value = task ? (task.officers || '') : '';
+            container.querySelector('#task-remarks').value = task ? (task.remarks || '') : '';
+        } else {
+            opsFields.style.display = 'none';
+        }
+
+        container.querySelector('#delete-task-btn').style.display = task ? 'block' : 'none';
         modal.style.display = 'flex';
     }
 
-    container.querySelectorAll('.month').forEach(monthEl => {
-        monthEl.onclick = () => openModal(null, monthEl.dataset.month);
-    });
+    container.querySelector('#save-task-btn').onclick = () => {
+        const id = container.querySelector('#task-id').value;
+        const type = container.querySelector('#task-type').value;
+        const title = container.querySelector('#task-name').value.trim();
+        const url = container.querySelector('#task-url').value.trim();
+        const month = parseInt(container.querySelector('#task-month').value);
 
-    saveBtn.onclick = (e) => {
-        e.stopPropagation();
-        const title = taskNameInput.value.trim();
         if (!title) { alert('Title required'); return; }
-        const id = taskIdInput.value;
-        if (id) {
-            const idx = data.tasks.findIndex(t => t.id === id);
-            if (idx !== -1) data.tasks[idx] = { ...data.tasks[idx], title, url: taskUrlInput.value.trim() };
-        } else {
-            data.tasks.push({ id: Date.now().toString(), month: taskMonthInput.value, title, url: taskUrlInput.value.trim(), done: false });
+
+        const collection = type === 'ops' ? state.opsTasks : state.recurringTasks;
+
+        const taskData = {
+            id: id || Date.now().toString(),
+            title, url, month,
+            done: id ? (collection.find(t => t.id === id)?.done || false) : false
+        };
+
+        if (type === 'ops') {
+            taskData.officers = container.querySelector('#task-officers').value.trim();
+            taskData.remarks = container.querySelector('#task-remarks').value.trim();
         }
-        saveData(); renderUI(); modal.style.display = 'none';
+
+        if (id) {
+            const idx = collection.findIndex(t => t.id === id);
+            if (idx !== -1) collection[idx] = taskData;
+        } else {
+            collection.push(taskData);
+        }
+
+        saveData(); renderUI();
+        container.querySelector('#task-modal').style.display = 'none';
     };
 
-    deleteBtn.onclick = () => {
-        data.tasks = data.tasks.filter(t => t.id !== taskIdInput.value);
-        saveData(); renderUI(); modal.style.display = 'none';
+    container.querySelector('#delete-task-btn').onclick = () => {
+        const id = container.querySelector('#task-id').value;
+        const type = container.querySelector('#task-type').value;
+        const collectionName = type === 'ops' ? 'opsTasks' : 'recurringTasks';
+        state[collectionName] = state[collectionName].filter(t => t.id !== id);
+        saveData(); renderUI();
+        container.querySelector('#task-modal').style.display = 'none';
     };
 
-    closeBtn.onclick = () => modal.style.display = 'none';
-    modal.onclick = (e) => { if (e.target == modal) modal.style.display = 'none'; };
+    container.querySelector('#close-modal-btn').onclick = () => container.querySelector('#task-modal').style.display = 'none';
+
+    container.querySelector('#export-tsv-btn').onclick = () => {
+        let tsv = "Type\tMonth\tTitle\tURL\tDone\tOfficers\tRemarks\n";
+        state.recurringTasks.forEach(t => tsv += `Recurring\t${t.month}\t${t.title}\t${t.url}\t${t.done}\t\t\n`);
+        state.opsTasks.forEach(t => tsv += `Ops\t${t.month}\t${t.title}\t${t.url}\t${t.done}\t${t.officers||''}\t${t.remarks||''}\n`);
+        navigator.clipboard.writeText(tsv).then(() => alert("Exported to clipboard."));
+    };
+
+    container.querySelector('#import-tsv-btn').onclick = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            const rows = text.trim().split('\n').slice(1);
+            state.recurringTasks = [];
+            state.opsTasks = [];
+            rows.forEach((r, i) => {
+                const cols = r.split('\t');
+                const t = { id: Date.now().toString() + i, month: parseInt(cols[1]), title: cols[2], url: cols[3], done: cols[4] === 'true' };
+                if (cols[0] === 'Ops') {
+                    t.officers = cols[5]; t.remarks = cols[6];
+                    state.opsTasks.push(t);
+                } else {
+                    state.recurringTasks.push(t);
+                }
+            });
+            saveData(); renderUI();
+        } catch (e) { alert("Import failed."); }
+    };
 
     await loadData();
     renderUI();
