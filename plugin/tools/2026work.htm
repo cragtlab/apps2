@@ -141,60 +141,35 @@ function findOfficerColumn(headerRow) {
     }
     return -1;
 }
-function indexOfficers(reportName, rows) {
-    if (!rows || rows.length === 0) return;
-
-    const header = rows[0];
-    const officerCol = findOfficerColumn(header);
-
-    if (officerCol === -1) {
-        log(`No officer column found in ${reportName}`);
-        return;
-    }
-
-    for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-
-        const rawOfficer = row[officerCol];
-        const officer = normalizeOfficer(rawOfficer);
-
-        if (!officer) continue;
-
-        if (!officerIndex[officer]) {
-            officerIndex[officer] = [];
-        }
-
-        officerIndex[officer].push({
-            report: reportName,
-            row
-        });
-    }
-}
-function indexDashboard(reportName, rows) {
+function indexData(reportName, rows) {
     if (!rows || rows.length === 0) return;
 
     const header = rows[0];
     const officerCol = findOfficerColumn(header);
     const statusCol = findStatusColumn(header);
 
-    if (officerCol === -1 || statusCol === -1) return;
-
     for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        const officer = normalizeOfficer(row[officerCol]);
-        const status = (row[statusCol] || "").toString().trim();
 
-        if (!officer || !status) continue;
+        const rawOfficer = officerCol !== -1 ? row[officerCol] : null;
+        const officer = normalizeOfficer(rawOfficer);
+        const status = statusCol !== -1 ? (row[statusCol] || "").toString().trim() : null;
 
-        if (!dashboardIndex[officer]) {
-            dashboardIndex[officer] = {};
+        if (officer) {
+            if (!officerIndex[officer]) officerIndex[officer] = [];
+            officerIndex[officer].push({ report: reportName, row });
+
+            if (status) {
+                if (!dashboardIndex[officer]) dashboardIndex[officer] = {};
+                if (!dashboardIndex[officer][status]) dashboardIndex[officer][status] = 0;
+                dashboardIndex[officer][status]++;
+            }
         }
 
-        if (!dashboardIndex[officer][status]) {
-            dashboardIndex[officer][status] = 0;
+        if (status) {
+            if (!statusIndex[status]) statusIndex[status] = [];
+            statusIndex[status].push({ report: reportName, row });
         }
-
-        dashboardIndex[officer][status]++;
     }
 }
 function isStatusCompleted(status) {
@@ -213,32 +188,6 @@ function findStatusColumn(headerRow) {
         }
     }
     return -1;
-}
-function indexStatus(reportName, rows) {
-    if (!rows || rows.length === 0) return;
-
-    const header = rows[0];
-    const statusCol = findStatusColumn(header);
-
-    if (statusCol === -1) {
-        return;
-    }
-
-    for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        const status = (row[statusCol] || "").toString().trim();
-
-        if (!status) continue;
-
-        if (!statusIndex[status]) {
-            statusIndex[status] = [];
-        }
-
-        statusIndex[status].push({
-            report: reportName,
-            row
-        });
-    }
 }
 function refreshOfficerDropdown() {
     const sel = document.getElementById("officerFilter");
@@ -493,41 +442,43 @@ async function loadReports(){
 
     tbody.innerHTML="";
 
-    for(const reportName in reports)
-    {
-        const tr=document.createElement("tr");
+    const promises = [];
+    for (const reportName in reports) {
+        const report = reports[reportName];
+        if (report) {
+            promises.push((async () => {
+                log("Loading " + report.name);
+                const data = await loadExcelFile(report.handle);
+                return { reportName, data, report };
+            })());
+        }
+    }
 
-        const report=reports[reportName];
+    const results = await Promise.all(promises);
 
-        if(report)
-        {
-            log("Loading "+report.name);
+    for (const reportName in reports) {
+        const tr = document.createElement("tr");
+        const loaded = results.find(r => r.reportName === reportName);
 
-            const data=
-                await loadExcelFile(report.handle);
-
-            loadedData[reportName]=data;
-	// NEW: build indices
-indexOfficers(reportName, data);
-indexStatus(reportName, data);
-indexDashboard(reportName, data);
-            tr.innerHTML=`
+        if (loaded) {
+            const { data, report } = loaded;
+            loadedData[reportName] = data;
+            // NEW: build indices
+            indexData(reportName, data);
+            tr.innerHTML = `
                 <td>${reportName}</td>
                 <td class='loaded'>Loaded</td>
-                <td>${Math.max(0,data.length-1)}</td>
+                <td>${Math.max(0, data.length - 1)}</td>
                 <td>${report.name}</td>
             `;
-        }
-        else
-        {
-            tr.innerHTML=`
+        } else {
+            tr.innerHTML = `
                 <td>${reportName}</td>
                 <td class='notloaded'>Missing</td>
                 <td>0</td>
                 <td></td>
             `;
         }
-
         tbody.appendChild(tr);
     }
 refreshOfficerDropdown();
