@@ -7,151 +7,126 @@
 
     const style = document.createElement('style');
     style.textContent = `
-        #${tabId} h1 {
-            text-align: center;
-        }
-        #${tabId} .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        #${tabId} .month {
-            background-color: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 10px;
-            min-height: 150px;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-        }
-        #${tabId} .month:hover {
-            transform: scale(1.02);
-            border-color: #aaa;
-        }
-        #${tabId} .month.current-month {
-            border: 2px solid #007BFF;
-        }
-        #${tabId} .month h3 {
-            margin-top: 0;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
-            color: #333;
-        }
-        #${tabId} .task-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        #${tabId} .task-item {
-            background-color: #e2f0ff;
-            border-radius: 4px;
-            padding: 5px 8px;
-            margin-bottom: 5px;
-            font-size: 0.9em;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        #${tabId} .task-item:hover {
-            background-color: #cce5ff;
-        }
-        #${tabId} .task-item.done .task-display {
-            text-decoration: line-through;
-            color: #888;
-        }
-        #${tabId} .task-display {
-            flex-grow: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        #${tabId} a.task-display {
-            text-decoration: none;
-            color: #0066cc;
-            cursor: pointer;
-        }
+        #${tabId} h1 { text-align: center; color: #333; }
+        #${tabId} .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        #${tabId} .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 4px; background: #eee; transition: background 0.2s; }
+        #${tabId} .nav-tab:hover { background: #e0e0e0; }
+        #${tabId} .nav-tab.active { background: #007BFF; color: white; font-weight: bold; }
 
-        #${tabId} .modal {
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #${tabId} .modal-content {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            width: 300px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        #${tabId} .modal-content input {
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        #${tabId} .modal-buttons {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-        }
-        #${tabId} button {
-            padding: 8px 12px;
-            cursor: pointer;
-            border-radius: 4px;
-            border: none;
-        }
-        #${tabId} #planning-save-task { background-color: #28a745; color: white; }
-        #${tabId} #planning-delete-task { background-color: #dc3545; color: white; }
-        #${tabId} #planning-close-modal { background-color: #6c757d; color: white; }
+        #${tabId} .view-section { display: none; }
+        #${tabId} .view-section.active { display: block; }
 
-        #${tabId} .report-section, #${tabId} .clipboard-section {
-            margin: 20px auto;
-            max-width: 1000px;
-            padding: 10px;
-            background: #eee;
-            border-radius: 8px;
-        }
-        #${tabId} .report-item {
-            background: white;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-        }
+        #${tabId} .calendar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 1000px; margin: 0 auto; }
+        #${tabId} .month { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; min-height: 150px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s; }
+        #${tabId} .month:hover { transform: scale(1.02); border-color: #aaa; }
+        #${tabId} .month.current-month { border: 2px solid #007BFF; background-color: #f8fbff; }
+        #${tabId} .month h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: #333; }
+
+        #${tabId} .task-list { list-style: none; padding: 0; margin: 0; }
+        #${tabId} .task-item { background-color: #e2f0ff; border-radius: 4px; padding: 5px 8px; margin-bottom: 5px; font-size: 0.9em; overflow: hidden; display: flex; align-items: center; gap: 5px; border: 1px solid transparent; }
+        #${tabId} .task-item:hover { background-color: #cce5ff; border-color: #b8daff; }
+        #${tabId} .task-item.done .task-display { text-decoration: line-through; color: #888; }
+        #${tabId} .task-display { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #${tabId} a.task-display { text-decoration: none; color: #0066cc; cursor: pointer; }
+        #${tabId} a.task-display:hover { text-decoration: underline; }
+
+        #${tabId} .vision-container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        #${tabId} .vision-card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        #${tabId} .vision-card h2 { margin-top: 0; color: #0056b3; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 1.25em; }
+        #${tabId} .team-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        #${tabId} .member-card { background: #f9f9f9; padding: 12px; border-radius: 6px; border-left: 4px solid #28a745; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        #${tabId} .member-card input { width: 100%; border: none; background: transparent; font-weight: bold; font-size: 1.1em; border-bottom: 1px solid transparent; }
+        #${tabId} .member-card input:focus { outline: none; border-bottom: 1px solid #ccc; }
+        #${tabId} .member-card textarea { width: 100%; height: 70px; font-size: 0.85em; border: 1px solid #eee; border-radius: 3px; resize: vertical; padding: 5px; }
+
+        #${tabId} .reporting-section { max-width: 1000px; margin: 0 auto; }
+        #${tabId} .report-item { background: white; padding: 15px; margin-bottom: 15px; border-radius: 6px; border: 1px solid #ddd; border-left: 4px solid #17a2b8; }
+        #${tabId} .report-item strong { display: block; margin-bottom: 8px; color: #333; font-size: 1.1em; }
+        #${tabId} .report-item pre { white-space: pre-wrap; font-size: 0.85em; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #eee; overflow: auto; max-height: 300px; }
+
+        #${tabId} .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; }
+        #${tabId} .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 300px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        #${tabId} .modal-content input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        #${tabId} .modal-buttons { display: flex; justify-content: space-between; margin-top: 10px; }
+        #${tabId} button { padding: 8px 12px; cursor: pointer; border-radius: 4px; border: none; font-weight: 500; }
+        #${tabId} .btn-primary { background-color: #007BFF; color: white; }
+        #${tabId} .btn-success { background-color: #28a745; color: white; }
+        #${tabId} .btn-danger { background-color: #dc3545; color: white; }
+        #${tabId} .btn-secondary { background-color: #6c757d; color: white; }
     `;
     document.head.appendChild(style);
 
     container.innerHTML = `
-        <h1>Yearly Recurring Tasks</h1>
-        <div class="clipboard-section">
-            <button id="export-tsv-btn">Export TSV</button>
-            <button id="import-tsv-btn">Import TSV</button>
+        <h1>Team Planning & Strategic Vision</h1>
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-view="tasks">Monthly Tasks</div>
+            <div class="nav-tab" data-view="vision">Visionary Dashboard</div>
+            <div class="nav-tab" data-view="reporting">Officer Reporting</div>
         </div>
-        <div id="planning-calendar" class="calendar-grid">
-            <div class="month" data-month="0"><h3>January</h3><div class="task-list"></div></div>
-            <div class="month" data-month="1"><h3>February</h3><div class="task-list"></div></div>
-            <div class="month" data-month="2"><h3>March</h3><div class="task-list"></div></div>
-            <div class="month" data-month="3"><h3>April</h3><div class="task-list"></div></div>
-            <div class="month" data-month="4"><h3>May</h3><div class="task-list"></div></div>
-            <div class="month" data-month="5"><h3>June</h3><div class="task-list"></div></div>
-            <div class="month" data-month="6"><h3>July</h3><div class="task-list"></div></div>
-            <div class="month" data-month="7"><h3>August</h3><div class="task-list"></div></div>
-            <div class="month" data-month="8"><h3>September</h3><div class="task-list"></div></div>
-            <div class="month" data-month="9"><h3>October</h3><div class="task-list"></div></div>
-            <div class="month" data-month="10"><h3>November</h3><div class="task-list"></div></div>
-            <div class="month" data-month="11"><h3>December</h3><div class="task-list"></div></div>
+
+        <div id="tasks-view" class="view-section active">
+            <div style="margin-bottom: 20px; display: flex; justify-content: center; gap: 10px;">
+                <button id="export-tsv-btn" class="btn-secondary">Export TSV</button>
+                <button id="import-tsv-btn" class="btn-secondary">Import TSV</button>
+            </div>
+            <div id="planning-calendar" class="calendar-grid">
+                ${Array.from({length: 12}, (_, i) => `
+                    <div class="month" data-month="${i}">
+                        <h3>${new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</h3>
+                        <div class="task-list"></div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div id="vision-view" class="view-section">
+            <div class="vision-container">
+                <div class="vision-card">
+                    <h2>North Star Vision</h2>
+                    <textarea id="vision-statement" style="width:100%; height:80px; padding:10px;" placeholder="What is our ultimate long-term goal?"></textarea>
+                </div>
+
+                <div class="vision-card">
+                    <h2>Quarterly Strategic Roadmap</h2>
+                    <div class="team-grid">
+                        <div class="member-card" style="border-left-color: #007BFF;"><strong>Q1</strong><textarea id="roadmap-q1" placeholder="Major objectives..."></textarea></div>
+                        <div class="member-card" style="border-left-color: #007BFF;"><strong>Q2</strong><textarea id="roadmap-q2" placeholder="Major objectives..."></textarea></div>
+                        <div class="member-card" style="border-left-color: #007BFF;"><strong>Q3</strong><textarea id="roadmap-q3" placeholder="Major objectives..."></textarea></div>
+                        <div class="member-card" style="border-left-color: #007BFF;"><strong>Q4</strong><textarea id="roadmap-q4" placeholder="Major objectives..."></textarea></div>
+                    </div>
+                </div>
+
+                <div class="vision-card">
+                    <h2>Weekly Big Rocks (Team Priorities)</h2>
+                    <textarea id="team-priorities" style="width:100%; height:60px; padding:10px;" placeholder="What are the 3 most important goals for the team this week?"></textarea>
+                </div>
+
+                <div class="vision-card">
+                    <h2>Team Success & Recognition Log</h2>
+                    <textarea id="success-log" style="width:100%; height:80px; padding:10px;" placeholder="Track and celebrate vision-aligned wins..."></textarea>
+                </div>
+
+                <div class="vision-card">
+                    <h2>Team Growth Matrix (Individual Development)</h2>
+                    <div id="team-growth-grid" class="team-grid">
+                        ${Array.from({length: 6}, (_, i) => `
+                            <div class="member-card">
+                                <input type="text" id="member-name-${i}" placeholder="Member Name">
+                                <textarea id="member-plan-${i}" placeholder="IDP, coaching notes, or next career milestone..."></textarea>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reporting-view" class="view-section">
+            <div class="reporting-section">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <button id="officer-view-btn" class="btn-primary" style="padding: 10px 30px;">Scan Root for Reports (KPI & 2026work)</button>
+                </div>
+                <div id="report-output"></div>
+            </div>
         </div>
 
         <div id="planning-task-modal" class="modal" style="display: none;">
@@ -164,24 +139,37 @@
                 <label for="planning-task-url">URL:</label>
                 <input type="url" id="planning-task-url" placeholder="https://example.com">
                 <div class="modal-buttons">
-                    <button id="planning-save-task">Save</button>
-                    <button id="planning-delete-task" style="display: none;">Delete</button>
-                    <button id="planning-close-modal">Cancel</button>
+                    <button id="planning-save-task" class="btn-success">Save</button>
+                    <button id="planning-delete-task" class="btn-danger" style="display: none;">Delete</button>
+                    <button id="planning-close-modal" class="btn-secondary">Cancel</button>
                 </div>
             </div>
-        </div>
-
-        <div class="report-section">
-            <button id="officer-view-btn">Officer View (KPI & 2026work)</button>
-            <div id="report-output"></div>
         </div>
     `;
 
     const DATA_FILE_NAME = 'planningBak.txt';
-    const STORAGE_KEY = 'yearly-tasks';
-    let tasks = [];
+    const STORAGE_KEY = 'planning-data-v3';
+    let data = {
+        tasks: [],
+        vision: "",
+        roadmap: { q1: "", q2: "", q3: "", q4: "" },
+        priorities: "",
+        successLog: "",
+        team: Array.from({length: 6}, () => ({ name: "", plan: "" }))
+    };
+
     let needsFileSave = false;
     let isSavingToFile = false;
+
+    // View Switching
+    container.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.onclick = () => {
+            container.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            container.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            tab.classList.add('active');
+            container.querySelector(`#${tab.dataset.view}-view`).classList.add('active');
+        };
+    });
 
     const calendar = container.querySelector('#planning-calendar');
     const modal = container.querySelector('#planning-task-modal');
@@ -198,11 +186,11 @@
     const exportBtn = container.querySelector('#export-tsv-btn');
     const importBtn = container.querySelector('#import-tsv-btn');
 
-    async function loadTasks() {
+    async function loadData() {
         let loaded = false;
         const localData = localStorage.getItem(STORAGE_KEY);
         if (localData) {
-            tasks = JSON.parse(localData);
+            data = JSON.parse(localData);
             loaded = true;
         }
 
@@ -213,28 +201,51 @@
                     const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: false });
                     const file = await fileHandle.getFile();
                     const text = await file.text();
-                    tasks = text ? JSON.parse(text) : [];
-                    loaded = true;
+                    const fileData = text ? JSON.parse(text) : null;
+                    if (fileData) {
+                        data = { ...data, ...fileData };
+                        loaded = true;
+                    }
                 }
             } catch (err) {
                 console.warn('Data file not found or failed to load:', err);
-                tasks = [];
             }
+        }
+
+        // Migrate older versions if needed
+        const oldTasks = localStorage.getItem('planning-data-v2') || localStorage.getItem('yearly-tasks');
+        if (oldTasks && data.tasks.length === 0) {
+            const parsed = JSON.parse(oldTasks);
+            if (Array.isArray(parsed)) data.tasks = parsed;
+            else if (parsed.tasks) data.tasks = parsed.tasks;
         }
 
         const currentMonth = new Date().getMonth();
         let changed = false;
-        tasks.forEach(t => {
+        data.tasks.forEach(t => {
             if (parseInt(t.month) !== currentMonth && t.done) {
                 t.done = false;
                 changed = true;
             }
         });
-        if (changed) saveTasks();
+        if (changed) saveData();
     }
 
-    function saveTasks() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    function saveData() {
+        // Collect UI data from vision view
+        data.vision = container.querySelector('#vision-statement').value;
+        data.priorities = container.querySelector('#team-priorities').value;
+        data.successLog = container.querySelector('#success-log').value;
+        data.roadmap.q1 = container.querySelector('#roadmap-q1').value;
+        data.roadmap.q2 = container.querySelector('#roadmap-q2').value;
+        data.roadmap.q3 = container.querySelector('#roadmap-q3').value;
+        data.roadmap.q4 = container.querySelector('#roadmap-q4').value;
+        for (let i = 0; i < 6; i++) {
+            data.team[i].name = container.querySelector(`#member-name-${i}`).value;
+            data.team[i].plan = container.querySelector(`#member-plan-${i}`).value;
+        }
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         needsFileSave = true;
     }
 
@@ -247,13 +258,13 @@
             if (rootHandle) {
                 const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: true });
                 const writable = await fileHandle.createWritable();
-                await writable.write(JSON.stringify(tasks, null, 2));
+                await writable.write(JSON.stringify(data, null, 2));
                 await writable.close();
                 needsFileSave = false;
-                console.log('Tasks saved to file successfully.');
+                console.log('Data saved to file successfully.');
             }
         } catch (err) {
-            console.error('Failed to save tasks to file:', err);
+            console.error('Failed to save to file:', err);
         } finally {
             isSavingToFile = false;
         }
@@ -264,28 +275,40 @@
     function sanitizeUrl(url) {
         if (!url) return "";
         const trimmed = url.trim();
-        if (trimmed.toLowerCase().startsWith('javascript:')) {
-            return "about:blank";
-        }
+        if (trimmed.toLowerCase().startsWith('javascript:')) return "about:blank";
         return trimmed;
     }
 
-    function renderTasks() {
+    function renderUI() {
         const currentMonth = new Date().getMonth();
-        container.querySelectorAll('.task-list').forEach(list => list.innerHTML = '');
 
-        container.querySelectorAll('.month').forEach(monthEl => {
-            if (parseInt(monthEl.dataset.month) === currentMonth) {
-                monthEl.classList.add('current-month');
-            } else {
-                monthEl.classList.remove('current-month');
-            }
+        // Render Vision View Data
+        container.querySelector('#vision-statement').value = data.vision || "";
+        container.querySelector('#team-priorities').value = data.priorities || "";
+        container.querySelector('#success-log').value = data.successLog || "";
+        container.querySelector('#roadmap-q1').value = data.roadmap.q1 || "";
+        container.querySelector('#roadmap-q2').value = data.roadmap.q2 || "";
+        container.querySelector('#roadmap-q3').value = data.roadmap.q3 || "";
+        container.querySelector('#roadmap-q4').value = data.roadmap.q4 || "";
+        for (let i = 0; i < 6; i++) {
+            container.querySelector(`#member-name-${i}`).value = data.team[i].name || "";
+            container.querySelector(`#member-plan-${i}`).value = data.team[i].plan || "";
+        }
+
+        // Add auto-save listeners
+        container.querySelectorAll('#vision-view textarea, #vision-view input').forEach(el => {
+            el.onchange = () => saveData();
         });
 
-        tasks.forEach(task => {
-            const isCurrentMonth = parseInt(task.month) === currentMonth;
-            if (!isCurrentMonth) task.done = false;
+        // Render Tasks
+        container.querySelectorAll('.task-list').forEach(list => list.innerHTML = '');
+        container.querySelectorAll('.month').forEach(monthEl => {
+            if (parseInt(monthEl.dataset.month) === currentMonth) monthEl.classList.add('current-month');
+            else monthEl.classList.remove('current-month');
+        });
 
+        data.tasks.forEach(task => {
+            const isCurrentMonth = parseInt(task.month) === currentMonth;
             const monthEl = container.querySelector(`.month[data-month="${task.month}"] .task-list`);
             if (monthEl) {
                 const taskEl = document.createElement('div');
@@ -300,8 +323,7 @@
                     cb.onclick = (e) => {
                         e.stopPropagation();
                         task.done = cb.checked;
-                        saveTasks();
-                        renderTasks();
+                        saveData(); renderUI();
                     };
                     taskEl.appendChild(cb);
                 }
@@ -336,91 +358,52 @@
     }
 
     exportBtn.onclick = () => {
-        const header = "Month\tTitle\tURL\tDone\n";
-        const body = tasks.map(t => `${t.month}\t${t.title}\t${t.url}\t${t.done}`).join('\n');
-        navigator.clipboard.writeText(header + body).then(() => {
-            alert("Tasks exported to clipboard in TSV format.");
-        });
+        const tsv = data.tasks.map(t => `${t.month}\t${t.title}\t${t.url}\t${t.done}`).join('\n');
+        navigator.clipboard.writeText("Month\tTitle\tURL\tDone\n" + tsv).then(() => alert("Tasks exported."));
     };
 
     importBtn.onclick = async () => {
         try {
             const text = await navigator.clipboard.readText();
-            const rows = text.trim().split('\n');
-            if (rows.length < 2) {
-                alert("Invalid TSV format.");
-                return;
-            }
-            const newTasks = [];
-            for (let i = 1; i < rows.length; i++) {
-                const cols = rows[i].split('\t');
-                if (cols.length >= 2) {
-                    newTasks.push({
-                        id: Date.now().toString() + i,
-                        month: parseInt(cols[0]),
-                        title: (cols[1] || "").trim(),
-                        url: (cols[2] || "").trim(),
-                        done: cols[3] === 'true'
-                    });
-                }
-            }
-            if (newTasks.length > 0) {
-                if (confirm(`Import ${newTasks.length} tasks? This will overwrite existing data.`)) {
-                    tasks = newTasks;
-                    saveTasks();
-                    renderTasks();
-                }
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Failed to import from clipboard.");
-        }
+            const rows = text.trim().split('\n').slice(1);
+            data.tasks = rows.map((r, i) => {
+                const cols = r.split('\t');
+                return { id: Date.now().toString() + i, month: parseInt(cols[0]), title: cols[1], url: cols[2], done: cols[3] === 'true' };
+            }).filter(t => !isNaN(t.month));
+            saveData(); renderUI();
+        } catch (err) { alert("Import failed."); }
     };
 
     officerBtn.onclick = async () => {
         const rootHandle = PluginAPI.getRootHandle();
-        if (!rootHandle) {
-            alert("Load plugins first to get file access.");
-            return;
-        }
-
-        reportOutput.innerHTML = "Loading reports...";
-        let reports = [];
-
+        if (!rootHandle) { alert("Load plugins first."); return; }
+        reportOutput.textContent = "Loading reports...";
         try {
+            reportOutput.innerHTML = "";
+            let count = 0;
             for await (const entry of rootHandle.values()) {
                 if (entry.kind === 'file') {
                     const lowName = entry.name.toLowerCase();
                     if (lowName.includes('kpi') || lowName.includes('2026work')) {
                         const file = await entry.getFile();
                         const text = await file.text();
-                        reports.push({ name: entry.name, content: text });
+
+                        const item = document.createElement('div');
+                        item.className = 'report-item';
+                        const title = document.createElement('strong');
+                        title.textContent = entry.name;
+                        const pre = document.createElement('pre');
+                        pre.textContent = text.substring(0, 1000) + (text.length > 1000 ? '...' : '');
+
+                        item.appendChild(title);
+                        item.appendChild(pre);
+                        reportOutput.appendChild(item);
+                        count++;
                     }
                 }
             }
-
-            if (reports.length === 0) {
-                reportOutput.textContent = "No KPI or 2026work files found in root.";
-            } else {
-                reportOutput.innerHTML = "";
-                reports.forEach(r => {
-                    const item = document.createElement('div');
-                    item.className = 'report-item';
-                    const title = document.createElement('strong');
-                    title.textContent = r.name;
-                    const pre = document.createElement('pre');
-                    pre.style.whiteSpace = 'pre-wrap';
-                    pre.style.fontSize = '0.8em';
-                    pre.textContent = r.content.substring(0, 1000) + (r.content.length > 1000 ? '...' : '');
-                    item.appendChild(title);
-                    item.appendChild(pre);
-                    reportOutput.appendChild(item);
-                });
-            }
-        } catch (err) {
-            console.error(err);
-            reportOutput.textContent = "Error reading files: " + err.message;
-        }
+            if (count === 0) reportOutput.textContent = "No KPI or 2026work files found in root.";
+        } catch (err) { reportOutput.textContent = "Error reading files: " + err.message; }
     };
 
     function openModal(task = null, month = null) {
@@ -442,68 +425,32 @@
         modal.style.display = 'flex';
     }
 
-    function closeModal() {
-        modal.style.display = 'none';
-    }
-
     container.querySelectorAll('.month').forEach(monthEl => {
-        monthEl.onclick = () => {
-            openModal(null, monthEl.dataset.month);
-        };
+        monthEl.onclick = () => openModal(null, monthEl.dataset.month);
     });
 
     saveBtn.onclick = (e) => {
         e.stopPropagation();
-        const id = taskIdInput.value;
-        const month = parseInt(taskMonthInput.value);
         const title = taskNameInput.value.trim();
-        const url = taskUrlInput.value.trim();
-
-        if (!title) {
-            alert('Title is required');
-            return;
-        }
-
-        if (id) {
-            const index = tasks.findIndex(t => t.id === id);
-            if (index !== -1) {
-                tasks[index] = { ...tasks[index], title, url };
-            }
-        } else {
-            tasks.push({
-                id: Date.now().toString(),
-                month,
-                title,
-                url,
-                done: false
-            });
-        }
-
-        saveTasks();
-        renderTasks();
-        closeModal();
-    };
-
-    deleteBtn.onclick = (e) => {
-        e.stopPropagation();
+        if (!title) { alert('Title required'); return; }
         const id = taskIdInput.value;
-        tasks = tasks.filter(t => t.id !== id);
-        saveTasks();
-        renderTasks();
-        closeModal();
-    };
-
-    closeBtn.onclick = (e) => {
-        e.stopPropagation();
-        closeModal();
-    };
-
-    modal.onclick = (event) => {
-        if (event.target == modal) {
-            closeModal();
+        if (id) {
+            const idx = data.tasks.findIndex(t => t.id === id);
+            if (idx !== -1) data.tasks[idx] = { ...data.tasks[idx], title, url: taskUrlInput.value.trim() };
+        } else {
+            data.tasks.push({ id: Date.now().toString(), month: taskMonthInput.value, title, url: taskUrlInput.value.trim(), done: false });
         }
+        saveData(); renderUI(); modal.style.display = 'none';
     };
 
-    await loadTasks();
-    renderTasks();
+    deleteBtn.onclick = () => {
+        data.tasks = data.tasks.filter(t => t.id !== taskIdInput.value);
+        saveData(); renderUI(); modal.style.display = 'none';
+    };
+
+    closeBtn.onclick = () => modal.style.display = 'none';
+    modal.onclick = (e) => { if (e.target == modal) modal.style.display = 'none'; };
+
+    await loadData();
+    renderUI();
 })();
