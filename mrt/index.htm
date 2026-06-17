@@ -10,8 +10,8 @@
 body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; font-size: 15px; padding-bottom: 110px; }
 
 .header {
-  position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; z-index: 20;
-  padding: 8px 10px 10px;
+  background: #1a1a2e; z-index: 20;
+  padding: 8px 10px 0;
 }
 .line-buttons { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; }
 .line-btn {
@@ -202,6 +202,15 @@ textarea {
   </div>
 </div>
 
+<div class="header">
+  <div class="line-buttons" id="lineButtons"></div>
+  <div style="padding: 0 10px 10px; display: flex; gap: 8px;">
+    <button class="add-btn" style="flex: 1;" onclick="openAddTripModal()">+ Trip</button>
+    <button class="gps-btn" style="flex: 1;" onclick="openCoordModal()">📍 Coords</button>
+    <button class="save-btn" style="flex: 1; background: #6a1b9a;" onclick="openRoutesModal()">🛤️ Routes</button>
+  </div>
+</div>
+
 <div class="feedback">
   <h3 style="margin:0 0 8px;">Wrong info? (tap door row to prefill)</h3>
   <textarea id="feedbackText" placeholder="Example:&#10;Lavender towards Pasir Ris should be Door 3"></textarea>
@@ -213,14 +222,6 @@ textarea {
   <div id="saveStatus"></div>
 </div>
 
-<div class="header">
-  <div class="line-buttons" id="lineButtons"></div>
-  <div style="padding: 0 10px 10px; display: flex; gap: 8px;">
-    <button class="add-btn" style="flex: 1;" onclick="openAddTripModal()">+ Trip</button>
-    <button class="gps-btn" style="flex: 1;" onclick="openCoordModal()">📍 Coords</button>
-    <button class="save-btn" style="flex: 1; background: #6a1b9a;" onclick="openRoutesModal()">🛤️ Routes</button>
-  </div>
-</div>
 
 <!-- Add Trip Modal -->
 <div class="modal-overlay" id="addTripModal">
@@ -773,7 +774,6 @@ function refreshInterval(e, i) {
     }, err => { alert('GPS Error: ' + err.message); btn.textContent = oldText; }, { timeout: 10000 });
   } else {
     const nearest = nearestCoord(inv.lat, inv.lng);
-    inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
     inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
     saveIntervals();
     renderRecordedIntervals();
