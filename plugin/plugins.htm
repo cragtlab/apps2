@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Plugin Skeleton</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; }
+    #tabBar {
+      display: flex;
+      flex-direction: column;
+      background: #333;
+      padding: 5px;
+      width: 160px;
+      min-width: 160px;
+    }
+    .tabButton {
+      background: #555; color: white; padding: 8px 16px; margin-bottom: 5px;
+      border: none; cursor: pointer; text-align: left;
+    }
+    .tabButton.active { background: #007BFF; }
+    #contentArea {
+      flex-grow: 1;
+      overflow: auto;
+    }
+    #contentArea > div { display: none; padding: 20px; }
+    #contentArea > div.active { display: block; }
+    .controlBtn {
+      background: #777;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      margin-bottom: 10px;
+      cursor: pointer;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div id="tabBar">
+    <button id="loadBtn" class="controlBtn">Load Plugins</button>
+    <button id="refreshBtn" class="controlBtn">Refresh Plugins</button>
+    <font color=white>Press Alt-1 to go 1st</font><br/>
+  </div>
+  <div id="contentArea"></div>
+
+  <script>
+    let globalRootHandle = null;
+
+    const PluginAPI = {
+      add: function(title) {
+        const tabId = "tab_" + title.replace(/\s+/g, "_");
+        const btn = document.createElement("button");
+        btn.className = "tabButton";
+	  btn.id=title;
+        btn.innerText = title;
+        btn.onclick = () => showTab(tabId);
+        document.getElementById("tabBar").appendChild(btn);
+
+        const div = document.createElement("div");
+        div.id = tabId;
+        document.getElementById("contentArea").appendChild(div);
+        return div;
+      },
+      getRootHandle: function() {
+        return globalRootHandle;
+      }
+    };
+
+    function showTab(id) {
+      document.querySelectorAll("#tabBar .tabButton").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll("#tabBar .tabButton").forEach(btn => {
+        if (btn.innerText.replace(/\s+/g, "_") === id.replace("tab_", "")) btn.classList.add("active");
+      });
+      document.querySelectorAll("#contentArea > div").forEach(div => div.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    async function loadPluginsFromHandle(rootHandle) {
+      const pluginFolderHandle = await rootHandle.getDirectoryHandle("pluginJS");
+      for await (const entry of pluginFolderHandle.values()) {
+        if (entry.kind === 'file' && entry.name.endsWith('.txt')) {
+          const file = await entry.getFile();
+          const text = await file.text();
+          eval(text);
+        }
+      }
+    }
+
+    document.getElementById("loadBtn").onclick = async () => {
+      try {
+        globalRootHandle = await window.showDirectoryPicker({mode: 'readwrite'});
+        await loadPluginsFromHandle(globalRootHandle);
+      } catch (err) {
+        console.error('Plugin loading failed:', err);
+        alert(err);
+      }
+    };
+
+    document.getElementById("refreshBtn").onclick = async () => {
+      if (!globalRootHandle) {
+        alert("Please load plugins first.");
+        return;
+      }
+      document.querySelectorAll("#tabBar .tabButton").forEach(btn => btn.remove());
+      document.getElementById("contentArea").innerHTML = "";
+      await loadPluginsFromHandle(globalRootHandle);
+    };
+async function ensureWritePermission(handle) {
+  const opts = { mode: 'readwrite' };
+  if ((await handle.queryPermission(opts)) === 'granted') return true;
+  if ((await handle.requestPermission(opts)) === 'granted') return true;
+  return false;
+}
+document.addEventListener("keydown", (e) => {
+  if (!e.altKey) return;
+  
+  const index = parseInt(e.key) - 1;
+  if (isNaN(index) || index < 0) return;
+
+  const tabs = document.querySelectorAll("#tabBar .tabButton");
+  if (tabs[index]) {
+    e.preventDefault();
+    tabs[index].click();
+  }
+});
+  </script>
+</body>
+</html>
