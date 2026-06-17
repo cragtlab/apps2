@@ -243,7 +243,7 @@ function refreshDashboard() {
             const span = document.createElement("span");
             span.style.marginRight = "10px";
             span.style.cursor = "pointer";
-            span.style.color = "blue";
+            span.style.color = isStatusCompleted(s) ? "grey" : "blue";
             span.style.textDecoration = "underline";
             span.textContent = `${s} (${count})`;
             span.onclick = () => filterByDashboard(o, s);
