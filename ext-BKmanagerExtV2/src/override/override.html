@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>New Tab</title>
+</head>
+
+<body>
+Bookmarklet Manager
+<ol>
+<li>Do context menu? Show all current in main, group each * folders (e.g. generic * folder, domain* folders, ungrouped), edit function/bookmark manager (to backup)? etc https://chrome.google.com/webstore/detail/script-menu/gjaimbbhbanehmbfnfikbpnimkcciofl?hl=en
+<li>Maybe a view untagged bk, no domain at end of *
+<li>Manage bookmarklet better
+
+<a  href="https://beautifier.io/">Beautifier</a>
+///
+Do 10x product research
+In Shopee, filter best sellers above price
+Click bkmarklet to search Amazon and maybe q10 if got cheaper?
+
+10x Listing page ? Or just load the new product Lister
+<li>Put d* if any domain, eg ahref , tampermonkey 
+Put u* for url?
+
+Backup option? 
+
+Maybe edit page header to print Bookmarklet in page.
+
+Editor for existing Bookmarklet? Have some templates method eg tr extract
+</ol>
+<textarea onclick="this.focus();this.select();">
+results=[];
+chrome.bookmarks.search(url="javascript:", processSearch);
+function processSearch(result){
+out="";
+for(i of result){
+  results.push(i.url);
+  out+="<li><a href='"+escape(i.url)+"'>"+i.title+" @ " + i.parentId +"</a><br/>";
+}
+bookmarks.innerHTML=out;
+}
+</textarea>
+<b>Bookmarks</b><ul id="bookmarks">
+<ul>
+<br/>Find out what people want in new tab from reviews?
+Seem like time, weather and inspiring photos and quote.
+OR Just advertise via placement in Ads? holidify.com
+Maybe 1 todo
+Maybe focus on Tesla fans?
+<br/>https://github.com/berpj/elon-musk-dataset
+test
+</body>
+</html>
+

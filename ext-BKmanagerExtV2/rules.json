@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "urlFilter": "acs-m.lazada.sg/h5/mtop.lazada.seller.order.query.sensitive/1.0/",
+      "resourceTypes": [
+        "xmlhttprequest",
+        "sub_frame",
+        "script"
+      ]
+    }
+  }
+]
