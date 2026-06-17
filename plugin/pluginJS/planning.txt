@@ -51,7 +51,6 @@
             padding: 5px 8px;
             margin-bottom: 5px;
             font-size: 0.9em;
-            cursor: pointer;
             overflow: hidden;
             display: flex;
             align-items: center;
@@ -73,6 +72,7 @@
         #${tabId} a.task-display {
             text-decoration: none;
             color: #0066cc;
+            cursor: pointer;
         }
 
         #${tabId} .modal {
@@ -290,6 +290,7 @@
             if (monthEl) {
                 const taskEl = document.createElement('div');
                 taskEl.className = 'task-item';
+                taskEl.onclick = (e) => e.stopPropagation();
                 if (task.done) taskEl.classList.add('done');
 
                 if (isCurrentMonth) {
