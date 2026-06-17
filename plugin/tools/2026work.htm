@@ -88,6 +88,9 @@ input{
 <select id="officerFilter">
     <option value="">All Officers</option>
 </select>
+<select id="statusFilter">
+    <option value="">All Statuses</option>
+</select>
 
 <div style="max-height:500px;overflow:auto;">
 <table id="results">
@@ -98,8 +101,9 @@ input{
 
 <script>
 
-//// Officer
+//// Officer & Status
 const officerIndex = {};
+const statusIndex = {};
 const officerAliasMap = {};
 function normalizeOfficer(raw) {
     if (!raw) return null;
@@ -173,8 +177,44 @@ function indexOfficers(reportName, rows) {
         });
     }
 }
+function findStatusColumn(headerRow) {
+    for (let i = 0; i < headerRow.length; i++) {
+        const h = String(headerRow[i]).toLowerCase().trim();
+        if (h === "status") {
+            return i;
+        }
+    }
+    return -1;
+}
+function indexStatus(reportName, rows) {
+    if (!rows || rows.length === 0) return;
+
+    const header = rows[0];
+    const statusCol = findStatusColumn(header);
+
+    if (statusCol === -1) {
+        return;
+    }
+
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const status = (row[statusCol] || "").toString().trim();
+
+        if (!status) continue;
+
+        if (!statusIndex[status]) {
+            statusIndex[status] = [];
+        }
+
+        statusIndex[status].push({
+            report: reportName,
+            row
+        });
+    }
+}
 function refreshOfficerDropdown() {
     const sel = document.getElementById("officerFilter");
+    const current = sel.value;
 
     sel.innerHTML = `<option value="">All Officers</option>`;
 
@@ -186,17 +226,24 @@ function refreshOfficerDropdown() {
         opt.textContent = `${o} (${officerIndex[o].length})`;
         sel.appendChild(opt);
     }
+    sel.value = current;
 }
-document.getElementById("officerFilter").onchange = (e) => {
-    const officer = e.target.value;
+function refreshStatusDropdown() {
+    const sel = document.getElementById("statusFilter");
+    const current = sel.value;
 
-    if (!officer) {
-        renderResults([]); // or clear filter
-        return;
+    sel.innerHTML = `<option value="">All Statuses</option>`;
+
+    const statuses = Object.keys(statusIndex).sort();
+
+    for (const s of statuses) {
+        const opt = document.createElement("option");
+        opt.value = s;
+        opt.textContent = `${s} (${statusIndex[s].length})`;
+        sel.appendChild(opt);
     }
-
-    renderResults(officerIndex[officer] || []);
-};
+    sel.value = current;
+}
 //////
 let folderHandle=null;
 
@@ -358,6 +405,10 @@ async function loadReports(){
         return;
     }
 
+    // Clear indices
+    for (const key in officerIndex) delete officerIndex[key];
+    for (const key in statusIndex) delete statusIndex[key];
+
     await findLatestFiles();
 
     const tbody=
@@ -379,8 +430,9 @@ async function loadReports(){
                 await loadExcelFile(report.handle);
 
             loadedData[reportName]=data;
-	// NEW: build officer index
+	// NEW: build indices
 indexOfficers(reportName, data);
+indexStatus(reportName, data);
             tr.innerHTML=`
                 <td>${reportName}</td>
                 <td class='loaded'>Loaded</td>
@@ -401,43 +453,62 @@ indexOfficers(reportName, data);
         tbody.appendChild(tr);
     }
 refreshOfficerDropdown();
+refreshStatusDropdown();
     log("Finished loading.");
 };
 
-document.getElementById("searchBox").oninput=(e)=>
-{
-    const term=
-        e.target.value.toLowerCase();
+function applyFilters() {
+    const term = document.getElementById("searchBox").value.toLowerCase();
+    const officer = document.getElementById("officerFilter").value;
+    const status = document.getElementById("statusFilter").value;
 
-    const results=[];
+    const results = [];
 
-    for(const reportName in loadedData)
-    {
-        const rows=loadedData[reportName];
+    for (const reportName in loadedData) {
+        const rows = loadedData[reportName];
+        if (!rows || rows.length === 0) continue;
 
-        for(let i=0;i<rows.length;i++)
-        {
-            const row=rows[i];
+        const header = rows[0];
+        const officerCol = findOfficerColumn(header);
+        const statusCol = findStatusColumn(header);
 
-            const text=
-                JSON.stringify(row)
-                .toLowerCase();
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
 
-            if(text.includes(term))
-            {
-                results.push({
-                    report:reportName,
-                    row
-                });
-
-                if(results.length>300)
-                    break;
+            // Filter by officer
+            if (officer) {
+                const rowOfficer = normalizeOfficer(row[officerCol]);
+                if (rowOfficer !== officer) continue;
             }
+
+            // Filter by status
+            if (status) {
+                const rowStatus = (row[statusCol] || "").toString().trim();
+                if (rowStatus !== status) continue;
+            }
+
+            // Filter by search term
+            if (term) {
+                const text = JSON.stringify(row).toLowerCase();
+                if (!text.includes(term)) continue;
+            }
+
+            results.push({
+                report: reportName,
+                row
+            });
+
+            if (results.length > 500) break;
         }
+        if (results.length > 500) break;
     }
 
     renderResults(results);
-};
+}
+
+document.getElementById("searchBox").oninput = applyFilters;
+document.getElementById("officerFilter").onchange = applyFilters;
+document.getElementById("statusFilter").onchange = applyFilters;
 
 function renderResults(rows)
 {
