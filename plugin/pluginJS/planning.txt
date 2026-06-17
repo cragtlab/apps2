@@ -23,13 +23,20 @@
         #${tabId} .month h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: #333; font-size: 1.1em; }
 
         #${tabId} .task-list { list-style: none; padding: 0; margin: 0; }
-        #${tabId} .task-item { background-color: #e2f0ff; border-radius: 4px; padding: 5px 8px; margin-bottom: 5px; font-size: 0.85em; overflow: hidden; display: flex; flex-direction: column; gap: 2px; border: 1px solid transparent; }
+        #${tabId} .task-item { background-color: #e2f0ff; border-radius: 4px; padding: 5px 8px; margin-bottom: 5px; font-size: 0.9em; overflow: hidden; display: flex; flex-direction: column; gap: 2px; border: 1px solid transparent; }
         #${tabId} .task-item:hover { background-color: #cce5ff; border-color: #b8daff; }
         #${tabId} .task-item.done { opacity: 0.6; }
         #${tabId} .task-item.done .task-display { text-decoration: line-through; color: #888; }
         #${tabId} .task-display { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
         #${tabId} a.task-display { text-decoration: none; color: #0066cc; cursor: pointer; }
         #${tabId} .task-meta { font-size: 0.8em; color: #666; font-style: italic; }
+
+        #${tabId} .ops-listing { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+        #${tabId} .ops-item { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        #${tabId} .ops-item:hover { border-color: #007BFF; }
+        #${tabId} .ops-item.done { background-color: #f9f9f9; opacity: 0.7; }
+        #${tabId} .ops-item.done .task-display { text-decoration: line-through; color: #888; }
+        #${tabId} .ops-item-month { font-size: 0.8em; font-weight: bold; color: #007BFF; min-width: 60px; text-transform: uppercase; }
 
         #${tabId} .officer-view-container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
         #${tabId} .officer-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; border-left: 5px solid #28a745; }
@@ -47,6 +54,7 @@
 
         #${tabId} .controls-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; align-items: center; }
         #${tabId} .toggle-container { display: flex; align-items: center; gap: 5px; font-size: 0.9em; cursor: pointer; }
+        #${tabId} .add-btn { background-color: #28a745; color: white; margin-left: 10px; }
     `;
     document.head.appendChild(style);
 
@@ -77,6 +85,7 @@
             <label class="toggle-container">
                 <input type="checkbox" id="hide-done-toggle"> Hide Done
             </label>
+            <button id="add-ops-btn" class="add-btn" style="display:none;">+ Add Ops Task</button>
         </div>
 
         <div id="tasks-view" class="view-section active">
@@ -84,7 +93,7 @@
         </div>
 
         <div id="ops-view" class="view-section">
-            <div id="ops-calendar" class="calendar-grid"></div>
+            <div id="ops-list" class="ops-listing"></div>
         </div>
 
         <div id="officers-view" class="view-section">
@@ -125,6 +134,9 @@
         </div>
     `;
 
+    const addOpsBtn = container.querySelector('#add-ops-btn');
+    addOpsBtn.onclick = () => openModal(null, new Date().getMonth(), 'ops');
+
     // View Switching
     container.querySelectorAll('.nav-tab').forEach(tab => {
         tab.onclick = () => {
@@ -133,6 +145,8 @@
             tab.classList.add('active');
             currentView = tab.dataset.view;
             container.querySelector(`#${currentView}-view`).classList.add('active');
+
+            addOpsBtn.style.display = currentView === 'ops' ? 'inline-block' : 'none';
             renderUI();
         };
     });
@@ -146,7 +160,6 @@
 
     async function loadData() {
         let loaded = false;
-        // Try local storage first
         const localData = localStorage.getItem(STORAGE_KEY);
         if (localData) {
             try {
@@ -155,7 +168,6 @@
             } catch(e) {}
         }
 
-        // If local storage empty, try file
         if (!loaded) {
             try {
                 const rootHandle = PluginAPI.getRootHandle();
@@ -183,7 +195,6 @@
              }
         }
 
-        // Auto-reset "done" status for RECURRING tasks not in current month
         const currentMonth = new Date().getMonth();
         let changed = false;
         state.recurringTasks.forEach(t => {
@@ -228,8 +239,60 @@
         return trimmed;
     }
 
-    function renderCalendar(gridId, tasks, type) {
-        const grid = container.querySelector(`#${gridId}`);
+    function createTaskElement(task, type) {
+        const taskEl = document.createElement('div');
+        taskEl.className = 'task-item' + (task.done ? ' done' : '');
+        taskEl.onclick = (e) => e.stopPropagation();
+
+        const topRow = document.createElement('div');
+        topRow.style.display = 'flex';
+        topRow.style.alignItems = 'center';
+        topRow.style.gap = '5px';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!task.done;
+        cb.onclick = (e) => {
+            e.stopPropagation();
+            task.done = cb.checked;
+            saveData(); renderUI();
+        };
+        topRow.appendChild(cb);
+
+        const sanitizedUrl = sanitizeUrl(task.url);
+        let displayEl;
+        if (sanitizedUrl) {
+            displayEl = document.createElement('a');
+            displayEl.href = sanitizedUrl;
+            displayEl.target = '_blank';
+        } else {
+            displayEl = document.createElement('span');
+        }
+        displayEl.className = 'task-display';
+        displayEl.textContent = task.title;
+        displayEl.onclick = (e) => e.stopPropagation();
+        topRow.appendChild(displayEl);
+
+        const editBtn = document.createElement('span');
+        editBtn.textContent = ' ✏️';
+        editBtn.style.cursor = 'pointer';
+        editBtn.onclick = (e) => { e.stopPropagation(); openModal(task, task.month, type); };
+        topRow.appendChild(editBtn);
+
+        taskEl.appendChild(topRow);
+
+        if (task.officers) {
+            const meta = document.createElement('div');
+            meta.className = 'task-meta';
+            meta.textContent = task.officers;
+            taskEl.appendChild(meta);
+        }
+
+        return taskEl;
+    }
+
+    function renderRecurringCalendar() {
+        const grid = container.querySelector('#recurring-calendar');
         grid.innerHTML = '';
         const currentMonth = new Date().getMonth();
 
@@ -238,65 +301,82 @@
             monthEl.className = 'month' + (i === currentMonth ? ' current-month' : '');
             monthEl.dataset.month = i;
             monthEl.innerHTML = `<h3>${new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</h3><div class="task-list"></div>`;
-            monthEl.onclick = () => openModal(null, i, type);
+            monthEl.onclick = () => openModal(null, i, 'recurring');
 
             const listEl = monthEl.querySelector('.task-list');
-            const monthTasks = tasks.filter(t => parseInt(t.month) === i);
+            const monthTasks = state.recurringTasks.filter(t => parseInt(t.month) === i);
 
             monthTasks.forEach(task => {
                 if (state.hideDone && task.done) return;
-
-                const taskEl = document.createElement('div');
-                taskEl.className = 'task-item' + (task.done ? ' done' : '');
-                taskEl.onclick = (e) => e.stopPropagation();
-
-                const topRow = document.createElement('div');
-                topRow.style.display = 'flex';
-                topRow.style.alignItems = 'center';
-                topRow.style.gap = '5px';
-
-                const cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.checked = !!task.done;
-                cb.onclick = (e) => {
-                    e.stopPropagation();
-                    task.done = cb.checked;
-                    saveData(); renderUI();
-                };
-                topRow.appendChild(cb);
-
-                const sanitizedUrl = sanitizeUrl(task.url);
-                let displayEl;
-                if (sanitizedUrl) {
-                    displayEl = document.createElement('a');
-                    displayEl.href = sanitizedUrl;
-                    displayEl.target = '_blank';
-                } else {
-                    displayEl = document.createElement('span');
-                }
-                displayEl.className = 'task-display';
-                displayEl.textContent = task.title;
-                displayEl.onclick = (e) => e.stopPropagation();
-                topRow.appendChild(displayEl);
-
-                const editBtn = document.createElement('span');
-                editBtn.textContent = ' ✏️';
-                editBtn.style.cursor = 'pointer';
-                editBtn.onclick = (e) => { e.stopPropagation(); openModal(task, i, type); };
-                topRow.appendChild(editBtn);
-
-                taskEl.appendChild(topRow);
-
-                if (task.officers) {
-                    const meta = document.createElement('div');
-                    meta.className = 'task-meta';
-                    meta.textContent = task.officers;
-                    taskEl.appendChild(meta);
-                }
-
-                listEl.appendChild(taskEl);
+                listEl.appendChild(createTaskElement(task, 'recurring'));
             });
             grid.appendChild(monthEl);
+        }
+    }
+
+    function renderOpsListing() {
+        const list = container.querySelector('#ops-list');
+        list.innerHTML = '';
+
+        // Sort by ID oldest first (numeric sort)
+        const sortedTasks = [...state.opsTasks].sort((a, b) => a.id.toString().localeCompare(b.id.toString()));
+
+        sortedTasks.forEach(task => {
+            if (state.hideDone && task.done) return;
+
+            const item = document.createElement('div');
+            item.className = 'ops-item' + (task.done ? ' done' : '');
+
+            const monthName = new Date(2000, task.month, 1).toLocaleString('default', { month: 'short' });
+
+            const monthLabel = document.createElement('div');
+            monthLabel.className = 'ops-item-month';
+            monthLabel.textContent = monthName;
+            item.appendChild(monthLabel);
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = !!task.done;
+            cb.onclick = (e) => {
+                task.done = cb.checked;
+                saveData(); renderUI();
+            };
+            item.appendChild(cb);
+
+            const contentWrap = document.createElement('div');
+            contentWrap.style.cssText = "flex-grow:1; display:flex; flex-direction:column; gap:2px; overflow:hidden;";
+
+            const sanitizedUrl = sanitizeUrl(task.url);
+            let displayEl;
+            if (sanitizedUrl) {
+                displayEl = document.createElement('a');
+                displayEl.href = sanitizedUrl;
+                displayEl.target = '_blank';
+            } else {
+                displayEl = document.createElement('span');
+            }
+            displayEl.className = 'task-display';
+            displayEl.textContent = task.title;
+            contentWrap.appendChild(displayEl);
+
+            const meta = document.createElement('div');
+            meta.className = 'task-meta';
+            meta.textContent = task.officers || '';
+            contentWrap.appendChild(meta);
+
+            item.appendChild(contentWrap);
+
+            const editBtn = document.createElement('span');
+            editBtn.textContent = ' ✏️';
+            editBtn.style.cursor = 'pointer';
+            editBtn.onclick = () => openModal(task, task.month, 'ops');
+            item.appendChild(editBtn);
+
+            list.appendChild(item);
+        });
+
+        if (sortedTasks.length === 0) {
+            list.innerHTML = '<p style="text-align:center; color:#666;">No actual ops tasks found. Click "+ Add Ops Task" to create one.</p>';
         }
     }
 
@@ -320,25 +400,40 @@
         sortedOfficers.forEach(o => {
             const card = document.createElement('div');
             card.className = 'officer-card';
-            card.innerHTML = `<h2>${o}</h2><div class="task-list"></div>`;
-            const taskList = card.querySelector('.task-list');
+
+            const h2 = document.createElement('h2');
+            h2.textContent = o;
+            card.appendChild(h2);
+
+            const taskList = document.createElement('div');
+            taskList.className = 'task-list';
 
             officerMap[o].forEach(task => {
                 const item = document.createElement('div');
                 item.className = 'task-item' + (task.done ? ' done' : '');
-                const monthName = new Date(2000, task.month, 1).toLocaleString('default', { month: 'short' });
-                item.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:5px;">
-                        <input type="checkbox" ${task.done ? 'checked' : ''}>
-                        <span class="task-display">[${monthName}] ${task.title}</span>
-                    </div>
-                `;
-                item.querySelector('input').onclick = (e) => {
-                    task.done = e.target.checked;
+
+                const wrap = document.createElement('div');
+                wrap.style.cssText = "display:flex; align-items:center; gap:5px;";
+
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = !!task.done;
+                cb.onclick = (e) => {
+                    task.done = cb.checked;
                     saveData(); renderUI();
                 };
+                wrap.appendChild(cb);
+
+                const span = document.createElement('span');
+                span.className = 'task-display';
+                const monthName = new Date(2000, task.month, 1).toLocaleString('default', { month: 'short' });
+                span.textContent = `[${monthName}] ${task.title}`;
+                wrap.appendChild(span);
+
+                item.appendChild(wrap);
                 taskList.appendChild(item);
             });
+            card.appendChild(taskList);
             list.appendChild(card);
         });
 
@@ -349,8 +444,8 @@
 
     function renderUI() {
         hideDoneToggle.checked = state.hideDone;
-        if (currentView === "tasks") renderCalendar('recurring-calendar', state.recurringTasks, 'recurring');
-        else if (currentView === "ops") renderCalendar('ops-calendar', state.opsTasks, 'ops');
+        if (currentView === "tasks") renderRecurringCalendar();
+        else if (currentView === "ops") renderOpsListing();
         else if (currentView === "officers") renderOfficerUI();
     }
 
@@ -386,10 +481,13 @@
 
         const collection = type === 'ops' ? state.opsTasks : state.recurringTasks;
 
+        let existingTask = null;
+        if (id) existingTask = collection.find(t => t.id === id);
+
         const taskData = {
             id: id || Date.now().toString(),
             title, url, month,
-            done: id ? (collection.find(t => t.id === id)?.done || false) : false
+            done: existingTask ? !!existingTask.done : false
         };
 
         if (type === 'ops') {
@@ -418,6 +516,12 @@
     };
 
     container.querySelector('#close-modal-btn').onclick = () => container.querySelector('#task-modal').style.display = 'none';
+
+    // Click outside to close modal
+    const taskModal = container.querySelector('#task-modal');
+    taskModal.onclick = (e) => {
+        if (e.target === taskModal) taskModal.style.display = 'none';
+    };
 
     container.querySelector('#export-tsv-btn').onclick = () => {
         let tsv = "Type\tMonth\tTitle\tURL\tDone\tOfficers\tRemarks\n";
