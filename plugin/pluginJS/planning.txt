@@ -96,13 +96,12 @@
             <table class="ops-table">
                 <thead>
                     <tr>
-                        <th style="width:40px;">Done</th>
-                        <th style="width:100px;">Date</th>
+                        <th style="width:70px;">Actions</th>
+                        <th style="width:120px;">Date</th>
                         <th style="width:200px;">Title</th>
-                        <th style="width:150px;">URL</th>
+                        <th style="width:250px;">URL</th>
                         <th style="width:150px;">Officers</th>
                         <th>Remarks</th>
-                        <th style="width:40px;"></th>
                     </tr>
                 </thead>
                 <tbody id="ops-tbody"></tbody>
@@ -214,9 +213,32 @@
 
     function sanitizeUrl(url) {
         if (!url) return "";
-        const trimmed = url.trim();
+        let trimmed = url.trim();
         if (trimmed.toLowerCase().startsWith('javascript:')) return "about:blank";
+        if (trimmed && !trimmed.includes('://') && !trimmed.startsWith('mailto:')) {
+            trimmed = 'https://' + trimmed;
+        }
         return trimmed;
+    }
+
+    const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    function formatDateDisplay(isoDate) {
+        if (!isoDate) return "";
+        const parts = isoDate.split('-');
+        if (parts.length !== 3) return isoDate;
+        const [y, m, d] = parts;
+        return `${d}-${monthsShort[parseInt(m)-1]}-${y}`;
+    }
+    function parseDateDisplay(displayDate) {
+        if (!displayDate) return "";
+        const parts = displayDate.split('-');
+        if (parts.length !== 3) return displayDate;
+        const d = parts[0].padStart(2, '0');
+        const mIdx = monthsShort.findIndex(m => m.toLowerCase() === parts[1].toLowerCase());
+        if (mIdx === -1) return displayDate;
+        const m = (mIdx + 1).toString().padStart(2, '0');
+        const y = parts[2];
+        return `${y}-${m}-${d}`;
     }
 
     function renderRecurringCalendar() {
@@ -277,17 +299,41 @@
                 return td;
             };
 
+            const actionsDiv = document.createElement('div');
+            actionsDiv.style.display = 'flex';
+            actionsDiv.style.alignItems = 'center';
+            actionsDiv.style.gap = '8px';
+
             const doneCb = document.createElement('input');
             doneCb.type = 'checkbox';
             doneCb.checked = !!task.done;
             doneCb.className = 'done-cb';
+            doneCb.style.width = 'auto';
             doneCb.onchange = () => { task.done = doneCb.checked; saveData(); renderUI(); };
 
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn-danger delete-btn';
+            delBtn.style.padding = '2px 6px';
+            delBtn.textContent = '×';
+            delBtn.title = 'Delete';
+            delBtn.onclick = () => {
+                if (confirm('Delete this task?')) {
+                    state.opsTasks = state.opsTasks.filter(t => t.id !== task.id);
+                    saveData(); renderUI();
+                }
+            };
+            actionsDiv.appendChild(doneCb);
+            actionsDiv.appendChild(delBtn);
+
             const dateInp = document.createElement('input');
-            dateInp.type = 'date';
-            dateInp.value = task.date || '';
+            dateInp.type = 'text';
+            dateInp.value = formatDateDisplay(task.date);
             dateInp.className = 'date-input';
-            dateInp.onchange = () => { task.date = dateInp.value; saveData(); renderUI(); };
+            dateInp.placeholder = 'dd-MMM-YYYY';
+            dateInp.onchange = () => {
+                task.date = parseDateDisplay(dateInp.value);
+                saveData(); renderUI();
+            };
 
             const titleInp = document.createElement('input');
             titleInp.type = 'text';
@@ -296,12 +342,25 @@
             titleInp.placeholder = 'Title';
             titleInp.onchange = () => { task.title = titleInp.value; saveData(); };
 
+            const urlDiv = document.createElement('div');
+            urlDiv.style.display = 'flex';
+            urlDiv.style.gap = '4px';
             const urlInp = document.createElement('input');
             urlInp.type = 'text';
             urlInp.value = task.url || '';
             urlInp.className = 'url-input';
             urlInp.placeholder = 'URL';
             urlInp.onchange = () => { task.url = urlInp.value; saveData(); };
+            const urlBtn = document.createElement('button');
+            urlBtn.className = 'btn-secondary';
+            urlBtn.style.padding = '2px 4px';
+            urlBtn.textContent = '🔗';
+            urlBtn.onclick = () => {
+                const url = sanitizeUrl(task.url);
+                if (url && url !== 'about:blank') window.open(url, '_blank');
+            };
+            urlDiv.appendChild(urlInp);
+            urlDiv.appendChild(urlBtn);
 
             const offInp = document.createElement('input');
             offInp.type = 'text';
@@ -317,22 +376,12 @@
             remInp.placeholder = 'Remarks';
             remInp.onchange = () => { task.remarks = remInp.value; saveData(); };
 
-            const delBtn = document.createElement('button');
-            delBtn.className = 'btn-danger delete-btn';
-            delBtn.style.padding = '4px 8px';
-            delBtn.textContent = '×';
-            delBtn.onclick = () => {
-                state.opsTasks = state.opsTasks.filter(t => t.id !== task.id);
-                saveData(); renderUI();
-            };
-
-            tr.appendChild(createCell(doneCb));
+            tr.appendChild(createCell(actionsDiv));
             tr.appendChild(createCell(dateInp));
             tr.appendChild(createCell(titleInp));
-            tr.appendChild(createCell(urlInp));
+            tr.appendChild(createCell(urlDiv));
             tr.appendChild(createCell(offInp));
             tr.appendChild(createCell(remInp));
-            tr.appendChild(createCell(delBtn));
 
             tbody.appendChild(tr);
         });
