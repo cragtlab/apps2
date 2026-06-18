@@ -456,16 +456,83 @@
     const taskModal = container.querySelector('#task-modal');
     taskModal.onclick = (e) => { if (e.target === taskModal) taskModal.style.display = 'none'; };
 
-    const escapeTSV = (str) => (str || "").replace(/\t/g, " ").replace(/\n/g, "\\n").replace(/\r/g, "");
-    const unescapeTSV = (str) => (str || "").replace(/\\n/g, "\n");
+    function stringifyTSVValue(val) {
+        let s = String(val === undefined || val === null ? "" : val);
+        if (s.includes('"') || s.includes('\t') || s.includes('\n') || s.includes('\r')) {
+            s = '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+    }
+
+    function parseTSV(text) {
+        const result = [];
+        let currentField = "";
+        let inQuotes = false;
+        let currentRow = [];
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const nextChar = text[i+1];
+
+            if (inQuotes) {
+                if (char === '"' && nextChar === '"') {
+                    currentField += '"';
+                    i++;
+                } else if (char === '"') {
+                    inQuotes = false;
+                } else {
+                    currentField += char;
+                }
+            } else {
+                if (char === '"') {
+                    inQuotes = true;
+                } else if (char === '\t') {
+                    currentRow.push(currentField);
+                    currentField = "";
+                } else if (char === '\r') {
+                    // ignore
+                } else if (char === '\n') {
+                    currentRow.push(currentField);
+                    result.push(currentRow);
+                    currentRow = [];
+                    currentField = "";
+                } else {
+                    currentField += char;
+                }
+            }
+        }
+        if (currentField || currentRow.length > 0) {
+            currentRow.push(currentField);
+            result.push(currentRow);
+        }
+        return result;
+    }
 
     container.querySelector('#export-tsv-btn').onclick = () => {
-        let tsv = "Type\tDate\tMonth\tTitle\tURL\tDone\tOfficers\tRemarks\n";
+        let tsv = "Date\tMonth\tTitle\tURL\tDone\tOfficers\tRemarks\n";
         state.recurringTasks.forEach(t => {
-            tsv += `Recurring\t\t${t.month}\t${escapeTSV(t.title)}\t${escapeTSV(t.url)}\t${t.done}\t\t\n`;
+            const row = [
+                "",
+                t.month,
+                t.title,
+                t.url,
+                t.done,
+                "",
+                ""
+            ];
+            tsv += row.map(stringifyTSVValue).join('\t') + '\n';
         });
         state.opsTasks.forEach(t => {
-            tsv += `Ops\t${t.date||''}\t\t${escapeTSV(t.title)}\t${escapeTSV(t.url)}\t${t.done}\t${escapeTSV(t.officers)}\t${escapeTSV(t.remarks)}\n`;
+            const row = [
+                t.date || "",
+                "",
+                t.title,
+                t.url,
+                t.done,
+                t.officers || "",
+                t.remarks || ""
+            ];
+            tsv += row.map(stringifyTSVValue).join('\t') + '\n';
         });
         navigator.clipboard.writeText(tsv).then(() => alert("Exported to clipboard."));
     };
@@ -474,26 +541,36 @@
         try {
             const text = await navigator.clipboard.readText();
             if (!text) return;
-            const rows = text.trim().split('\n').slice(1);
+            const rows = parseTSV(text);
+            if (rows.length < 2) return;
+
             state.recurringTasks = []; state.opsTasks = [];
-            rows.forEach((r, i) => {
-                const c = r.split('\t');
-                if (c.length < 6) return;
-                const type = c[0];
+            rows.slice(1).forEach((c, i) => {
+                if (c.length < 5) return;
+                const dateVal = c[0];
+                const monthVal = c[1];
                 const t = {
                     id: Date.now().toString() + i,
-                    title: unescapeTSV(c[3]),
-                    url: unescapeTSV(c[4]),
-                    done: c[5] === 'true'
+                    title: c[2],
+                    url: c[3],
+                    done: c[4] === 'true'
                 };
-                if (type === 'Ops') {
-                    t.date = c[1];
-                    t.officers = unescapeTSV(c[6]);
-                    t.remarks = unescapeTSV(c[7]);
+
+                // If date present = ops, if month present = monthly, both = ops
+                if (dateVal) {
+                    t.date = dateVal;
+                    t.officers = c[5] || "";
+                    t.remarks = c[6] || "";
                     state.opsTasks.push(t);
-                } else {
-                    t.month = parseInt(c[2]);
+                } else if (monthVal) {
+                    t.month = parseInt(monthVal);
                     state.recurringTasks.push(t);
+                } else {
+                    // Fallback to Ops if both empty as per priority "both = ops"
+                    t.date = "";
+                    t.officers = c[5] || "";
+                    t.remarks = c[6] || "";
+                    state.opsTasks.push(t);
                 }
             });
             saveData(); renderUI();
