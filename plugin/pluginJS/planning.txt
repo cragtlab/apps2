@@ -180,10 +180,11 @@
     };
 
     async function loadData() {
-        let loaded = false;
+        let localState = null;
         const localData = localStorage.getItem(STORAGE_KEY);
-        if (localData) { try { state = JSON.parse(localData); loaded = true; } catch(e) {} }
+        if (localData) { try { localState = JSON.parse(localData); } catch(e) {} }
 
+        let fileState = null;
         try {
             const rootHandle = PluginAPI.getRootHandle();
             if (rootHandle) {
@@ -191,23 +192,33 @@
                 const file = await fileHandle.getFile();
                 const text = await file.text();
                 if (text) {
-                    let fileState = null;
                     if (text.trim().startsWith('{')) {
                         fileState = JSON.parse(text);
                     } else {
                         fileState = parseTSVToState(text);
                     }
-                    if (fileState && !loaded) { state = { ...state, ...fileState }; loaded = true; }
                 }
             }
         } catch (err) {}
+
+        if (localState) state = { ...state, ...localState };
+        if (fileState) {
+            if (state.recurringTasks.length === 0) state.recurringTasks = fileState.recurringTasks || [];
+            if (state.opsTasks.length === 0) state.opsTasks = fileState.opsTasks || [];
+        }
 
         if (state.recurringTasks.length === 0 && state.opsTasks.length === 0) {
              const oldV3 = localStorage.getItem('planning-data-v3');
              if (oldV3) { state.recurringTasks = JSON.parse(oldV3).tasks || []; }
         }
-        const currentMonth = new Date().getMonth();
+
         let changed = false;
+        state.opsTasks.forEach(t => {
+            const normalized = parseDateDisplay(t.date);
+            if (normalized !== t.date) { t.date = normalized; changed = true; }
+        });
+
+        const currentMonth = new Date().getMonth();
         state.recurringTasks.forEach(t => {
             if (parseInt(t.month) !== currentMonth && t.done) { t.done = false; changed = true; }
         });
@@ -218,27 +229,24 @@
         const rows = parseTSV(text);
         if (rows.length < 2) return null;
         const header = rows[0];
-        const hasUrlCol = header.includes("URL");
+        const urlIdx = header.indexOf("URL");
+        const doneIdx = header.indexOf("Done");
+        const officersIdx = header.indexOf("Officers");
+        const remarksIdx = header.indexOf("Remarks");
+
         const recurringTasks = [];
         const opsTasks = [];
 
         rows.slice(1).forEach((c, i) => {
-            if (c.length < 4) return;
+            if (c.length < 3) return;
             const dateVal = c[0];
             const monthVal = c[1];
             const title = c[2];
-            let url = "", doneStr = "", officers = "", remarks = "";
 
-            if (hasUrlCol) {
-                url = c[3];
-                doneStr = c[4];
-                officers = c[5] || "";
-                remarks = c[6] || "";
-            } else {
-                doneStr = c[3];
-                officers = c[4] || "";
-                remarks = c[5] || "";
-            }
+            const url = urlIdx !== -1 ? c[urlIdx] : "";
+            const doneStr = doneIdx !== -1 ? c[doneIdx] : "";
+            const officers = officersIdx !== -1 ? c[officersIdx] : "";
+            const remarks = remarksIdx !== -1 ? c[remarksIdx] : "";
 
             const t = {
                 id: Date.now().toString() + i,
@@ -284,13 +292,13 @@
     }
 
     function generateTSV() {
-        let tsv = "Date\tMonth\tTitle\tDone\tOfficers\tRemarks\n";
+        let tsv = "Date\tMonth\tTitle\tURL\tDone\tOfficers\tRemarks\n";
         state.recurringTasks.forEach(t => {
-            const row = ["", t.month, t.title, t.done, "", ""];
+            const row = ["", t.month, t.title, t.url || "", t.done, "", ""];
             tsv += row.map(stringifyTSVValue).join('\t') + '\n';
         });
         state.opsTasks.forEach(t => {
-            const row = [t.date || "", "", t.title, t.done, t.officers || "", t.remarks || ""];
+            const row = [t.date || "", "", t.title, t.url || "", t.done, t.officers || "", t.remarks || ""];
             tsv += row.map(stringifyTSVValue).join('\t') + '\n';
         });
         return tsv;
@@ -320,29 +328,36 @@
     }
     function parseDateDisplay(displayDate) {
         if (!displayDate) return "";
+        let s = displayDate.trim();
         // If it's already ISO, return it
-        if (/^\d{4}-\d{2}-\d{2}$/.test(displayDate)) return displayDate;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
-        const parts = displayDate.split('-');
-        if (parts.length !== 3) return displayDate;
+        // Try splitting by common separators
+        const parts = s.split(/[-/._\s]+/);
+        if (parts.length !== 3) return s;
 
-        // Handle dd-MMM-YYYY
         let d, m, y;
-        const mIdx = monthsShort.findIndex(m => m.toLowerCase() === parts[1].toLowerCase());
+        // Check if second part is MMM
+        const mIdx = monthsShort.findIndex(month => month.toLowerCase() === parts[1].toLowerCase());
         if (mIdx !== -1) {
             d = parts[0].padStart(2, '0');
             m = (mIdx + 1).toString().padStart(2, '0');
             y = parts[2];
         } else {
-            // Fallback: maybe it's mixed up? e.g. YYYY-MM-DD but with MMM?
-            // Actually just return original if we can't parse it reliably
-            return displayDate;
+            // Try DD-MM-YYYY or YYYY-MM-DD
+            if (parts[0].length === 4) { // YYYY-MM-DD
+                y = parts[0]; m = parts[1].padStart(2, '0'); d = parts[2].padStart(2, '0');
+            } else if (parts[2].length === 4) { // DD-MM-YYYY
+                y = parts[2]; m = parts[1].padStart(2, '0'); d = parts[0].padStart(2, '0');
+            } else {
+                return s;
+            }
         }
 
-        if (y.length === 4 && d.length <= 2) {
-             return `${y}-${m}-${d}`;
-        }
-        return displayDate;
+        // Validate numbers
+        if (!/^\d{4}$/.test(y) || !/^\d{2}$/.test(m) || !/^\d{2}$/.test(d)) return s;
+        const result = `${y}-${m}-${d}`;
+        return result;
     }
 
     function renderRecurringCalendar() {
