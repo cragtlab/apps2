@@ -665,6 +665,7 @@ function openAddTripModal() {
     const opt = document.createElement('option');
     opt.value=i; opt.textContent=r.name; sel.appendChild(opt);
   });
+  sel.onchange = onTripRouteSelectChange;
 
   renderRecordedIntervals();
   document.getElementById('addTripModal').classList.add('open');
@@ -819,6 +820,36 @@ function clearAllIntervals() {
   localStorage.removeItem('mrt_selected_start');
   localStorage.removeItem('mrt_selected_end');
   updateSelectionUI();
+}
+
+function onTripRouteSelectChange() {
+  const routeIndex = parseInt(this.value);
+  if (isNaN(routeIndex)) return;
+  const route = travelRoutes[routeIndex];
+  if (!route) return;
+
+  // Find latest "From" interval
+  const fromInv = recordedIntervals.find(inv => inv.locLabel.toLowerCase() === route.from.toLowerCase());
+  // Find latest "To" interval (must be AFTER or SAME as From interval in chronological order,
+  // but since recordedIntervals is unshifted (newest first), it's a bit tricky.)
+  // Actually, let's just find the latest occurrence of each.
+  const toInv = recordedIntervals.find(inv => inv.locLabel.toLowerCase() === route.to.toLowerCase());
+
+  if (fromInv && toInv) {
+    const startTime = new Date(fromInv.endTime);
+    const endTime = new Date(toInv.startTime);
+
+    const startStr = startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const endStr = endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+    if (confirm(`Suggest times for "${route.name}"?\nDeparture (${route.from}): ${startStr}\nArrival (${route.to}): ${endStr}`)) {
+      selectedStart = { interval: fromInv, time: fromInv.endTime };
+      selectedEnd = { interval: toInv, time: toInv.startTime };
+      localStorage.setItem('mrt_selected_start', JSON.stringify(selectedStart));
+      localStorage.setItem('mrt_selected_end', JSON.stringify(selectedEnd));
+      updateSelectionUI();
+    }
+  }
 }
 
 function saveTrip() {
