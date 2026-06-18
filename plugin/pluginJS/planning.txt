@@ -23,20 +23,20 @@
         #${tabId} .month h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 5px; color: #333; font-size: 1.1em; }
 
         #${tabId} .task-list { list-style: none; padding: 0; margin: 0; }
-        #${tabId} .task-item { background-color: #e2f0ff; border-radius: 4px; padding: 5px 8px; margin-bottom: 5px; font-size: 0.9em; overflow: hidden; display: flex; flex-direction: column; gap: 2px; border: 1px solid transparent; }
-        #${tabId} .task-item:hover { background-color: #cce5ff; border-color: #b8daff; }
+        #${tabId} .task-item { background-color: #e2f0ff; border-radius: 4px; padding: 8px 12px; margin-bottom: 5px; font-size: 0.9em; overflow: hidden; display: flex; flex-direction: column; gap: 2px; border: 1px solid transparent; }
         #${tabId} .task-item.done { opacity: 0.6; }
         #${tabId} .task-item.done .task-display { text-decoration: line-through; color: #888; }
         #${tabId} .task-display { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
         #${tabId} a.task-display { text-decoration: none; color: #0066cc; cursor: pointer; }
-        #${tabId} .task-meta { font-size: 0.8em; color: #666; font-style: italic; }
 
-        #${tabId} .ops-listing { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
-        #${tabId} .ops-item { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        #${tabId} .ops-item:hover { border-color: #007BFF; }
-        #${tabId} .ops-item.done { background-color: #f9f9f9; opacity: 0.7; }
-        #${tabId} .ops-item.done .task-display { text-decoration: line-through; color: #888; }
-        #${tabId} .ops-item-month { font-size: 0.8em; font-weight: bold; color: #007BFF; min-width: 60px; text-transform: uppercase; }
+        #${tabId} .ops-table { width: 100%; border-collapse: collapse; font-size: 0.9em; table-layout: fixed; }
+        #${tabId} .ops-table th, #${tabId} .ops-table td { border: 1px solid #ddd; padding: 5px; text-align: left; overflow: hidden; }
+        #${tabId} .ops-table th { background: #f4f4f4; position: sticky; top: 0; z-index: 10; }
+        #${tabId} .ops-table input, #${tabId} .ops-table textarea { width: 100%; border: 1px solid transparent; background: transparent; box-sizing: border-box; }
+        #${tabId} .ops-table input:focus, #${tabId} .ops-table textarea:focus { background: white; border-color: #007BFF; outline: none; }
+        #${tabId} .ops-table .done-row { background-color: #f9f9f9; color: #888; }
+        #${tabId} .ops-table .done-row input, #${tabId} .ops-table .done-row textarea { color: #888; }
+        #${tabId} .ops-table .done-row .task-name-input { text-decoration: line-through; }
 
         #${tabId} .officer-view-container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
         #${tabId} .officer-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; border-left: 5px solid #28a745; }
@@ -44,7 +44,7 @@
 
         #${tabId} .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; }
         #${tabId} .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 400px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-        #${tabId} .modal-content input, #${tabId} .modal-content select, #${tabId} .modal-content textarea { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        #${tabId} .modal-content input, #${tabId} .modal-content select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
         #${tabId} .modal-buttons { display: flex; justify-content: space-between; margin-top: 10px; }
         #${tabId} button { padding: 8px 12px; cursor: pointer; border-radius: 4px; border: none; font-weight: 500; }
         #${tabId} .btn-primary { background-color: #007BFF; color: white; }
@@ -54,7 +54,7 @@
 
         #${tabId} .controls-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; align-items: center; }
         #${tabId} .toggle-container { display: flex; align-items: center; gap: 5px; font-size: 0.9em; cursor: pointer; }
-        #${tabId} .add-btn { background-color: #28a745; color: white; margin-left: 10px; }
+        #${tabId} .add-btn { background-color: #28a745; color: white; }
     `;
     document.head.appendChild(style);
 
@@ -69,7 +69,7 @@
 
     let needsFileSave = false;
     let isSavingToFile = false;
-    let currentView = "tasks"; // tasks, ops, officers
+    let currentView = "tasks";
 
     container.innerHTML = `
         <h1>Team Planning & Actual Ops</h1>
@@ -93,7 +93,20 @@
         </div>
 
         <div id="ops-view" class="view-section">
-            <div id="ops-list" class="ops-listing"></div>
+            <table class="ops-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">Done</th>
+                        <th style="width:100px;">Date</th>
+                        <th style="width:200px;">Title</th>
+                        <th style="width:150px;">URL</th>
+                        <th style="width:150px;">Officers</th>
+                        <th>Remarks</th>
+                        <th style="width:40px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="ops-tbody"></tbody>
+            </table>
         </div>
 
         <div id="officers-view" class="view-section">
@@ -102,29 +115,16 @@
 
         <div id="task-modal" class="modal" style="display: none;">
             <div class="modal-content">
-                <h2 id="modal-title">Edit Task</h2>
+                <h2 id="modal-title">Edit Recurring Task</h2>
                 <input type="hidden" id="task-id">
-                <input type="hidden" id="task-type">
-
                 <label>Title:</label>
                 <input type="text" id="task-name" placeholder="Task Title">
-
                 <label>URL:</label>
                 <input type="url" id="task-url" placeholder="https://example.com">
-
                 <label>Month:</label>
                 <select id="task-month">
                     ${Array.from({length: 12}, (_, i) => `<option value="${i}">${new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</option>`).join('')}
                 </select>
-
-                <div id="ops-fields" style="display:none;">
-                    <label>Officers (slash separated):</label>
-                    <input type="text" id="task-officers" placeholder="Thien Rong / Siew Mooi">
-
-                    <label>Remarks:</label>
-                    <textarea id="task-remarks" placeholder="Enter remarks..."></textarea>
-                </div>
-
                 <div class="modal-buttons">
                     <button id="save-task-btn" class="btn-success">Save</button>
                     <button id="delete-task-btn" class="btn-danger">Delete</button>
@@ -135,9 +135,19 @@
     `;
 
     const addOpsBtn = container.querySelector('#add-ops-btn');
-    addOpsBtn.onclick = () => openModal(null, new Date().getMonth(), 'ops');
+    addOpsBtn.onclick = () => {
+        state.opsTasks.push({
+            id: Date.now().toString(),
+            date: "",
+            title: "",
+            url: "",
+            officers: "",
+            remarks: "",
+            done: false
+        });
+        saveData(); renderUI();
+    };
 
-    // View Switching
     container.querySelectorAll('.nav-tab').forEach(tab => {
         tab.onclick = () => {
             container.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -145,7 +155,6 @@
             tab.classList.add('active');
             currentView = tab.dataset.view;
             container.querySelector(`#${currentView}-view`).classList.add('active');
-
             addOpsBtn.style.display = currentView === 'ops' ? 'inline-block' : 'none';
             renderUI();
         };
@@ -154,20 +163,13 @@
     const hideDoneToggle = container.querySelector('#hide-done-toggle');
     hideDoneToggle.onchange = () => {
         state.hideDone = hideDoneToggle.checked;
-        saveData();
-        renderUI();
+        saveData(); renderUI();
     };
 
     async function loadData() {
         let loaded = false;
         const localData = localStorage.getItem(STORAGE_KEY);
-        if (localData) {
-            try {
-                state = JSON.parse(localData);
-                loaded = true;
-            } catch(e) {}
-        }
-
+        if (localData) { try { state = JSON.parse(localData); loaded = true; } catch(e) {} }
         if (!loaded) {
             try {
                 const rootHandle = PluginAPI.getRootHandle();
@@ -176,40 +178,23 @@
                     const file = await fileHandle.getFile();
                     const text = await file.text();
                     const fileData = text ? JSON.parse(text) : null;
-                    if (fileData) {
-                        state = { ...state, ...fileData };
-                        loaded = true;
-                    }
+                    if (fileData) { state = { ...state, ...fileData }; loaded = true; }
                 }
-            } catch (err) {
-                console.warn('Data file not found or failed to load:', err);
-            }
+            } catch (err) {}
         }
-
-        // Migration from previous versions if state is empty
         if (state.recurringTasks.length === 0 && state.opsTasks.length === 0) {
              const oldV3 = localStorage.getItem('planning-data-v3');
-             if (oldV3) {
-                 const p = JSON.parse(oldV3);
-                 state.recurringTasks = p.tasks || [];
-             }
+             if (oldV3) { state.recurringTasks = JSON.parse(oldV3).tasks || []; }
         }
-
         const currentMonth = new Date().getMonth();
         let changed = false;
         state.recurringTasks.forEach(t => {
-            if (parseInt(t.month) !== currentMonth && t.done) {
-                t.done = false;
-                changed = true;
-            }
+            if (parseInt(t.month) !== currentMonth && t.done) { t.done = false; changed = true; }
         });
         if (changed) saveData();
     }
 
-    function saveData() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        needsFileSave = true;
-    }
+    function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); needsFileSave = true; }
 
     async function saveToFile() {
         if (!needsFileSave || isSavingToFile) return;
@@ -223,13 +208,8 @@
                 await writable.close();
                 needsFileSave = false;
             }
-        } catch (err) {
-            console.error('Failed to save to file:', err);
-        } finally {
-            isSavingToFile = false;
-        }
+        } catch (err) {} finally { isSavingToFile = false; }
     }
-
     setInterval(saveToFile, 60000);
 
     function sanitizeUrl(url) {
@@ -239,207 +219,151 @@
         return trimmed;
     }
 
-    function createTaskElement(task, type) {
-        const taskEl = document.createElement('div');
-        taskEl.className = 'task-item' + (task.done ? ' done' : '');
-        taskEl.onclick = (e) => e.stopPropagation();
-
-        const topRow = document.createElement('div');
-        topRow.style.display = 'flex';
-        topRow.style.alignItems = 'center';
-        topRow.style.gap = '5px';
-
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = !!task.done;
-        cb.onclick = (e) => {
-            e.stopPropagation();
-            task.done = cb.checked;
-            saveData(); renderUI();
-        };
-        topRow.appendChild(cb);
-
-        const sanitizedUrl = sanitizeUrl(task.url);
-        let displayEl;
-        if (sanitizedUrl) {
-            displayEl = document.createElement('a');
-            displayEl.href = sanitizedUrl;
-            displayEl.target = '_blank';
-        } else {
-            displayEl = document.createElement('span');
-        }
-        displayEl.className = 'task-display';
-        displayEl.textContent = task.title;
-        displayEl.onclick = (e) => e.stopPropagation();
-        topRow.appendChild(displayEl);
-
-        const editBtn = document.createElement('span');
-        editBtn.textContent = ' ✏️';
-        editBtn.style.cursor = 'pointer';
-        editBtn.onclick = (e) => { e.stopPropagation(); openModal(task, task.month, type); };
-        topRow.appendChild(editBtn);
-
-        taskEl.appendChild(topRow);
-
-        if (task.officers) {
-            const meta = document.createElement('div');
-            meta.className = 'task-meta';
-            meta.textContent = task.officers;
-            taskEl.appendChild(meta);
-        }
-
-        return taskEl;
-    }
-
     function renderRecurringCalendar() {
         const grid = container.querySelector('#recurring-calendar');
         grid.innerHTML = '';
         const currentMonth = new Date().getMonth();
-
         for (let i = 0; i < 12; i++) {
             const monthEl = document.createElement('div');
             monthEl.className = 'month' + (i === currentMonth ? ' current-month' : '');
-            monthEl.dataset.month = i;
             monthEl.innerHTML = `<h3>${new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</h3><div class="task-list"></div>`;
-            monthEl.onclick = () => openModal(null, i, 'recurring');
-
+            monthEl.onclick = () => openModal(null, i);
             const listEl = monthEl.querySelector('.task-list');
-            const monthTasks = state.recurringTasks.filter(t => parseInt(t.month) === i);
-
-            monthTasks.forEach(task => {
+            state.recurringTasks.filter(t => parseInt(t.month) === i).forEach(task => {
                 if (state.hideDone && task.done) return;
-                listEl.appendChild(createTaskElement(task, 'recurring'));
+                const taskEl = document.createElement('div');
+                taskEl.className = 'task-item' + (task.done ? ' done' : '');
+                taskEl.onclick = (e) => e.stopPropagation();
+                const topRow = document.createElement('div');
+                topRow.style.display = 'flex'; topRow.style.alignItems = 'center'; topRow.style.gap = '5px';
+                const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!task.done;
+                cb.onclick = (e) => { e.stopPropagation(); task.done = cb.checked; saveData(); renderUI(); };
+                topRow.appendChild(cb);
+                const sanitizedUrl = sanitizeUrl(task.url);
+                let displayEl = sanitizedUrl ? document.createElement('a') : document.createElement('span');
+                if (sanitizedUrl) { displayEl.href = sanitizedUrl; displayEl.target = '_blank'; }
+                displayEl.className = 'task-display'; displayEl.textContent = task.title;
+                displayEl.onclick = (e) => e.stopPropagation();
+                topRow.appendChild(displayEl);
+                const editBtn = document.createElement('span'); editBtn.textContent = ' ✏️'; editBtn.style.cursor = 'pointer';
+                editBtn.onclick = (e) => { e.stopPropagation(); openModal(task, i); };
+                topRow.appendChild(editBtn);
+                taskEl.appendChild(topRow);
+                listEl.appendChild(taskEl);
             });
             grid.appendChild(monthEl);
         }
     }
 
     function renderOpsListing() {
-        const list = container.querySelector('#ops-list');
-        list.innerHTML = '';
-
-        // Sort by ID oldest first (numeric sort)
-        const sortedTasks = [...state.opsTasks].sort((a, b) => a.id.toString().localeCompare(b.id.toString()));
-
-        sortedTasks.forEach(task => {
-            if (state.hideDone && task.done) return;
-
-            const item = document.createElement('div');
-            item.className = 'ops-item' + (task.done ? ' done' : '');
-
-            const monthName = new Date(2000, task.month, 1).toLocaleString('default', { month: 'short' });
-
-            const monthLabel = document.createElement('div');
-            monthLabel.className = 'ops-item-month';
-            monthLabel.textContent = monthName;
-            item.appendChild(monthLabel);
-
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = !!task.done;
-            cb.onclick = (e) => {
-                task.done = cb.checked;
-                saveData(); renderUI();
-            };
-            item.appendChild(cb);
-
-            const contentWrap = document.createElement('div');
-            contentWrap.style.cssText = "flex-grow:1; display:flex; flex-direction:column; gap:2px; overflow:hidden;";
-
-            const sanitizedUrl = sanitizeUrl(task.url);
-            let displayEl;
-            if (sanitizedUrl) {
-                displayEl = document.createElement('a');
-                displayEl.href = sanitizedUrl;
-                displayEl.target = '_blank';
-            } else {
-                displayEl = document.createElement('span');
-            }
-            displayEl.className = 'task-display';
-            displayEl.textContent = task.title;
-            contentWrap.appendChild(displayEl);
-
-            const meta = document.createElement('div');
-            meta.className = 'task-meta';
-            meta.textContent = task.officers || '';
-            contentWrap.appendChild(meta);
-
-            item.appendChild(contentWrap);
-
-            const editBtn = document.createElement('span');
-            editBtn.textContent = ' ✏️';
-            editBtn.style.cursor = 'pointer';
-            editBtn.onclick = () => openModal(task, task.month, 'ops');
-            item.appendChild(editBtn);
-
-            list.appendChild(item);
+        const tbody = container.querySelector('#ops-tbody');
+        tbody.innerHTML = '';
+        const sorted = [...state.opsTasks].sort((a, b) => {
+            if (!a.date && !b.date) return 0;
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return a.date.localeCompare(b.date);
         });
 
-        if (sortedTasks.length === 0) {
-            list.innerHTML = '<p style="text-align:center; color:#666;">No actual ops tasks found. Click "+ Add Ops Task" to create one.</p>';
-        }
+        sorted.forEach(task => {
+            if (state.hideDone && task.done) return;
+            const tr = document.createElement('tr');
+            if (task.done) tr.className = 'done-row';
+
+            const createCell = (content) => {
+                const td = document.createElement('td');
+                if (content instanceof HTMLElement) td.appendChild(content);
+                else td.textContent = content;
+                return td;
+            };
+
+            const doneCb = document.createElement('input');
+            doneCb.type = 'checkbox';
+            doneCb.checked = !!task.done;
+            doneCb.className = 'done-cb';
+            doneCb.onchange = () => { task.done = doneCb.checked; saveData(); renderUI(); };
+
+            const dateInp = document.createElement('input');
+            dateInp.type = 'date';
+            dateInp.value = task.date || '';
+            dateInp.className = 'date-input';
+            dateInp.onchange = () => { task.date = dateInp.value; saveData(); renderUI(); };
+
+            const titleInp = document.createElement('input');
+            titleInp.type = 'text';
+            titleInp.value = task.title || '';
+            titleInp.className = 'task-name-input';
+            titleInp.placeholder = 'Title';
+            titleInp.onchange = () => { task.title = titleInp.value; saveData(); };
+
+            const urlInp = document.createElement('input');
+            urlInp.type = 'text';
+            urlInp.value = task.url || '';
+            urlInp.className = 'url-input';
+            urlInp.placeholder = 'URL';
+            urlInp.onchange = () => { task.url = urlInp.value; saveData(); };
+
+            const offInp = document.createElement('input');
+            offInp.type = 'text';
+            offInp.value = task.officers || '';
+            offInp.className = 'officers-input';
+            offInp.placeholder = 'Officer / Officer';
+            offInp.onchange = () => { task.officers = offInp.value; saveData(); };
+
+            const remInp = document.createElement('textarea');
+            remInp.className = 'remarks-input';
+            remInp.rows = 3;
+            remInp.value = task.remarks || '';
+            remInp.placeholder = 'Remarks';
+            remInp.onchange = () => { task.remarks = remInp.value; saveData(); };
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn-danger delete-btn';
+            delBtn.style.padding = '4px 8px';
+            delBtn.textContent = '×';
+            delBtn.onclick = () => {
+                state.opsTasks = state.opsTasks.filter(t => t.id !== task.id);
+                saveData(); renderUI();
+            };
+
+            tr.appendChild(createCell(doneCb));
+            tr.appendChild(createCell(dateInp));
+            tr.appendChild(createCell(titleInp));
+            tr.appendChild(createCell(urlInp));
+            tr.appendChild(createCell(offInp));
+            tr.appendChild(createCell(remInp));
+            tr.appendChild(createCell(delBtn));
+
+            tbody.appendChild(tr);
+        });
     }
 
     function renderOfficerUI() {
         const list = container.querySelector('#officer-list');
         list.innerHTML = '';
-
         const officerMap = {};
         state.opsTasks.forEach(task => {
             if (state.hideDone && task.done) return;
             const officers = (task.officers || "Unassigned").split('/').map(s => s.trim()).filter(s => s);
             if (officers.length === 0) officers.push("Unassigned");
-
-            officers.forEach(o => {
-                if (!officerMap[o]) officerMap[o] = [];
-                officerMap[o].push(task);
-            });
+            officers.forEach(o => { if (!officerMap[o]) officerMap[o] = []; officerMap[o].push(task); });
         });
-
-        const sortedOfficers = Object.keys(officerMap).sort();
-        sortedOfficers.forEach(o => {
-            const card = document.createElement('div');
-            card.className = 'officer-card';
-
-            const h2 = document.createElement('h2');
-            h2.textContent = o;
-            card.appendChild(h2);
-
-            const taskList = document.createElement('div');
-            taskList.className = 'task-list';
-
+        Object.keys(officerMap).sort().forEach(o => {
+            const card = document.createElement('div'); card.className = 'officer-card';
+            const h2 = document.createElement('h2'); h2.textContent = o; card.appendChild(h2);
+            const taskList = document.createElement('div'); taskList.className = 'task-list';
             officerMap[o].forEach(task => {
-                const item = document.createElement('div');
-                item.className = 'task-item' + (task.done ? ' done' : '');
-
-                const wrap = document.createElement('div');
-                wrap.style.cssText = "display:flex; align-items:center; gap:5px;";
-
-                const cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.checked = !!task.done;
-                cb.onclick = (e) => {
-                    task.done = cb.checked;
-                    saveData(); renderUI();
-                };
-                wrap.appendChild(cb);
-
-                const span = document.createElement('span');
-                span.className = 'task-display';
-                const monthName = new Date(2000, task.month, 1).toLocaleString('default', { month: 'short' });
-                span.textContent = `[${monthName}] ${task.title}`;
-                wrap.appendChild(span);
-
-                item.appendChild(wrap);
-                taskList.appendChild(item);
+                const item = document.createElement('div'); item.className = 'task-item' + (task.done ? ' done' : '');
+                const row = document.createElement('div'); row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '5px';
+                const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!task.done;
+                cb.onchange = () => { task.done = cb.checked; saveData(); renderUI(); };
+                const span = document.createElement('span'); span.className = 'task-display';
+                span.textContent = (task.date ? '['+task.date+'] ' : '') + task.title;
+                row.appendChild(cb); row.appendChild(span); item.appendChild(row); taskList.appendChild(item);
             });
             card.appendChild(taskList);
             list.appendChild(card);
         });
-
-        if (sortedOfficers.length === 0) {
-            list.innerHTML = '<p style="text-align:center; color:#666;">No actual ops tasks found.</p>';
-        }
     }
 
     function renderUI() {
@@ -449,107 +373,84 @@
         else if (currentView === "officers") renderOfficerUI();
     }
 
-    function openModal(task, month, type) {
+    function openModal(task, month) {
         const modal = container.querySelector('#task-modal');
-        const opsFields = container.querySelector('#ops-fields');
         container.querySelector('#task-id').value = task ? task.id : '';
-        container.querySelector('#task-type').value = type;
         container.querySelector('#task-name').value = task ? task.title : '';
         container.querySelector('#task-url').value = task ? task.url : '';
         container.querySelector('#task-month').value = month;
-
-        if (type === 'ops') {
-            opsFields.style.display = 'block';
-            container.querySelector('#task-officers').value = task ? (task.officers || '') : '';
-            container.querySelector('#task-remarks').value = task ? (task.remarks || '') : '';
-        } else {
-            opsFields.style.display = 'none';
-        }
-
         container.querySelector('#delete-task-btn').style.display = task ? 'block' : 'none';
         modal.style.display = 'flex';
     }
 
     container.querySelector('#save-task-btn').onclick = () => {
         const id = container.querySelector('#task-id').value;
-        const type = container.querySelector('#task-type').value;
         const title = container.querySelector('#task-name').value.trim();
+        if (!title) { alert('Title required'); return; }
         const url = container.querySelector('#task-url').value.trim();
         const month = parseInt(container.querySelector('#task-month').value);
-
-        if (!title) { alert('Title required'); return; }
-
-        const collection = type === 'ops' ? state.opsTasks : state.recurringTasks;
-
-        let existingTask = null;
-        if (id) existingTask = collection.find(t => t.id === id);
-
-        const taskData = {
-            id: id || Date.now().toString(),
-            title, url, month,
-            done: existingTask ? !!existingTask.done : false
-        };
-
-        if (type === 'ops') {
-            taskData.officers = container.querySelector('#task-officers').value.trim();
-            taskData.remarks = container.querySelector('#task-remarks').value.trim();
-        }
-
         if (id) {
-            const idx = collection.findIndex(t => t.id === id);
-            if (idx !== -1) collection[idx] = taskData;
+            const idx = state.recurringTasks.findIndex(t => t.id === id);
+            if (idx !== -1) state.recurringTasks[idx] = { ...state.recurringTasks[idx], title, url, month };
         } else {
-            collection.push(taskData);
+            state.recurringTasks.push({ id: Date.now().toString(), title, url, month, done: false });
         }
-
-        saveData(); renderUI();
-        container.querySelector('#task-modal').style.display = 'none';
+        saveData(); renderUI(); container.querySelector('#task-modal').style.display = 'none';
     };
 
     container.querySelector('#delete-task-btn').onclick = () => {
-        const id = container.querySelector('#task-id').value;
-        const type = container.querySelector('#task-type').value;
-        const collectionName = type === 'ops' ? 'opsTasks' : 'recurringTasks';
-        state[collectionName] = state[collectionName].filter(t => t.id !== id);
-        saveData(); renderUI();
-        container.querySelector('#task-modal').style.display = 'none';
+        state.recurringTasks = state.recurringTasks.filter(t => t.id !== container.querySelector('#task-id').value);
+        saveData(); renderUI(); container.querySelector('#task-modal').style.display = 'none';
     };
 
     container.querySelector('#close-modal-btn').onclick = () => container.querySelector('#task-modal').style.display = 'none';
-
-    // Click outside to close modal
     const taskModal = container.querySelector('#task-modal');
-    taskModal.onclick = (e) => {
-        if (e.target === taskModal) taskModal.style.display = 'none';
-    };
+    taskModal.onclick = (e) => { if (e.target === taskModal) taskModal.style.display = 'none'; };
+
+    const escapeTSV = (str) => (str || "").replace(/\t/g, " ").replace(/\n/g, "\\n").replace(/\r/g, "");
+    const unescapeTSV = (str) => (str || "").replace(/\\n/g, "\n");
 
     container.querySelector('#export-tsv-btn').onclick = () => {
-        let tsv = "Type\tMonth\tTitle\tURL\tDone\tOfficers\tRemarks\n";
-        state.recurringTasks.forEach(t => tsv += `Recurring\t${t.month}\t${t.title}\t${t.url}\t${t.done}\t\t\n`);
-        state.opsTasks.forEach(t => tsv += `Ops\t${t.month}\t${t.title}\t${t.url}\t${t.done}\t${t.officers||''}\t${t.remarks||''}\n`);
+        let tsv = "Type\tDate\tMonth\tTitle\tURL\tDone\tOfficers\tRemarks\n";
+        state.recurringTasks.forEach(t => {
+            tsv += `Recurring\t\t${t.month}\t${escapeTSV(t.title)}\t${escapeTSV(t.url)}\t${t.done}\t\t\n`;
+        });
+        state.opsTasks.forEach(t => {
+            tsv += `Ops\t${t.date||''}\t\t${escapeTSV(t.title)}\t${escapeTSV(t.url)}\t${t.done}\t${escapeTSV(t.officers)}\t${escapeTSV(t.remarks)}\n`;
+        });
         navigator.clipboard.writeText(tsv).then(() => alert("Exported to clipboard."));
     };
 
     container.querySelector('#import-tsv-btn').onclick = async () => {
         try {
             const text = await navigator.clipboard.readText();
+            if (!text) return;
             const rows = text.trim().split('\n').slice(1);
-            state.recurringTasks = [];
-            state.opsTasks = [];
+            state.recurringTasks = []; state.opsTasks = [];
             rows.forEach((r, i) => {
-                const cols = r.split('\t');
-                const t = { id: Date.now().toString() + i, month: parseInt(cols[1]), title: cols[2], url: cols[3], done: cols[4] === 'true' };
-                if (cols[0] === 'Ops') {
-                    t.officers = cols[5]; t.remarks = cols[6];
+                const c = r.split('\t');
+                if (c.length < 6) return;
+                const type = c[0];
+                const t = {
+                    id: Date.now().toString() + i,
+                    title: unescapeTSV(c[3]),
+                    url: unescapeTSV(c[4]),
+                    done: c[5] === 'true'
+                };
+                if (type === 'Ops') {
+                    t.date = c[1];
+                    t.officers = unescapeTSV(c[6]);
+                    t.remarks = unescapeTSV(c[7]);
                     state.opsTasks.push(t);
                 } else {
+                    t.month = parseInt(c[2]);
                     state.recurringTasks.push(t);
                 }
             });
             saveData(); renderUI();
-        } catch (e) { alert("Import failed."); }
+            alert("Imported successfully.");
+        } catch (e) { alert("Import failed: " + e.message); }
     };
 
-    await loadData();
-    renderUI();
+    await loadData(); renderUI();
 })();
