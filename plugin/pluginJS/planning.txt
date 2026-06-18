@@ -93,6 +93,22 @@
         </div>
 
         <div id="ops-view" class="view-section">
+            <h3 style="margin-top:0; color: #d9534f;">⚠️ Due / Overdue</h3>
+            <table class="ops-table" style="margin-bottom: 20px;">
+                <thead>
+                    <tr>
+                        <th style="width:70px;">Actions</th>
+                        <th style="width:120px;">Date</th>
+                        <th style="width:200px;">Title</th>
+                        <th style="width:250px;">URL</th>
+                        <th style="width:150px;">Officers</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody id="ops-tbody-due"></tbody>
+            </table>
+
+            <h3 style="margin-top:20px; color: #5bc0de;">📅 Future / Unscheduled</h3>
             <table class="ops-table">
                 <thead>
                     <tr>
@@ -104,7 +120,7 @@
                         <th>Remarks</th>
                     </tr>
                 </thead>
-                <tbody id="ops-tbody"></tbody>
+                <tbody id="ops-tbody-future"></tbody>
             </table>
         </div>
 
@@ -224,21 +240,39 @@
     const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     function formatDateDisplay(isoDate) {
         if (!isoDate) return "";
+        // If it's already NOT in ISO format (roughly), just return it
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate;
         const parts = isoDate.split('-');
-        if (parts.length !== 3) return isoDate;
         const [y, m, d] = parts;
-        return `${d}-${monthsShort[parseInt(m)-1]}-${y}`;
+        const monthName = monthsShort[parseInt(m)-1];
+        if (!monthName) return isoDate;
+        return `${d}-${monthName}-${y}`;
     }
     function parseDateDisplay(displayDate) {
         if (!displayDate) return "";
+        // If it's already ISO, return it
+        if (/^\d{4}-\d{2}-\d{2}$/.test(displayDate)) return displayDate;
+
         const parts = displayDate.split('-');
         if (parts.length !== 3) return displayDate;
-        const d = parts[0].padStart(2, '0');
+
+        // Handle dd-MMM-YYYY
+        let d, m, y;
         const mIdx = monthsShort.findIndex(m => m.toLowerCase() === parts[1].toLowerCase());
-        if (mIdx === -1) return displayDate;
-        const m = (mIdx + 1).toString().padStart(2, '0');
-        const y = parts[2];
-        return `${y}-${m}-${d}`;
+        if (mIdx !== -1) {
+            d = parts[0].padStart(2, '0');
+            m = (mIdx + 1).toString().padStart(2, '0');
+            y = parts[2];
+        } else {
+            // Fallback: maybe it's mixed up? e.g. YYYY-MM-DD but with MMM?
+            // Actually just return original if we can't parse it reliably
+            return displayDate;
+        }
+
+        if (y.length === 4 && d.length <= 2) {
+             return `${y}-${m}-${d}`;
+        }
+        return displayDate;
     }
 
     function renderRecurringCalendar() {
@@ -278,8 +312,13 @@
     }
 
     function renderOpsListing() {
-        const tbody = container.querySelector('#ops-tbody');
-        tbody.innerHTML = '';
+        const dueTbody = container.querySelector('#ops-tbody-due');
+        const futureTbody = container.querySelector('#ops-tbody-future');
+        dueTbody.innerHTML = '';
+        futureTbody.innerHTML = '';
+
+        const today = new Date().toISOString().split('T')[0];
+
         const sorted = [...state.opsTasks].sort((a, b) => {
             if (!a.date && !b.date) return 0;
             if (!a.date) return 1;
@@ -335,8 +374,8 @@
                 saveData(); renderUI();
             };
 
-            const titleInp = document.createElement('input');
-            titleInp.type = 'text';
+            const titleInp = document.createElement('textarea');
+            titleInp.rows = 2;
             titleInp.value = task.title || '';
             titleInp.className = 'task-name-input';
             titleInp.placeholder = 'Title';
@@ -383,7 +422,11 @@
             tr.appendChild(createCell(offInp));
             tr.appendChild(createCell(remInp));
 
-            tbody.appendChild(tr);
+            if (task.date && task.date <= today) {
+                dueTbody.appendChild(tr);
+            } else {
+                futureTbody.appendChild(tr);
+            }
         });
     }
 
