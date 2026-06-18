@@ -99,8 +99,7 @@
                     <tr>
                         <th style="width:70px;">Actions</th>
                         <th style="width:120px;">Date</th>
-                        <th style="width:200px;">Title</th>
-                        <th style="width:250px;">URL</th>
+                        <th style="width:250px;">Title</th>
                         <th style="width:150px;">Officers</th>
                         <th>Remarks</th>
                     </tr>
@@ -114,8 +113,7 @@
                     <tr>
                         <th style="width:70px;">Actions</th>
                         <th style="width:120px;">Date</th>
-                        <th style="width:200px;">Title</th>
-                        <th style="width:250px;">URL</th>
+                        <th style="width:250px;">Title</th>
                         <th style="width:150px;">Officers</th>
                         <th>Remarks</th>
                     </tr>
@@ -185,18 +183,25 @@
         let loaded = false;
         const localData = localStorage.getItem(STORAGE_KEY);
         if (localData) { try { state = JSON.parse(localData); loaded = true; } catch(e) {} }
-        if (!loaded) {
-            try {
-                const rootHandle = PluginAPI.getRootHandle();
-                if (rootHandle) {
-                    const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: false });
-                    const file = await fileHandle.getFile();
-                    const text = await file.text();
-                    const fileData = text ? JSON.parse(text) : null;
-                    if (fileData) { state = { ...state, ...fileData }; loaded = true; }
+
+        try {
+            const rootHandle = PluginAPI.getRootHandle();
+            if (rootHandle) {
+                const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: false });
+                const file = await fileHandle.getFile();
+                const text = await file.text();
+                if (text) {
+                    let fileState = null;
+                    if (text.trim().startsWith('{')) {
+                        fileState = JSON.parse(text);
+                    } else {
+                        fileState = parseTSVToState(text);
+                    }
+                    if (fileState && !loaded) { state = { ...state, ...fileState }; loaded = true; }
                 }
-            } catch (err) {}
-        }
+            }
+        } catch (err) {}
+
         if (state.recurringTasks.length === 0 && state.opsTasks.length === 0) {
              const oldV3 = localStorage.getItem('planning-data-v3');
              if (oldV3) { state.recurringTasks = JSON.parse(oldV3).tasks || []; }
@@ -209,6 +214,57 @@
         if (changed) saveData();
     }
 
+    function parseTSVToState(text) {
+        const rows = parseTSV(text);
+        if (rows.length < 2) return null;
+        const header = rows[0];
+        const hasUrlCol = header.includes("URL");
+        const recurringTasks = [];
+        const opsTasks = [];
+
+        rows.slice(1).forEach((c, i) => {
+            if (c.length < 4) return;
+            const dateVal = c[0];
+            const monthVal = c[1];
+            const title = c[2];
+            let url = "", doneStr = "", officers = "", remarks = "";
+
+            if (hasUrlCol) {
+                url = c[3];
+                doneStr = c[4];
+                officers = c[5] || "";
+                remarks = c[6] || "";
+            } else {
+                doneStr = c[3];
+                officers = c[4] || "";
+                remarks = c[5] || "";
+            }
+
+            const t = {
+                id: Date.now().toString() + i,
+                title: title,
+                url: url,
+                done: doneStr === 'true'
+            };
+
+            if (dateVal) {
+                t.date = parseDateDisplay(dateVal);
+                t.officers = officers;
+                t.remarks = remarks;
+                opsTasks.push(t);
+            } else if (monthVal) {
+                t.month = parseInt(monthVal);
+                recurringTasks.push(t);
+            } else {
+                t.date = "";
+                t.officers = officers;
+                t.remarks = remarks;
+                opsTasks.push(t);
+            }
+        });
+        return { recurringTasks, opsTasks, hideDone: state.hideDone };
+    }
+
     function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); needsFileSave = true; }
 
     async function saveToFile() {
@@ -219,11 +275,25 @@
             if (rootHandle) {
                 const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: true });
                 const writable = await fileHandle.createWritable();
-                await writable.write(JSON.stringify(state, null, 2));
+                const tsv = generateTSV();
+                await writable.write(tsv);
                 await writable.close();
                 needsFileSave = false;
             }
         } catch (err) {} finally { isSavingToFile = false; }
+    }
+
+    function generateTSV() {
+        let tsv = "Date\tMonth\tTitle\tDone\tOfficers\tRemarks\n";
+        state.recurringTasks.forEach(t => {
+            const row = ["", t.month, t.title, t.done, "", ""];
+            tsv += row.map(stringifyTSVValue).join('\t') + '\n';
+        });
+        state.opsTasks.forEach(t => {
+            const row = [t.date || "", "", t.title, t.done, t.officers || "", t.remarks || ""];
+            tsv += row.map(stringifyTSVValue).join('\t') + '\n';
+        });
+        return tsv;
     }
     setInterval(saveToFile, 60000);
 
@@ -317,7 +387,8 @@
         dueTbody.innerHTML = '';
         futureTbody.innerHTML = '';
 
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
         const sorted = [...state.opsTasks].sort((a, b) => {
             if (!a.date && !b.date) return 0;
@@ -381,26 +452,6 @@
             titleInp.placeholder = 'Title';
             titleInp.onchange = () => { task.title = titleInp.value; saveData(); };
 
-            const urlDiv = document.createElement('div');
-            urlDiv.style.display = 'flex';
-            urlDiv.style.gap = '4px';
-            const urlInp = document.createElement('input');
-            urlInp.type = 'text';
-            urlInp.value = task.url || '';
-            urlInp.className = 'url-input';
-            urlInp.placeholder = 'URL';
-            urlInp.onchange = () => { task.url = urlInp.value; saveData(); };
-            const urlBtn = document.createElement('button');
-            urlBtn.className = 'btn-secondary';
-            urlBtn.style.padding = '2px 4px';
-            urlBtn.textContent = '🔗';
-            urlBtn.onclick = () => {
-                const url = sanitizeUrl(task.url);
-                if (url && url !== 'about:blank') window.open(url, '_blank');
-            };
-            urlDiv.appendChild(urlInp);
-            urlDiv.appendChild(urlBtn);
-
             const offInp = document.createElement('input');
             offInp.type = 'text';
             offInp.value = task.officers || '';
@@ -418,7 +469,6 @@
             tr.appendChild(createCell(actionsDiv));
             tr.appendChild(createCell(dateInp));
             tr.appendChild(createCell(titleInp));
-            tr.appendChild(createCell(urlDiv));
             tr.appendChild(createCell(offInp));
             tr.appendChild(createCell(remInp));
 
@@ -552,31 +602,7 @@
     }
 
     container.querySelector('#export-tsv-btn').onclick = () => {
-        let tsv = "Date\tMonth\tTitle\tURL\tDone\tOfficers\tRemarks\n";
-        state.recurringTasks.forEach(t => {
-            const row = [
-                "",
-                t.month,
-                t.title,
-                t.url,
-                t.done,
-                "",
-                ""
-            ];
-            tsv += row.map(stringifyTSVValue).join('\t') + '\n';
-        });
-        state.opsTasks.forEach(t => {
-            const row = [
-                t.date || "",
-                "",
-                t.title,
-                t.url,
-                t.done,
-                t.officers || "",
-                t.remarks || ""
-            ];
-            tsv += row.map(stringifyTSVValue).join('\t') + '\n';
-        });
+        const tsv = generateTSV();
         navigator.clipboard.writeText(tsv).then(() => alert("Exported to clipboard."));
     };
 
@@ -584,40 +610,13 @@
         try {
             const text = await navigator.clipboard.readText();
             if (!text) return;
-            const rows = parseTSV(text);
-            if (rows.length < 2) return;
-
-            state.recurringTasks = []; state.opsTasks = [];
-            rows.slice(1).forEach((c, i) => {
-                if (c.length < 5) return;
-                const dateVal = c[0];
-                const monthVal = c[1];
-                const t = {
-                    id: Date.now().toString() + i,
-                    title: c[2],
-                    url: c[3],
-                    done: c[4] === 'true'
-                };
-
-                // If date present = ops, if month present = monthly, both = ops
-                if (dateVal) {
-                    t.date = dateVal;
-                    t.officers = c[5] || "";
-                    t.remarks = c[6] || "";
-                    state.opsTasks.push(t);
-                } else if (monthVal) {
-                    t.month = parseInt(monthVal);
-                    state.recurringTasks.push(t);
-                } else {
-                    // Fallback to Ops if both empty as per priority "both = ops"
-                    t.date = "";
-                    t.officers = c[5] || "";
-                    t.remarks = c[6] || "";
-                    state.opsTasks.push(t);
-                }
-            });
-            saveData(); renderUI();
-            alert("Imported successfully.");
+            const newState = parseTSVToState(text);
+            if (newState) {
+                state.recurringTasks = newState.recurringTasks;
+                state.opsTasks = newState.opsTasks;
+                saveData(); renderUI();
+                alert("Imported successfully.");
+            }
         } catch (e) { alert("Import failed: " + e.message); }
     };
 
