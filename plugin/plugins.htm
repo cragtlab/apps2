@@ -33,18 +33,56 @@
       cursor: pointer;
       text-align: left;
     }
+    #toolSearch {
+      margin-top: 10px;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+      display: none;
+    }
+    #toolOverlay {
+      position: fixed;
+      left: 170px;
+      top: 10px;
+      background: white;
+      border: 1px solid #ccc;
+      box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      width: 250px;
+      max-height: 80vh;
+      overflow-y: auto;
+      display: none;
+      padding: 5px;
+    }
+    .toolItem {
+      padding: 8px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      color: #333;
+    }
+    .toolItem:hover {
+      background: #f0f0f0;
+    }
+    .toolItem:last-child {
+      border-bottom: none;
+    }
   </style>
 </head>
 <body>
   <div id="tabBar">
     <button id="loadBtn" class="controlBtn">Load Plugins</button>
     <button id="refreshBtn" class="controlBtn">Refresh Plugins</button>
+    <input type="text" id="toolSearch" placeholder="Search tools..." autocomplete="off">
+    <div id="toolOverlay"></div>
     <font color=white>Press Alt-1 to go 1st</font><br/>
   </div>
   <div id="contentArea"></div>
 
   <script>
     let globalRootHandle = null;
+    let toolsFiles = [];
 
     const PluginAPI = {
       add: function(title) {
@@ -90,6 +128,8 @@
       try {
         globalRootHandle = await window.showDirectoryPicker({mode: 'readwrite'});
         await loadPluginsFromHandle(globalRootHandle);
+        await updateToolsList();
+        document.getElementById("toolSearch").style.display = "block";
       } catch (err) {
         console.error('Plugin loading failed:', err);
         alert(err);
@@ -104,7 +144,72 @@
       document.querySelectorAll("#tabBar .tabButton").forEach(btn => btn.remove());
       document.getElementById("contentArea").innerHTML = "";
       await loadPluginsFromHandle(globalRootHandle);
+      await updateToolsList();
     };
+
+    async function updateToolsList() {
+      if (!globalRootHandle) return;
+      try {
+        const toolsFolderHandle = await globalRootHandle.getDirectoryHandle("tools");
+        toolsFiles = [];
+        for await (const entry of toolsFolderHandle.values()) {
+          if (entry.kind === "file") {
+            toolsFiles.push(entry.name);
+          }
+        }
+        toolsFiles.sort((a, b) => a.localeCompare(b));
+      } catch (err) {
+        console.error("Failed to load tools list:", err);
+      }
+    }
+
+    function openTool(name) {
+      window.open("tools/" + name, "_blank");
+      document.getElementById("toolOverlay").style.display = "none";
+      document.getElementById("toolSearch").value = "";
+    }
+
+    document.getElementById("toolSearch").addEventListener("input", function() {
+      const query = this.value.toLowerCase().trim();
+      const overlay = document.getElementById("toolOverlay");
+      overlay.innerHTML = "";
+      if (query === "") {
+        overlay.style.display = "none";
+        return;
+      }
+      const matches = toolsFiles.filter(f => f.toLowerCase().includes(query));
+      if (matches.length > 0) {
+        matches.forEach(match => {
+          const div = document.createElement("div");
+          div.className = "toolItem";
+          div.textContent = match;
+          div.onclick = () => openTool(match);
+          overlay.appendChild(div);
+        });
+        overlay.style.display = "block";
+      } else {
+        overlay.style.display = "none";
+      }
+    });
+
+    document.addEventListener("click", function(e) {
+      const search = document.getElementById("toolSearch");
+      const overlay = document.getElementById("toolOverlay");
+      if (e.target !== search && !overlay.contains(e.target)) {
+        overlay.style.display = "none";
+      }
+    });
+
+    document.getElementById("toolSearch").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        const query = this.value.toLowerCase().trim();
+        const matches = toolsFiles.filter(f => f.toLowerCase().includes(query));
+        if (matches.length > 0) {
+          openTool(matches[0]);
+        }
+      }
+    });
+
 async function ensureWritePermission(handle) {
   const opts = { mode: 'readwrite' };
   if ((await handle.queryPermission(opts)) === 'granted') return true;
