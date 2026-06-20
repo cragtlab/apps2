@@ -1,0 +1,54 @@
+{
+  "name": "V2 Bookmarklet Manager (New Tab for designer in separate extension)",
+  "version": "0.0.1",
+  "manifest_version": 3,
+  "description": "This extension was created with the awesome verticaltemplate.com",
+  "homepage_url": "https://verticaltemplate.com",
+  "icons": {
+    "512": "icons/icon512.png"
+  },
+  "permissions": [
+    "bookmarks",
+    "scripting",
+     "userScripts",
+    
+     "declarativeNetRequest", // needed to prevent lazada hiding name and phone
+    "declarativeNetRequestWithHostAccess"
+    //"activeTab" // needed for CSP?
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "default_locale": "en",
+
+  "background": {
+    "service_worker": "src/background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.js"]
+
+    }
+  ],
+  
+  "web_accessible_resources": [{
+    "resources": ["injectMyScript.js"],
+    "matches": ["<all_urls>"]
+  }]
+  /*,
+   "content_security_policy": {
+    "extension_pages": "script-src 'self' 'unsafe-inline'; object-src 'self'"
+  }*/
+}

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="utf-8">
+<title>Elon Timeline Autoplay</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet">
+
+<style>
+body { font-family: Arial; padding: 20px; background:#f5f5f5; }
+canvas { max-width: 1000px; background: white; }
+</style>
+</head>
+<body>
+
+<h2>Age Timeline (Autoplay)</h2>
+<canvas id="chart"></canvas>
+
+<script>
+
+const raw = {
+  "Elon Musk": [
+    {x:2000,y:29},{x:2002,y:31},{x:2004,y:33},{x:2006,y:35},{x:2008,y:37},
+    {x:2010,y:39},{x:2012,y:41},{x:2013,y:42},{x:2016,y:45},{x:2018,y:47},
+    {x:2020,y:49},{x:2021,y:50},{x:2022,y:51},{x:2023,y:52},{x:2025,y:54}
+  ],
+  "Justine Musk": [
+    {x:2000,y:28},{x:2002,y:30},{x:2004,y:32},{x:2006,y:34},{x:2008,y:36}
+  ],
+  "Talulah Riley": [
+    {x:2008,y:23},{x:2010,y:25},{x:2012,y:27},{x:2013,y:28},{x:2016,y:31}
+  ],
+  "Grimes": [
+    {x:2018,y:30},{x:2020,y:32},{x:2021,y:33},{x:2022,y:34}
+  ],
+  "Shivon Zilis": [
+    {x:2021,y:35},{x:2023,y:37},{x:2025,y:39}
+  ]
+};/*
+const raw = {
+  "Jeff Bezos": [
+    {x:1993,y:29},{x:1995,y:31},{x:1997,y:33},{x:2000,y:36},
+    {x:2005,y:41},{x:2010,y:46},{x:2015,y:51},{x:2019,y:55},
+    {x:2021,y:57},{x:2025,y:61}
+  ],
+
+  "MacKenzie Scott": [
+    {x:1993,y:23},{x:1995,y:25},{x:1997,y:27},{x:2000,y:30},
+    {x:2005,y:35},{x:2010,y:40},{x:2015,y:45},{x:2019,y:49}
+  ],
+
+  "Lauren Sanchez": [
+    {x:2019,y:50},{x:2020,y:51},{x:2021,y:52},
+    {x:2022,y:53},{x:2023,y:54},{x:2025,y:56}
+  ]
+};*/
+
+
+const who=Object.keys(raw)[0];
+function interp(series, year) {
+  for (let i=0;i<series.length-1;i++){
+    let a=series[i], b=series[i+1];
+    if (year>=a.x && year<=b.x){
+      let t=(year-a.x)/(b.x-a.x);
+      return a.y + t*(b.y-a.y);
+    }
+  }
+  return null;
+}
+
+// get last known point (for gap freeze)
+function lastPoint(series, year) {
+  let last = null;
+  for (let p of series) {
+    if (p.x <= year) last = p;
+  }
+  return last;
+}
+
+const leaderLinePlugin = {
+  id: 'leaderLines',
+
+  afterDraw(chart) {
+    const { ctx, chartArea } = chart;
+
+    // collect active points
+    let items = [];
+
+    chart.data.datasets.forEach((ds, i) => {
+      if (!ds.data.length) return;
+
+      const meta = chart.getDatasetMeta(i);
+      const idx = ds.data.length - 1;
+      const point = meta.data[idx];
+      if (!point) return;
+
+      const val = ds.data[idx].y;
+
+      items.push({
+        label: ds.label,
+        value: val,
+        x: point.x,
+        y: point.y
+      });
+    });
+
+    // sort top-to-bottom (important for collision control)
+    items.sort((a, b) => a.y - b.y);
+
+    let usedY = [];
+
+    function resolveY(y) {
+      const minGap = 18;
+      for (let u of usedY) {
+        if (Math.abs(u - y) < minGap) {
+          y = u + minGap;
+        }
+      }
+      usedY.push(y);
+      return y;
+    }
+
+    ctx.save();
+    ctx.font = "30px 'Bangers', Arial";
+    ctx.fillStyle = "black";
+    ctx.strokeStyle = "#444";
+    ctx.lineWidth = 1;
+
+    const labelX = chart.chartArea.right + 20;
+
+    items.forEach(item => {
+      const labelY = resolveY(item.y);
+
+      const text = `${item.label} (${item.value.toFixed(0)})`;
+
+      // leader line (curve-ish feel)
+      ctx.beginPath();
+      ctx.moveTo(item.x, item.y);
+      ctx.lineTo(labelX - 10, labelY);
+      ctx.stroke();
+
+      // dot emphasis
+      ctx.beginPath();
+      ctx.arc(item.x, item.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // label background
+      const w = ctx.measureText(text).width;
+
+      ctx.fillStyle = "white";
+      ctx.fillRect(labelX - 5, labelY - 24, w + 10, 36);
+
+      ctx.strokeStyle = "#222";
+      ctx.strokeRect(labelX - 5, labelY - 24, w + 10, 36);
+
+      // label text
+      ctx.fillStyle = "black";
+      ctx.fillText(text, labelX, labelY);
+
+      ctx.fillStyle = "black";
+    });
+
+    ctx.restore();
+  }
+};
+
+const labelPlugin = {
+  id: 'labels',
+  afterDraw(chart) {
+    const {ctx} = chart;
+
+    // background
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, chart.width, chart.height);
+    ctx.restore();
+
+    const elonData = chart.data.datasets[0].data;
+    const elonLast = elonData[elonData.length - 1];
+
+    chart.data.datasets.forEach((ds, i) => {
+      if (!ds.data.length) return;
+
+      const meta = chart.getDatasetMeta(i);
+      const idx = ds.data.length - 1;
+      const point = meta.data[idx];
+      if (!point) return;
+
+      const val = ds.data[idx].y;
+
+      let gapText = "";
+      if (i !== 0 && elonLast) {
+        const key = Object.keys(raw)[i];
+        const lp = lastPoint(raw[key], elonLast.x);
+
+        if (lp) {
+          // freeze gap at partner's last year
+          const elonAtThatTime = interp(raw[who], lp.x);
+          const gap = elonAtThatTime - lp.y;
+          gapText = " (" + gap.toFixed(0) + "y gap)";
+        }
+      }
+
+      const text = ds.label + " (" + val.toFixed(0) + ")";
+
+      ctx.save();
+      ctx.font = "32px Bangers";
+      
+
+      const padding = 4;
+      const w = ctx.measureText(text).width;
+      const x = point.x + 8;
+      const y = point.y - 36;
+
+      ctx.fillStyle = "white";
+      ctx.fillRect(x-padding, y-20, w+padding*2, 20);
+
+      ctx.strokeStyle = "#333";
+      ctx.strokeRect(x-padding, y-24, w+padding*2, 28*2);
+
+      ctx.fillStyle = "black";
+      ctx.fillText(text, x, y);
+      ctx.fillText(gapText,x, y+36/2+8);
+
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 3, 0, 2*Math.PI);
+      ctx.fill();
+
+      ctx.restore();
+    });
+  }
+};
+
+const datasets = Object.keys(raw).map(name => ({
+  label: name,
+  data: [],
+  borderWidth: 2,
+  tension: 0.25
+}));
+
+const chart = new Chart(document.getElementById('chart'), {
+  type: 'line',
+  data: { datasets },
+  options: {
+    animation: false,
+    parsing: false,
+    layout: { padding: { top: 100, right: 240 } },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { type:'linear', min:2000, max:2025, grid:{ display:false}},
+      y: { min:20, max:62, grid:{ display:false} }
+    }
+  },
+  plugins: [labelPlugin]//leaderLinePlugin]
+});
+
+let duration = 10000;
+let endPause = 1500; // <-- pause at end
+
+window.onload = () => start();
+
+function start() {
+  const canvas = document.getElementById('chart');
+
+  setTimeout(() => {
+    const stream = canvas.captureStream(60);
+    const recorder = new MediaRecorder(stream);
+    let chunks=[];
+
+    recorder.ondataavailable = e => chunks.push(e.data);
+    recorder.onstop = () => {
+      const blob = new Blob(chunks,{type:'video/mp4'});
+      const url = URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download='autoplay_timeline.mp4';
+      a.click();
+    };
+
+    recorder.start();
+
+    let startTime=null;
+
+    function animate(ts){
+      if(!startTime) startTime=ts;
+      let t = (ts-startTime)/duration;
+      if(t>1) t=1;
+
+      let year = 2000 + t*(2025-2000);
+
+      chart.data.datasets.forEach((ds,i)=>{
+        let key = Object.keys(raw)[i];
+        let val = interp(raw[key], year);
+        if(val!==null){
+          ds.data.push({x:year,y:val});
+        }
+      });
+
+      chart.update('none');
+
+      if(t<1){
+        requestAnimationFrame(animate);
+      } else {
+        // pause at end before stopping recording
+        setTimeout(()=>recorder.stop(), endPause);
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }, 100);
+}
+</script>
+
+</body>
+</html>

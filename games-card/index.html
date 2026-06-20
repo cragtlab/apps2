@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wasteland Showdown</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <h1>Wasteland Showdown</h1>
+        </div>
+        <div class="controls">
+          <select id="theme-select" class="theme-select" aria-label="Card theme">
+            <option value="fallout">Fallout</option>
+            <option value="threeKingdoms">Three Kingdoms</option>
+            <option value="greekMyth">Greek Myth</option>
+          </select>
+          <button id="test-mode-btn" class="secret-button" title="Run 1000 AI vs AI balance tests" aria-label="Secret test mode">
+            T
+          </button>
+          <button id="restart-btn" class="secondary-button">New Run</button>
+        </div>
+      </header>
+
+      <main class="game-shell">
+        <section class="status-strip enemy-strip">
+          <span class="strip-name">Enemy</span>
+          <span class="strip-stat">Base <strong id="ai-health">20</strong></span>
+          <span class="strip-stat">Energy <strong id="ai-energy">0 / 0</strong></span>
+          <span class="strip-stat">Deck <strong id="ai-deck">0</strong></span>
+          <span class="strip-stat">Hand <strong id="ai-hand">0</strong></span>
+          <span id="ai-status-text" class="strip-status">Thinking.</span>
+        </section>
+
+        <section class="arena-panel">
+          <div id="lanes" class="lanes"></div>
+        </section>
+
+        <section class="status-strip player-strip">
+          <span class="strip-name">You</span>
+          <span class="strip-stat">Base <strong id="player-health">20</strong></span>
+          <span class="strip-stat">Energy <strong id="player-energy">0 / 0</strong></span>
+          <span class="strip-stat">Deck <strong id="player-deck">0</strong></span>
+          <span class="strip-stat">Hand <strong id="player-hand">0</strong></span>
+          <span id="player-status-text" class="strip-status">Select a card.</span>
+        </section>
+
+        <section class="bottom-row">
+          <section class="hand-panel">
+            <div id="player-hand-cards" class="hand-cards"></div>
+          </section>
+
+          <section class="detail-panel">
+            <div class="detail-head">
+              <span class="detail-kicker">Card</span>
+              <strong id="selected-card-label">None</strong>
+            </div>
+            <div id="card-detail" class="detail-card empty">Pick a card from your hand.</div>
+            <div class="detail-actions">
+              <button id="selected-action-btn" class="secondary-button detail-action" disabled>Choose Card</button>
+              <button id="end-turn-btn" class="action-button detail-action">End Turn - Auto</button>
+            </div>
+          </section>
+
+          <section class="log-panel">
+            <div class="panel-title-row">
+              <h2>Log</h2>
+            </div>
+            <div id="log" class="log"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>
