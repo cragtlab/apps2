@@ -16,6 +16,7 @@
     #analyzeBtn:disabled { background-color: #ccc; cursor: not-allowed; }
     .analysis-status { font-weight: bold; color: #555; margin-left: 10px; }
     .snapshot-data { font-size: 0.9em; color: #333; margin-top: 5px; background: #f9f9f9; padding: 5px; border-radius: 4px; }
+    .processing { color: #888; font-style: italic; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
@@ -35,7 +36,7 @@
     <button id="toggleQRBtn">Toggle QR Detection (On)</button>
     <button id="clearSnapshotsBtn">Clear Snapshots</button>
     <br><br>
-    <button id="analyzeBtn">ðŸ“¸ Analyze Crowd (Snapshot)</button>
+    <button id="analyzeBtn">📸 Analyze Crowd (Snapshot)</button>
     <span id="analysisStatus" class="analysis-status">Loading ML Models...</span>
   </div>
   <div class="snapshots" id="snapshots"></div>
@@ -57,13 +58,14 @@
     let scanning = true;
     let mlModelsLoaded = false;
     let cocoModel = null;
+    const analysisQueue = [];
+    let isProcessingQueue = false;
 
     // Initialize ML Models
     async function loadModels() {
       try {
         analyzeBtn.disabled = true;
         
-        // Force WebGL to prevent missing WASM file errors
         analysisStatus.textContent = 'Configuring WebGL...';
         if (typeof faceapi !== 'undefined' && faceapi.tf && faceapi.tf.setBackend) {
           await faceapi.tf.setBackend('webgl');
@@ -84,7 +86,8 @@
         mlModelsLoaded = true;
         analysisStatus.textContent = 'ML Models Ready.';
         analyzeBtn.disabled = false;
-        setTimeout(() => analysisStatus.textContent = '', 3000);
+        processQueue(); // Start processing if anything was queued while loading
+        setTimeout(() => { if (analysisQueue.length === 0) analysisStatus.textContent = ''; }, 3000);
       } catch (err) {
         console.error('Error loading models:', err);
         analysisStatus.textContent = 'Failed to load ML models.';
@@ -99,86 +102,146 @@
       return 'Senior';
     }
 
-    analyzeBtn.addEventListener('click', async () => {
-      if (!mlModelsLoaded || !video.videoWidth) return;
-      
-      analysisStatus.textContent = 'Capturing & Analyzing...';
-      analyzeBtn.disabled = true;
+    function updateQueueStatus() {
+      if (analysisQueue.length > 0) {
+        analysisStatus.textContent = `Queue: ${analysisQueue.length} pending...`;
+      } else if (isProcessingQueue) {
+        analysisStatus.textContent = 'Processing analysis...';
+      } else {
+        analysisStatus.textContent = mlModelsLoaded ? '' : 'Loading ML Models...';
+      }
+    }
 
-      // 1. Capture current frame to an offscreen canvas
+    async function processQueue() {
+      if (isProcessingQueue || analysisQueue.length === 0 || !mlModelsLoaded) return;
+
+      isProcessingQueue = true;
+      updateQueueStatus();
+
+      const task = analysisQueue.shift();
+      const { type, canvas, resultContainer, originalCanvas } = task;
+
+      try {
+        if (type === 'crowd') {
+          const [predictions, faces] = await Promise.all([
+            cocoModel.detect(canvas),
+            faceapi.detectAllFaces(canvas).withAgeAndGender()
+          ]);
+
+          const people = predictions.filter(p => p.class === 'person');
+          const snapCtx = canvas.getContext('2d');
+          
+          snapCtx.lineWidth = 3;
+          snapCtx.font = '16px Arial';
+          people.forEach(person => {
+            snapCtx.strokeStyle = '#ff0000';
+            snapCtx.strokeRect(...person.bbox);
+          });
+
+          let maleCount = 0;
+          let femaleCount = 0;
+          faces.forEach(face => {
+            const { x, y, width, height } = face.detection.box;
+            snapCtx.strokeStyle = '#00ff00';
+            snapCtx.strokeRect(x, y, width, height);
+
+            const ageGroup = getAgeGroup(face.age);
+            if (face.gender === 'male') maleCount++;
+            else femaleCount++;
+
+            const label = `${face.gender} (${ageGroup})`;
+            snapCtx.fillStyle = '#00ff00';
+            snapCtx.fillText(label, x, y > 20 ? y - 5 : y + 20);
+          });
+
+          resultContainer.innerHTML = `
+            <strong>Crowd Analysis</strong><br>
+            People (Bodies): ${people.length}<br>
+            Faces Detected: ${faces.length}<br>
+            Demographics: ${maleCount} Male, ${femaleCount} Female
+          `;
+          resultContainer.classList.remove('processing');
+
+          // Update the display canvas with results
+          const displayCanvas = resultContainer.parentElement.querySelector('canvas');
+          if (displayCanvas) {
+            displayCanvas.getContext('2d').drawImage(canvas, 0, 0, displayCanvas.width, displayCanvas.height);
+          }
+
+        } else if (type === 'face') {
+          const face = await faceapi.detectSingleFace(canvas).withAgeAndGender();
+          const snapCtx = canvas.getContext('2d');
+
+          if (face) {
+            const { x, y, width, height } = face.detection.box;
+            snapCtx.strokeStyle = '#00ff00';
+            snapCtx.lineWidth = 3;
+            snapCtx.strokeRect(x, y, width, height);
+
+            const ageGroup = getAgeGroup(face.age);
+            const label = `${face.gender} (${ageGroup})`;
+            snapCtx.fillStyle = '#00ff00';
+            snapCtx.font = '16px Arial';
+            snapCtx.fillText(label, 5, 20);
+
+            resultContainer.innerHTML = `Face: ${label}, Age: ${Math.round(face.age)}`;
+          } else {
+            resultContainer.innerHTML = `Face: Detected but analysis failed.`;
+          }
+          resultContainer.classList.remove('processing');
+
+          // Update the display canvas
+          const displayCanvas = resultContainer.parentElement.querySelector('canvas');
+          if (displayCanvas) {
+            displayCanvas.getContext('2d').drawImage(canvas, 0, 0, displayCanvas.width, displayCanvas.height);
+          }
+        }
+      } catch (err) {
+        console.error('Analysis error:', err);
+        resultContainer.innerHTML = 'Analysis failed.';
+        resultContainer.classList.remove('processing');
+      }
+
+      isProcessingQueue = false;
+      updateQueueStatus();
+      processQueue();
+    }
+
+    function addToQueue(task) {
+      analysisQueue.push(task);
+      updateQueueStatus();
+      processQueue();
+    }
+
+    analyzeBtn.addEventListener('click', () => {
+      if (!video.videoWidth) return;
+
       const snapCanvas = document.createElement('canvas');
       snapCanvas.width = video.videoWidth;
       snapCanvas.height = video.videoHeight;
       const snapCtx = snapCanvas.getContext('2d');
       snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
 
-      try {
-        // 2. Run detections in background (non-blocking for video)
-        const [predictions, faces] = await Promise.all([
-          cocoModel.detect(snapCanvas),
-          faceapi.detectAllFaces(snapCanvas).withAgeAndGender()
-        ]);
+      const container = document.createElement('div');
+      container.className = 'snapshot';
+      const timestamp = new Date().toLocaleString();
 
-        // 3. Process results
-        const people = predictions.filter(p => p.class === 'person');
-        
-        // Draw person bounding boxes
-        snapCtx.lineWidth = 3;
-        snapCtx.font = '16px Arial';
-        people.forEach(person => {
-          snapCtx.strokeStyle = '#ff0000'; // Red for bodies
-          snapCtx.strokeRect(...person.bbox);
-        });
+      const infoHtml = `<div class="snapshot-data processing">Queued for Crowd Analysis...</div>`;
+      container.innerHTML = `<strong>Manual Snapshot</strong><br>${timestamp}<br>${infoHtml}`;
 
-        // Draw face bounding boxes and demographics
-        let maleCount = 0;
-        let femaleCount = 0;
-        faces.forEach(face => {
-          const { x, y, width, height } = face.detection.box;
-          snapCtx.strokeStyle = '#00ff00'; // Green for faces
-          snapCtx.strokeRect(x, y, width, height);
-          
-          const ageGroup = getAgeGroup(face.age);
-          const gender = face.gender;
-          if (gender === 'male') maleCount++;
-          else femaleCount++;
+      const displayCanvas = document.createElement('canvas');
+      displayCanvas.width = snapCanvas.width / 2;
+      displayCanvas.height = snapCanvas.height / 2;
+      displayCanvas.getContext('2d').drawImage(snapCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
 
-          const label = `${gender} (${ageGroup})`;
-          snapCtx.fillStyle = '#00ff00';
-          snapCtx.fillText(label, x, y > 20 ? y - 5 : y + 20);
-        });
+      container.appendChild(displayCanvas);
+      snapshotsContainer.prepend(container);
 
-        // 4. Show snapshot in UI
-        const container = document.createElement('div');
-        container.className = 'snapshot';
-        const timestamp = new Date().toLocaleString();
-        
-        const infoHtml = `<div class="snapshot-data">
-          <strong>Crowd Analysis</strong><br>
-          People (Bodies): ${people.length}<br>
-          Faces Detected: ${faces.length}<br>
-          Demographics: ${maleCount} Male, ${femaleCount} Female
-        </div>`;
-
-        container.innerHTML = `<strong>Manual Snapshot</strong><br>${timestamp}<br>${infoHtml}`;
-        
-        // Resize for display to avoid huge canvases in the DOM
-        const displayCanvas = document.createElement('canvas');
-        displayCanvas.width = snapCanvas.width / 2;
-        displayCanvas.height = snapCanvas.height / 2;
-        displayCanvas.getContext('2d').drawImage(snapCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
-        
-        container.appendChild(displayCanvas);
-        snapshotsContainer.prepend(container);
-
-        analysisStatus.textContent = 'Analysis Complete.';
-      } catch (err) {
-        console.error('Analysis error:', err);
-        analysisStatus.textContent = 'Analysis failed.';
-      }
-
-      analyzeBtn.disabled = false;
-      setTimeout(() => { if (analysisStatus.textContent === 'Analysis Complete.') analysisStatus.textContent = ''; }, 3000);
+      addToQueue({
+        type: 'crowd',
+        canvas: snapCanvas,
+        resultContainer: container.querySelector('.snapshot-data')
+      });
     });
 
     let detectFaces = true;
@@ -235,35 +298,56 @@
 
     function isSimilarFace(newFace) {
       return seenFaces.some(f =>
-        Math.abs(f.x - newFace.x) < 30 &&
-        Math.abs(f.y - newFace.y) < 30 &&
-        Math.abs(f.width - newFace.width) < 30 &&
-        Math.abs(f.height - newFace.height) < 30
+        Math.abs(f.x - newFace.x) < 50 &&
+        Math.abs(f.y - newFace.y) < 50 &&
+        Math.abs(f.width - newFace.width) < 50 &&
+        Math.abs(f.height - newFace.height) < 50
       );
     }
 
-    function captureSnapshot(label, box) {
+    function captureSnapshot(label, box, triggerAnalysis = false) {
       const canvas = document.createElement('canvas');
-      canvas.width = box.width;
-      canvas.height = box.height;
+      // For face analysis, we might want a bit of padding around the face
+      const padding = triggerAnalysis ? 20 : 0;
+      const x = Math.max(0, box.x - padding);
+      const y = Math.max(0, box.y - padding);
+      const w = Math.min(video.videoWidth - x, box.width + padding * 2);
+      const h = Math.min(video.videoHeight - y, box.height + padding * 2);
+
+      canvas.width = w;
+      canvas.height = h;
       const context = canvas.getContext('2d');
-      context.drawImage(video, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height);
+      context.drawImage(video, x, y, w, h, 0, 0, w, h);
 
       const container = document.createElement('div');
       container.className = 'snapshot';
       const timestamp = new Date().toLocaleString();
-      container.innerHTML = `<strong>${label}</strong><br>${timestamp}<br>`;
+
+      let analysisInfo = '';
+      if (triggerAnalysis) {
+        analysisInfo = `<div class="snapshot-data processing">Queued for Face Analysis...</div>`;
+      }
+
+      container.innerHTML = `<strong>${label}</strong><br>${timestamp}<br>${analysisInfo}`;
 
       const downloadBtn = document.createElement('a');
-      downloadBtn.textContent = 'Download Snapshot';
+      downloadBtn.textContent = 'Download';
       downloadBtn.href = canvas.toDataURL('image/png');
-      downloadBtn.download = `${label}-${Date.now()}.png`;
+      downloadBtn.download = `${label.replace(/<[^>]*>/g, '')}-${Date.now()}.png`;
       downloadBtn.style.display = 'block';
       downloadBtn.style.marginTop = '5px';
 
       container.appendChild(canvas);
       container.appendChild(downloadBtn);
       snapshotsContainer.prepend(container);
+
+      if (triggerAnalysis) {
+        addToQueue({
+          type: 'face',
+          canvas: canvas,
+          resultContainer: container.querySelector('.snapshot-data')
+        });
+      }
     }
 
     async function detectLoop() {
@@ -293,7 +377,7 @@
               if (!isSimilarFace(box)) {
                 seenFaces.push(box);
                 faceCount++;
-                captureSnapshot('New Face Detected', box);
+                captureSnapshot('New Face Detected', box, true);
                 newInfo.push('Face');
               }
             });
@@ -316,7 +400,7 @@
                 const link = urlPattern.test(code.rawValue) ?
                   code.rawValue.startsWith('http') ? code.rawValue : 'https://' + code.rawValue :
                   `https://www.google.com/search?q=${encodeURIComponent(code.rawValue)}`;
-                captureSnapshot(`<a href="${link}" target="_blank">QR: ${code.rawValue}</a>`, {x, y, width, height});
+                captureSnapshot(`<a href="${link}" target="_blank">QR: ${code.rawValue}</a>`, {x, y, width, height}, false);
                 newInfo.push(`QR: ${code.rawValue}`);
               }
             });
