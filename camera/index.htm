@@ -2,18 +2,22 @@
 <html>
 <head>
   <title>Snapshot & QR Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    video { width: 50%; border: 1px solid #ccc; }
+    body { font-family: sans-serif; padding: 5px; margin: 0; }
+    video { width: 100%; max-width: 500px; border: 1px solid #ccc; background: #000; }
     canvas { max-width: 100%; border: 1px solid #ccc; }
-    #overlay { position: absolute; top: 0; left: 0; }
-    #container { position: relative; display: inline-block; }
+    #overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+    #container { position: relative; display: inline-block; width: 100%; max-width: 500px; }
     .snapshots { margin-top: 20px; }
-    .snapshot { margin: 10px 0; border: 1px solid #ccc; padding: 5px; }
-    button { margin-top: 10px; margin-right: 10px; font-size: 1.5em; padding: 10px 20px; }
+    .snapshot { margin: 10px 0; border: 1px solid #ccc; padding: 5px; background: #fff; }
+    button { margin: 5px; font-size: 1.2em; padding: 12px 20px; cursor: pointer; }
     #controls { margin-top: 10px; }
-    .analysis-status { font-weight: bold; color: #555; margin-left: 10px; }
+    .analysis-status { font-weight: bold; color: #555; display: block; margin: 5px 0; }
     .snapshot-data { font-size: 0.9em; color: #333; margin-top: 5px; background: #f9f9f9; padding: 5px; border-radius: 4px; }
     .processing { color: #888; font-style: italic; }
+    #debugConsole { width: 100%; height: 150px; margin-top: 20px; font-family: monospace; font-size: 12px; background: #eee; border: 1px solid #aaa; }
+    .row { display: flex; flex-wrap: wrap; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
@@ -30,22 +34,24 @@
   <div id="controls">
     <div class="row">
       <button id="snapBtn">📸 Take Snapshot</button>
-      <button id="clearSnapshotsBtn">Clear Snapshots</button>
+      <button id="clearSnapshotsBtn">Clear</button>
     </div>
     <div class="row">
-      <button id="toggleQRBtn">Toggle QR Detection (On)</button>
+      <button id="toggleQRBtn">QR: On</button>
       <button id="pauseBtn">Pause</button>
     </div>
-    <br>
     <span id="analysisStatus" class="analysis-status">Loading ML Models...</span>
   </div>
+
+  <textarea id="debugConsole" readonly placeholder="Debug logs will appear here..."></textarea>
+
   <div class="snapshots" id="snapshots"></div>
 
   <script>
     const video = document.getElementById('video');
     const overlay = document.getElementById('overlay');
     const ctx = overlay.getContext('2d');
-    const log = document.getElementById('log');
+    const logPara = document.getElementById('log');
     const snapshotsContainer = document.getElementById('snapshots');
     const pauseBtn = document.getElementById('pauseBtn');
     const toggleQRBtn = document.getElementById('toggleQRBtn');
@@ -53,6 +59,19 @@
     const snapBtn = document.getElementById('snapBtn');
     const analysisStatus = document.getElementById('analysisStatus');
     const counters = document.getElementById('counters');
+    const debugConsole = document.getElementById('debugConsole');
+
+    function debugLog(msg) {
+      const timestamp = new Date().toLocaleTimeString();
+      debugConsole.value = `[${timestamp}] ${msg}\n` + debugConsole.value;
+      console.log(msg);
+    }
+
+    // Capture global errors
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+      debugLog(`GLOBAL ERROR: ${msg} at ${lineNo}:${columnNo}`);
+      return false;
+    };
 
     let scanning = true;
     let mlModelsLoaded = false;
@@ -60,9 +79,9 @@
     const analysisQueue = [];
     let isProcessingQueue = false;
 
-    // Initialize ML Models
     async function loadModels() {
       try {
+        debugLog('Starting model load...');
         snapBtn.disabled = true;
         
         analysisStatus.textContent = 'Configuring WebGL...';
@@ -77,18 +96,21 @@
 
         analysisStatus.textContent = 'Loading Coco-SSD...';
         cocoModel = await cocoSsd.load();
+        debugLog('Coco-SSD loaded.');
         
         analysisStatus.textContent = 'Loading Face-API...';
         await faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
         await faceapi.nets.ageGenderNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+        debugLog('Face-API loaded.');
         
         mlModelsLoaded = true;
         analysisStatus.textContent = 'ML Models Ready.';
         snapBtn.disabled = false;
+        debugLog('All models ready.');
         processQueue();
         setTimeout(() => { if (analysisQueue.length === 0) analysisStatus.textContent = ''; }, 3000);
       } catch (err) {
-        console.error('Error loading models:', err);
+        debugLog(`ERROR loading models: ${err.message}`);
         analysisStatus.textContent = 'Failed to load ML models.';
       }
     }
@@ -122,6 +144,7 @@
 
       try {
         if (type === 'crowd') {
+          debugLog('Analyzing crowd snapshot...');
           const [predictions, faces] = await Promise.all([
             cocoModel.detect(canvas),
             faceapi.detectAllFaces(canvas).withAgeAndGender()
@@ -165,9 +188,10 @@
           if (displayCanvas) {
             displayCanvas.getContext('2d').drawImage(canvas, 0, 0, displayCanvas.width, displayCanvas.height);
           }
+          debugLog(`Analysis complete: Found ${people.length} people.`);
         }
       } catch (err) {
-        console.error('Analysis error:', err);
+        debugLog(`Analysis error: ${err.message}`);
         resultContainer.innerHTML = 'Analysis failed.';
         resultContainer.classList.remove('processing');
       } finally {
@@ -184,34 +208,44 @@
     }
 
     snapBtn.addEventListener('click', () => {
-      if (!video.videoWidth) return;
+      debugLog('Take Snapshot clicked');
+      if (!video.videoWidth) {
+        debugLog('ERROR: videoWidth is 0. Is camera ready?');
+        return;
+      }
 
-      const snapCanvas = document.createElement('canvas');
-      snapCanvas.width = video.videoWidth;
-      snapCanvas.height = video.videoHeight;
-      const snapCtx = snapCanvas.getContext('2d');
-      snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+      try {
+        const snapCanvas = document.createElement('canvas');
+        snapCanvas.width = video.videoWidth;
+        snapCanvas.height = video.videoHeight;
+        const snapCtx = snapCanvas.getContext('2d');
+        snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
 
-      const container = document.createElement('div');
-      container.className = 'snapshot';
-      const timestamp = new Date().toLocaleString();
+        const container = document.createElement('div');
+        container.className = 'snapshot';
+        const timestamp = new Date().toLocaleString();
 
-      const infoHtml = `<div class="snapshot-data processing">Queued for analysis...</div>`;
-      container.innerHTML = `<strong>Snapshot</strong><br>${timestamp}<br>${infoHtml}`;
+        const infoHtml = `<div class="snapshot-data processing">Queued for analysis...</div>`;
+        container.innerHTML = `<strong>Snapshot</strong><br>${timestamp}<br>${infoHtml}`;
 
-      const displayCanvas = document.createElement('canvas');
-      displayCanvas.width = snapCanvas.width / 2;
-      displayCanvas.height = snapCanvas.height / 2;
-      displayCanvas.getContext('2d').drawImage(snapCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
+        const displayCanvas = document.createElement('canvas');
+        displayCanvas.width = snapCanvas.width / 2;
+        displayCanvas.height = snapCanvas.height / 2;
+        displayCanvas.getContext('2d').drawImage(snapCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
 
-      container.appendChild(displayCanvas);
-      snapshotsContainer.prepend(container);
+        container.appendChild(displayCanvas);
+        snapshotsContainer.prepend(container);
 
-      addToQueue({
-        type: 'crowd',
-        canvas: snapCanvas,
-        resultContainer: container.querySelector('.snapshot-data')
-      });
+        debugLog('Snapshot captured and added to list');
+
+        addToQueue({
+          type: 'crowd',
+          canvas: snapCanvas,
+          resultContainer: container.querySelector('.snapshot-data')
+        });
+      } catch (err) {
+        debugLog(`ERROR capturing snapshot: ${err.message}`);
+      }
     });
 
     let detectQRs = true;
@@ -221,16 +255,19 @@
 
     pauseBtn.addEventListener('click', () => {
       scanning = !scanning;
+      debugLog(`Pause clicked. scanning=${scanning}`);
       pauseBtn.textContent = scanning ? 'Pause' : 'Resume';
       if (scanning && !isDetectLoopRunning) detectLoop();
     });
 
     toggleQRBtn.addEventListener('click', () => {
       detectQRs = !detectQRs;
-      toggleQRBtn.textContent = `Toggle QR Detection (${detectQRs ? 'On' : 'Off'})`;
+      debugLog(`Toggle QR clicked. detectQRs=${detectQRs}`);
+      toggleQRBtn.textContent = `QR: ${detectQRs ? 'On' : 'Off'}`;
     });
 
     clearSnapshotsBtn.addEventListener('click', () => {
+      debugLog('Clear clicked');
       snapshotsContainer.innerHTML = '';
       seenQRCodes.clear();
       qrCount = 0;
@@ -245,16 +282,18 @@
 
     async function setupCamera() {
       try {
+        debugLog('Setting up camera...');
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         video.srcObject = stream;
         video.onloadedmetadata = () => {
+          debugLog(`Camera metadata loaded: ${video.videoWidth}x${video.videoHeight}`);
           overlay.width = video.videoWidth;
           overlay.height = video.videoHeight;
           if (!isDetectLoopRunning) detectLoop();
         };
       } catch (err) {
-        log.textContent = 'Camera access denied or not supported.';
-        console.error(err);
+        logPara.textContent = 'Camera access denied or not supported.';
+        debugLog(`ERROR setupCamera: ${err.message}`);
       }
     }
 
@@ -280,17 +319,21 @@
       container.appendChild(canvas);
       container.appendChild(downloadBtn);
       snapshotsContainer.prepend(container);
+      debugLog(`QR captured: ${label.replace(/<[^>]*>/g, '')}`);
     }
 
     async function detectLoop() {
       if (isDetectLoopRunning) return;
       isDetectLoopRunning = true;
+      debugLog('Detect loop started');
 
       const barcodeDetector = ('BarcodeDetector' in window) ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+      if (!barcodeDetector) debugLog('BarcodeDetector NOT supported');
 
       const detect = async () => {
         if (!scanning) {
           isDetectLoopRunning = false;
+          debugLog('Detect loop stopping (paused)');
           return;
         }
 
@@ -324,8 +367,8 @@
           console.error('Detection error:', err);
         }
 
-        if (newInfo.length > 0) log.textContent = `Scanning... ${newInfo.join(', ')}`;
-        else log.textContent = `Scanning...`;
+        if (newInfo.length > 0) logPara.textContent = `Scanning... ${newInfo.join(', ')}`;
+        else logPara.textContent = `Scanning...`;
 
         updateCounters();
         if (scanning) requestAnimationFrame(detect);
