@@ -119,7 +119,7 @@
       updateQueueStatus();
 
       const task = analysisQueue.shift();
-      const { type, canvas, resultContainer, originalCanvas } = task;
+      const { type, canvas, resultContainer } = task;
 
       try {
         if (type === 'crowd') {
@@ -162,7 +162,6 @@
           `;
           resultContainer.classList.remove('processing');
 
-          // Update the display canvas with results
           const displayCanvas = resultContainer.parentElement.querySelector('canvas');
           if (displayCanvas) {
             displayCanvas.getContext('2d').drawImage(canvas, 0, 0, displayCanvas.width, displayCanvas.height);
@@ -190,7 +189,6 @@
           }
           resultContainer.classList.remove('processing');
 
-          // Update the display canvas
           const displayCanvas = resultContainer.parentElement.querySelector('canvas');
           if (displayCanvas) {
             displayCanvas.getContext('2d').drawImage(canvas, 0, 0, displayCanvas.width, displayCanvas.height);
@@ -200,11 +198,12 @@
         console.error('Analysis error:', err);
         resultContainer.innerHTML = 'Analysis failed.';
         resultContainer.classList.remove('processing');
+      } finally {
+        isProcessingQueue = false;
+        updateQueueStatus();
+        // Use setTimeout to yield to the event loop before processing next item
+        setTimeout(processQueue, 10);
       }
-
-      isProcessingQueue = false;
-      updateQueueStatus();
-      processQueue();
     }
 
     function addToQueue(task) {
@@ -248,6 +247,7 @@
     let detectQRs = true;
     let faceCount = 0;
     let qrCount = 0;
+    let isDetectLoopRunning = false;
 
     const seenQRCodes = new Set();
     const seenFaces = [];
@@ -255,7 +255,7 @@
     pauseBtn.addEventListener('click', () => {
       scanning = !scanning;
       pauseBtn.textContent = scanning ? 'Pause' : 'Resume';
-      if (scanning) detectLoop();
+      if (scanning && !isDetectLoopRunning) detectLoop();
     });
 
     toggleFaceBtn.addEventListener('click', () => {
@@ -275,6 +275,8 @@
       faceCount = 0;
       qrCount = 0;
       updateCounters();
+      analysisQueue.length = 0;
+      updateQueueStatus();
     });
 
     function updateCounters() {
@@ -288,7 +290,7 @@
         video.onloadedmetadata = () => {
           overlay.width = video.videoWidth;
           overlay.height = video.videoHeight;
-          detectLoop();
+          if (!isDetectLoopRunning) detectLoop();
         };
       } catch (err) {
         log.textContent = 'Camera access denied or not supported.';
@@ -307,7 +309,6 @@
 
     function captureSnapshot(label, box, triggerAnalysis = false) {
       const canvas = document.createElement('canvas');
-      // For face analysis, we might want a bit of padding around the face
       const padding = triggerAnalysis ? 20 : 0;
       const x = Math.max(0, box.x - padding);
       const y = Math.max(0, box.y - padding);
@@ -351,16 +352,23 @@
     }
 
     async function detectLoop() {
+      if (isDetectLoopRunning) return;
+      isDetectLoopRunning = true;
+
       const faceDetector = ('FaceDetector' in window) ? new FaceDetector({ fastMode: true }) : null;
       const barcodeDetector = ('BarcodeDetector' in window) ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
 
       if (!faceDetector && !barcodeDetector) {
         log.textContent = 'Face and QR detection not supported in this browser.';
+        isDetectLoopRunning = false;
         return;
       }
 
       const detect = async () => {
-        if (!scanning) return;
+        if (!scanning) {
+          isDetectLoopRunning = false;
+          return;
+        }
 
         ctx.clearRect(0, 0, overlay.width, overlay.height);
         let newInfo = [];
@@ -375,10 +383,15 @@
               ctx.strokeRect(box.x, box.y, box.width, box.height);
 
               if (!isSimilarFace(box)) {
-                seenFaces.push(box);
-                faceCount++;
-                captureSnapshot('New Face Detected', box, true);
-                newInfo.push('Face');
+                // Throttle: Don't queue too many automatic faces if the queue is already long
+                if (analysisQueue.length < 10) {
+                  seenFaces.push(box);
+                  faceCount++;
+                  captureSnapshot('New Face Detected', box, true);
+                  newInfo.push('Face');
+                } else {
+                  console.warn('Analysis queue full, skipping automatic face snapshot.');
+                }
               }
             });
           }
@@ -409,9 +422,12 @@
           console.error('Detection error:', err);
         }
 
-        log.textContent = `Scanning... ${newInfo.join(', ')}`;
+        if (newInfo.length > 0) log.textContent = `Scanning... ${newInfo.join(', ')}`;
+        else log.textContent = `Scanning...`;
+
         updateCounters();
         if (scanning) requestAnimationFrame(detect);
+        else isDetectLoopRunning = false;
       };
 
       detect();
