@@ -268,6 +268,11 @@
             border-left-color: var(--past);
         }
 
+        .event-item.is-today {
+            background: #ebf8ff;
+            border-left-color: #3182ce;
+        }
+
         .event-info {
             display: flex;
             flex-direction: column;
@@ -612,21 +617,32 @@
                 return;
             }
 
-            container.innerHTML = `
-                <div class="event-list">
-                    ${filteredEvents.map(e => `
-                        <div class="event-item ${e.isPromo ? 'is-promo' : ''} ${e.date < todayStr ? 'is-past' : ''}" onclick="editEvent(${e.id}, event)">
-                            <div class="event-info">
-                                <span class="event-date">${formatDate(e.date)}</span>
-                                <span class="event-title">
-                                    ${linkify(e.title)}
-                                    ${e.isPromo ? '<span class="promo-tag">PROMO</span>' : ''}
-                                </span>
-                            </div>
+            let html = '<div class="event-list">';
+            const todayIndex = filteredEvents.map(e => e.date).lastIndexOf(todayStr);
+
+            filteredEvents.forEach((e, index) => {
+                const isToday = e.date === todayStr;
+                const isPast = e.date < todayStr;
+
+                html += `
+                    <div class="event-item ${e.isPromo ? 'is-promo' : ''} ${isPast ? 'is-past' : ''} ${isToday ? 'is-today' : ''}" onclick="editEvent(${e.id}, event)">
+                        <div class="event-info">
+                            <span class="event-date">${formatDate(e.date)}</span>
+                            <span class="event-title">
+                                ${linkify(e.title)}
+                                ${e.isPromo ? '<span class="promo-tag">PROMO</span>' : ''}
+                            </span>
                         </div>
-                    `).join('')}
-                </div>
-            `;
+                    </div>
+                `;
+
+                if (index === todayIndex && index < filteredEvents.length - 1) {
+                    html += '<hr style="border: 0; border-top: 2px dashed var(--primary); margin: 10px 0;">';
+                }
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
         }
 
         function renderMonths(container, filteredEvents, todayStr) {
