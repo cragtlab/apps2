@@ -402,6 +402,7 @@
                 <div class="btn-group">
                     <button class="btn-secondary" onclick="copyToClipboard()">Copy</button>
                     <button class="btn-secondary" onclick="pasteFromClipboard()">Paste</button>
+                    <button class="btn-secondary" onclick="openMail()">Mail</button>
                 </div>
                 <div class="row">
                     <select id="quick-links" onchange="if(this.value) window.open(this.value, '_blank'); this.value='';" style="font-size: 0.8rem; padding: 4px; border-radius: 4px; border: 1px solid var(--border);">
@@ -764,6 +765,18 @@
             } catch (err) {
                 alert('Failed to copy');
             }
+        }
+
+        function openMail() {
+            const todayStr = getLocalToday();
+            const todayEvents = events.filter(e => e.date === todayStr);
+            const pageUrl = window.location.href;
+            const eventList = todayEvents.map(e => `- ${e.title}`).join('\n');
+            const body = `${pageUrl}\n\n${eventList}`;
+            const subject = `Reflect - ${formatDate(todayStr)}`;
+
+            const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(mailtoUrl, '_blank');
         }
 
         async function pasteFromClipboard() {
