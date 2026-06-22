@@ -154,7 +154,9 @@ function indexData(reportName, rows) {
         const row = rows[i];
 
         const rawOfficer = officerCol !== -1 ? row[officerCol] : null;
-        const officer = normalizeOfficer(rawOfficer);
+        let officer = normalizeOfficer(rawOfficer);
+        if (!officer) officer = "no officer";
+
         const status = statusCol !== -1 ? (row[statusCol] || "").toString().trim() : null;
 
         if (officer) {
@@ -173,6 +175,7 @@ function indexData(reportName, rows) {
             statusIndex[status].push({ report: reportName, row });
         }
     }
+    return -1;
 }
 function isStatusCompleted(status) {
     if (!status) return false;
@@ -527,7 +530,8 @@ function applyFilters() {
 
             // Filter by officer
             if (officer) {
-                const rowOfficer = normalizeOfficer(row[officerCol]);
+                let rowOfficer = normalizeOfficer(row[officerCol]);
+                if (!rowOfficer) rowOfficer = "no officer";
                 if (rowOfficer !== officer) continue;
             }
 
