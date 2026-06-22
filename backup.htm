@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalStorage Backup Tool</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; line-height: 1.5; color: #333; max-width: 1000px; margin: auto; background: #f8f9fa; }
+        .page-title { font-size: 1.5rem; margin-bottom: 20px; text-align: center; color: #444; }
+
+        .controls { display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex-wrap: wrap; }
+        button, .btn {
+            padding: 10px 25px;
+            cursor: pointer;
+            border: 1px solid #5c6bc0;
+            background: #5c6bc0;
+            color: white;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button:hover, .btn:hover { background: #3f51b5; border-color: #3f51b5; transform: translateY(-1px); }
+        button.secondary { background: white; color: #5c6bc0; }
+        button.secondary:hover { background: #f5f5f5; }
+        .btn-gdrive { background: #34a853; border-color: #34a853; }
+        .btn-gdrive:hover { background: #2d8e47; border-color: #2d8e47; }
+
+        .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; background: white; overflow: hidden; table-layout: fixed; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; word-wrap: break-word; }
+        th { background: #f5f6fa; font-weight: 600; color: #666; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        tr:last-child td { border-bottom: none; }
+        .key-col { width: 250px; }
+
+        .val-cell { font-family: monospace; font-size: 0.85rem; color: #666; max-height: 100px; overflow-y: auto; display: block; }
+        .key-cell { font-weight: 600; color: #333; }
+
+        .empty-state { text-align: center; padding: 40px; color: #999; font-style: italic; background: white; border-radius: 8px; }
+
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .controls { flex-direction: column; align-items: stretch; gap: 10px; padding: 15px; }
+            button, .btn { width: 100%; }
+            table { table-layout: auto; }
+            .key-col { width: auto; }
+            th { font-size: 0.8rem; padding: 10px 8px; }
+            td { padding: 10px 8px; }
+            .page-title { font-size: 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <h2 class="page-title">LocalStorage Backup & Restore</h2>
+
+    <div class="controls">
+        <button id="backupBtn">Backup to Clipboard (TSV)</button>
+        <button id="restoreBtn" class="secondary">Restore from Clipboard (TSV)</button>
+        <a href="#" target="_blank" rel="noopener" class="btn btn-gdrive">Open GDrive Backup (TBC)</a>
+    </div>
+
+    <div class="table-container">
+        <table id="storageTable">
+            <thead>
+                <tr>
+                    <th class="key-col">Key</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody id="storageBody"></tbody>
+        </table>
+    </div>
+    <div id="emptyMsg" class="empty-state" style="display:none;">LocalStorage is empty.</div>
+
+    <script src="components.js"></script>
+    <script>
+        function escapeTSV(str) {
+            if (typeof str !== 'string') str = String(str);
+            if (str.includes('\t') || str.includes('\n') || str.includes('"')) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        }
+
+        function parseTSV(text) {
+            const result = [];
+            let row = [];
+            let field = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const next = text[i + 1];
+
+                if (inQuotes) {
+                    if (char === '"' && next === '"') {
+                        field += '"';
+                        i++;
+                    } else if (char === '"') {
+                        inQuotes = false;
+                    } else {
+                        field += char;
+                    }
+                } else {
+                    if (char === '"') {
+                        inQuotes = true;
+                    } else if (char === '\t') {
+                        row.push(field);
+                        field = '';
+                    } else if (char === '\n' || char === '\r') {
+                        if (char === '\r' && next === '\n') i++;
+                        row.push(field);
+                        result.push(row);
+                        row = [];
+                        field = '';
+                    } else {
+                        field += char;
+                    }
+                }
+            }
+            if (field || row.length > 0) {
+                row.push(field);
+                result.push(row);
+            }
+            return result;
+        }
+
+        function renderTable() {
+            const body = document.getElementById('storageBody');
+            const empty = document.getElementById('emptyMsg');
+            const tableContainer = document.querySelector('.table-container');
+            body.innerHTML = '';
+
+            const keys = Object.keys(localStorage).sort();
+
+            if (keys.length === 0) {
+                tableContainer.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            tableContainer.style.display = 'block';
+            empty.style.display = 'none';
+
+            keys.forEach(key => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="key-cell">${key}</td>
+                    <td><div class="val-cell">${localStorage.getItem(key)}</div></td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        document.getElementById('backupBtn').onclick = () => {
+            const rows = [];
+            Object.keys(localStorage).sort().forEach(key => {
+                rows.push(escapeTSV(key) + '\t' + escapeTSV(localStorage.getItem(key)));
+            });
+
+            const tsv = rows.join('\n');
+            navigator.clipboard.writeText(tsv).then(() => {
+                alert('LocalStorage data copied to clipboard as TSV!');
+            });
+        };
+
+        document.getElementById('restoreBtn').onclick = async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (!text) return;
+
+                const data = parseTSV(text);
+                if (data.length === 0) {
+                    alert('No valid TSV data found in clipboard.');
+                    return;
+                }
+
+                if (confirm(`Are you sure you want to restore ${data.length} items? This will OVERWRITE existing keys with the same name.`)) {
+                    data.forEach(row => {
+                        if (row.length >= 2) {
+                            localStorage.setItem(row[0], row[1]);
+                        }
+                    });
+                    renderTable();
+                    alert('Restore complete!');
+                }
+            } catch (err) {
+                alert('Error reading from clipboard: ' + err);
+            }
+        };
+
+        window.onload = renderTable;
+    </script>
+</body>
+</html>
