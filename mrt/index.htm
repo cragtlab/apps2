@@ -10,8 +10,8 @@
 body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; font-size: 15px; padding-bottom: 110px; }
 
 .header {
-  position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; z-index: 20;
-  padding: 8px 10px 10px;
+  background: #1a1a2e; z-index: 20;
+  padding: 8px 10px 0;
 }
 .line-buttons { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; }
 .line-btn {
@@ -202,6 +202,15 @@ textarea {
   </div>
 </div>
 
+<div class="header">
+  <div class="line-buttons" id="lineButtons"></div>
+  <div style="padding: 0 10px 10px; display: flex; gap: 8px;">
+    <button class="add-btn" style="flex: 1;" onclick="openAddTripModal()">+ Trip</button>
+    <button class="gps-btn" style="flex: 1;" onclick="openCoordModal()">📍 Coords</button>
+    <button class="save-btn" style="flex: 1; background: #6a1b9a;" onclick="openRoutesModal()">🛤️ Routes</button>
+  </div>
+</div>
+
 <div class="feedback">
   <h3 style="margin:0 0 8px;">Wrong info? (tap door row to prefill)</h3>
   <textarea id="feedbackText" placeholder="Example:&#10;Lavender towards Pasir Ris should be Door 3"></textarea>
@@ -213,14 +222,6 @@ textarea {
   <div id="saveStatus"></div>
 </div>
 
-<div class="header">
-  <div class="line-buttons" id="lineButtons"></div>
-  <div style="padding: 0 10px 10px; display: flex; gap: 8px;">
-    <button class="add-btn" style="flex: 1;" onclick="openAddTripModal()">+ Trip</button>
-    <button class="gps-btn" style="flex: 1;" onclick="openCoordModal()">📍 Coords</button>
-    <button class="save-btn" style="flex: 1; background: #6a1b9a;" onclick="openRoutesModal()">🛤️ Routes</button>
-  </div>
-</div>
 
 <!-- Add Trip Modal -->
 <div class="modal-overlay" id="addTripModal">
@@ -470,6 +471,16 @@ function deleteRoute(index) {
   travelRoutes.splice(index,1); saveRoutes(); renderRoutes();
 }
 
+function renameRoute(index) {
+  const oldName = travelRoutes[index].name;
+  const newName = prompt('Enter new name for route:', oldName);
+  if (newName && newName.trim() !== '' && newName !== oldName) {
+    travelRoutes[index].name = newName.trim();
+    saveRoutes();
+    renderRoutes();
+  }
+}
+
 
 /* ═══════════════════════════
    RENDER STATIONS
@@ -525,7 +536,7 @@ function renderRoutes() {
       </div>`).join('');
     div.innerHTML=`
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-        <div class="travel-title" style="margin-bottom:4px;">${route.name}</div>
+        <div class="travel-title" style="margin-bottom:4px; flex: 1; cursor: pointer;" onclick="renameRoute(${index})">${route.name} ✏️</div>
         <button class="delete-btn" style="padding:4px 9px;font-size:12px;" onclick="deleteRoute(${index})">✕</button>
       </div>
       <div class="stats" style="margin-top:8px;">
@@ -645,8 +656,8 @@ let selectedEnd = null;   // { interval, time }
 
 function openAddTripModal() {
   trackLocation();
-  selectedStart = null;
-  selectedEnd = null;
+  selectedStart = JSON.parse(localStorage.getItem('mrt_selected_start') || 'null');
+  selectedEnd = JSON.parse(localStorage.getItem('mrt_selected_end') || 'null');
   updateSelectionUI();
 
   const sel = document.getElementById('tripRouteSelect');
@@ -655,6 +666,7 @@ function openAddTripModal() {
     const opt = document.createElement('option');
     opt.value=i; opt.textContent=r.name; sel.appendChild(opt);
   });
+  sel.onchange = onTripRouteSelectChange;
 
   renderRecordedIntervals();
   document.getElementById('addTripModal').classList.add('open');
@@ -726,6 +738,7 @@ function setTripStart(i) {
   if (isNaN(h) || h < 0 || h > 23 || isNaN(m) || m < 0 || m > 59) return;
   d.setHours(h); d.setMinutes(m); d.setSeconds(0);
   selectedStart = { interval: inv, time: d.toISOString() };
+  localStorage.setItem('mrt_selected_start', JSON.stringify(selectedStart));
   updateSelectionUI();
 }
 
@@ -742,6 +755,7 @@ function setTripEnd(i) {
   if (isNaN(h) || h < 0 || h > 23 || isNaN(m) || m < 0 || m > 59) return;
   d.setHours(h); d.setMinutes(m); d.setSeconds(0);
   selectedEnd = { interval: inv, time: d.toISOString() };
+  localStorage.setItem('mrt_selected_end', JSON.stringify(selectedEnd));
   updateSelectionUI();
 }
 
@@ -774,7 +788,6 @@ function refreshInterval(e, i) {
   } else {
     const nearest = nearestCoord(inv.lat, inv.lng);
     inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
-    inv.locLabel = (nearest && nearest.dist <= 0.5) ? nearest.coord.label : "unknown";
     saveIntervals();
     renderRecordedIntervals();
   }
@@ -804,7 +817,39 @@ function clearAllIntervals() {
   renderRecordedIntervals();
   selectedStart = null;
   selectedEnd = null;
+  localStorage.removeItem('mrt_selected_start');
+  localStorage.removeItem('mrt_selected_end');
   updateSelectionUI();
+}
+
+function onTripRouteSelectChange() {
+  const routeIndex = parseInt(this.value);
+  if (isNaN(routeIndex)) return;
+  const route = travelRoutes[routeIndex];
+  if (!route) return;
+
+  // Find latest "From" interval
+  const fromInv = recordedIntervals.find(inv => inv.locLabel.toLowerCase() === route.from.toLowerCase());
+  // Find latest "To" interval (must be AFTER or SAME as From interval in chronological order,
+  // but since recordedIntervals is unshifted (newest first), it's a bit tricky.)
+  // Actually, let's just find the latest occurrence of each.
+  const toInv = recordedIntervals.find(inv => inv.locLabel.toLowerCase() === route.to.toLowerCase());
+
+  if (fromInv && toInv) {
+    const startTime = new Date(fromInv.endTime);
+    const endTime = new Date(toInv.startTime);
+
+    const startStr = startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const endStr = endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+    if (confirm(`Suggest times for "${route.name}"?\nDeparture (${route.from}): ${startStr}\nArrival (${route.to}): ${endStr}`)) {
+      selectedStart = { interval: fromInv, time: fromInv.endTime };
+      selectedEnd = { interval: toInv, time: toInv.startTime };
+      localStorage.setItem('mrt_selected_start', JSON.stringify(selectedStart));
+      localStorage.setItem('mrt_selected_end', JSON.stringify(selectedEnd));
+      updateSelectionUI();
+    }
+  }
 }
 
 function saveTrip() {

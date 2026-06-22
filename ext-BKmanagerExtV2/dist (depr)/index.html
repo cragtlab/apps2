@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minikan</title>
+  <link rel="stylesheet" href="./tailwind.css">
+  <style>
+    html {
+      //height: 450px;
+      max-width: 875px;
+      min-width: 800px;
+      margin: auto;
+    }
+    .card:hover .controls {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="flex flex-col font-base h-full">
+  <main class="flex items-end justify-between border-b border-gray-500">
+  <a href='https://podcasts.google.com/subscriptions' target=_blank>Podcast</a> / <a href='https://www.youtuberepeater.com/watch?v=Bfy3BGSg8aQ' target=_blank>Youtube Repeater</a> 
+    <h1 class="text-xl font-bold text-gray-700">Minikan</h1>
+    <h2 class="text-xs text-gray-500">Minimal Kanban-like task manager (Alt-Q toggle)</h2>
+
+  </main>
+  <div id="app"></div>
+  <script src="./vue.min.js"></script>
+  <script src="./sortable.min.js"></script>
+  <script src="./vuedraggable.min.js"></script>
+  <script src="./uuid.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

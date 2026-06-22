@@ -175,6 +175,7 @@ function indexData(reportName, rows) {
             statusIndex[status].push({ report: reportName, row });
         }
     }
+    return -1;
 }
 function isStatusCompleted(status) {
     if (!status) return false;

@@ -49,6 +49,7 @@ small  {
 </div>
 
 <div id="buttonContainer" style="display:none;">
+    <button id="btn-start" class="btn-add" onclick="startLinks()" style="display:none;">Start</button>
     <button class="btn-snooze" onclick="snoozeCurrentLink()">Snooze</button>
     <button class="btn-danger" onclick="deleteCurrentLink()">Delete</button>
     <button id="btn-update-url" onclick="updateCurrentURL()">Update URL only</button>
@@ -93,6 +94,11 @@ function init(){
     loadLinks();
     displayNextAvailable();
     updateLinksList();
+
+    if(getAvailableLinks().length > 0){
+        const btn = document.getElementById('btn-start');
+        if(btn) btn.style.display = 'inline-block';
+    }
 }
 
 function loadLinks(){
@@ -386,9 +392,21 @@ function laterLink(){
     saveLinks();
 }
 
+function startLinks(){
+    if(!currentLink) return;
+    openLink(currentLink);
+    hideStartButton();
+}
+
+function hideStartButton(){
+    const btn = document.getElementById('btn-start');
+    if(btn) btn.style.display = 'none';
+}
+
 function snoozeCurrentLink(){
 
     saveCurrent();
+    hideStartButton();
 
     const current = currentLink;
 
@@ -460,6 +478,7 @@ function deleteCurrentLink(){
     }
 
     saveCurrent();
+    hideStartButton();
 
     const current = currentLink;
 
