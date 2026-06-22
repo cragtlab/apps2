@@ -46,16 +46,21 @@
     #toolOverlay {
       position: fixed;
       left: 170px;
-      top: 10px;
+      bottom: 10px;
       background: white;
       border: 1px solid #ccc;
       box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
       z-index: 1000;
-      width: 250px;
+      width: 600px;
       max-height: 80vh;
       overflow-y: auto;
       display: none;
       padding: 5px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+    }
+    #toolOverlay.active {
+      display: grid;
     }
     .toolItem {
       padding: 8px;
@@ -73,11 +78,12 @@
 </head>
 <body>
   <div id="tabBar">
+    <font color=white>Alt-L: Load, Alt-R: Refresh</font><br/>
     <button id="loadBtn" class="controlBtn">Load Plugins</button>
     <button id="refreshBtn" class="controlBtn">Refresh Plugins</button>
+    <font color=white>Press Alt-1 to go 1st</font><br/>
     <input type="text" id="toolSearch" placeholder="Search tools..." autocomplete="off">
     <div id="toolOverlay"></div>
-    <font color=white>Press Alt-1 to go 1st</font><br/>
   </div>
   <div id="contentArea"></div>
 
@@ -93,7 +99,9 @@
 	  btn.id=title;
         btn.innerText = title;
         btn.onclick = () => showTab(tabId);
-        document.getElementById("tabBar").appendChild(btn);
+        const tabBar = document.getElementById("tabBar");
+        const toolSearch = document.getElementById("toolSearch");
+        tabBar.insertBefore(btn, toolSearch);
 
         const div = document.createElement("div");
         div.id = tabId;
@@ -166,19 +174,14 @@
 
     function openTool(name) {
       window.open("tools/" + name, "_blank");
-      document.getElementById("toolOverlay").style.display = "none";
+      const overlay = document.getElementById("toolOverlay");
+      overlay.classList.remove("active");
       document.getElementById("toolSearch").value = "";
     }
 
-    document.getElementById("toolSearch").addEventListener("input", function() {
-      const query = this.value.toLowerCase().trim();
+    function renderTools(matches) {
       const overlay = document.getElementById("toolOverlay");
       overlay.innerHTML = "";
-      if (query === "") {
-        overlay.style.display = "none";
-        return;
-      }
-      const matches = toolsFiles.filter(f => f.toLowerCase().includes(query));
       if (matches.length > 0) {
         matches.forEach(match => {
           const div = document.createElement("div");
@@ -187,17 +190,31 @@
           div.onclick = () => openTool(match);
           overlay.appendChild(div);
         });
-        overlay.style.display = "block";
+        overlay.classList.add("active");
       } else {
-        overlay.style.display = "none";
+        overlay.classList.remove("active");
       }
+    }
+
+    document.getElementById("toolSearch").addEventListener("focus", function() {
+      renderTools(toolsFiles);
+    });
+
+    document.getElementById("toolSearch").addEventListener("input", function() {
+      const query = this.value.toLowerCase().trim();
+      if (query === "") {
+        renderTools(toolsFiles);
+        return;
+      }
+      const matches = toolsFiles.filter(f => f.toLowerCase().includes(query));
+      renderTools(matches);
     });
 
     document.addEventListener("click", function(e) {
       const search = document.getElementById("toolSearch");
       const overlay = document.getElementById("toolOverlay");
       if (e.target !== search && !overlay.contains(e.target)) {
-        overlay.style.display = "none";
+        overlay.classList.remove("active");
       }
     });
 
@@ -219,6 +236,17 @@ async function ensureWritePermission(handle) {
 }
 document.addEventListener("keydown", (e) => {
   if (!e.altKey) return;
+
+  if (e.code === 'KeyL') {
+    e.preventDefault();
+    document.getElementById('loadBtn').click();
+    return;
+  }
+  if (e.code === 'KeyR') {
+    e.preventDefault();
+    document.getElementById('refreshBtn').click();
+    return;
+  }
   
   const index = parseInt(e.key) - 1;
   if (isNaN(index) || index < 0) return;
