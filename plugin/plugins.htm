@@ -82,7 +82,7 @@
     <button id="loadBtn" class="controlBtn">Load Plugins</button>
     <button id="refreshBtn" class="controlBtn">Refresh Plugins</button>
     <font color=white>Press Alt-1 to go 1st</font><br/>
-    <input type="text" id="toolSearch" placeholder="Search tools..." autocomplete="off">
+    <input type="text" id="toolSearch" placeholder="Alt-S to search" autocomplete="off">
     <div id="toolOverlay"></div>
   </div>
   <div id="contentArea"></div>
@@ -245,6 +245,11 @@ document.addEventListener("keydown", (e) => {
   if (e.code === 'KeyR') {
     e.preventDefault();
     document.getElementById('refreshBtn').click();
+    return;
+  }
+  if (e.code === 'KeyS') {
+    e.preventDefault();
+    document.getElementById('toolSearch').focus();
     return;
   }
   
