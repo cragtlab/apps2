@@ -97,8 +97,7 @@
             <table class="ops-table" style="margin-bottom: 20px;">
                 <thead>
                     <tr>
-                        <th style="width:70px;">Actions</th>
-                        <th style="width:120px;">Date</th>
+                        <th style="width:140px;">Status / Date</th>
                         <th style="width:250px;">Title</th>
                         <th style="width:150px;">Officers</th>
                         <th>Remarks</th>
@@ -111,8 +110,7 @@
             <table class="ops-table">
                 <thead>
                     <tr>
-                        <th style="width:70px;">Actions</th>
-                        <th style="width:120px;">Date</th>
+                        <th style="width:140px;">Status / Date</th>
                         <th style="width:250px;">Title</th>
                         <th style="width:150px;">Officers</th>
                         <th>Remarks</th>
@@ -424,21 +422,47 @@
                 return td;
             };
 
-            const actionsDiv = document.createElement('div');
-            actionsDiv.style.display = 'flex';
-            actionsDiv.style.alignItems = 'center';
-            actionsDiv.style.gap = '8px';
+            const statusDateDiv = document.createElement('div');
+            statusDateDiv.style.display = 'flex';
+            statusDateDiv.style.alignItems = 'center';
+            statusDateDiv.style.gap = '6px';
+            statusDateDiv.style.flexWrap = 'wrap';
+
+            const dateDisplay = document.createElement('span');
+            dateDisplay.textContent = formatDateDisplay(task.date) || 'Set Date';
+            dateDisplay.style.cursor = 'pointer';
+            dateDisplay.style.fontSize = '0.85em';
+            dateDisplay.style.color = task.date ? '#333' : '#999';
+            dateDisplay.style.textDecoration = 'underline';
+            dateDisplay.style.whiteSpace = 'nowrap';
+
+            const datePicker = document.createElement('input');
+            datePicker.type = 'date';
+            datePicker.value = task.date || '';
+            datePicker.style.width = '0';
+            datePicker.style.height = '0';
+            datePicker.style.padding = '0';
+            datePicker.style.border = 'none';
+            datePicker.style.visibility = 'hidden';
+            datePicker.style.position = 'absolute';
+
+            datePicker.onchange = () => {
+                task.date = datePicker.value;
+                saveData(); renderUI();
+            };
+            dateDisplay.onclick = () => datePicker.showPicker();
 
             const doneCb = document.createElement('input');
             doneCb.type = 'checkbox';
             doneCb.checked = !!task.done;
             doneCb.className = 'done-cb';
             doneCb.style.width = 'auto';
+            doneCb.style.margin = '0';
             doneCb.onchange = () => { task.done = doneCb.checked; saveData(); renderUI(); };
 
             const delBtn = document.createElement('button');
             delBtn.className = 'btn-danger delete-btn';
-            delBtn.style.padding = '2px 6px';
+            delBtn.style.padding = '1px 4px';
             delBtn.textContent = '×';
             delBtn.title = 'Delete';
             delBtn.onclick = () => {
@@ -447,18 +471,11 @@
                     saveData(); renderUI();
                 }
             };
-            actionsDiv.appendChild(doneCb);
-            actionsDiv.appendChild(delBtn);
 
-            const dateInp = document.createElement('input');
-            dateInp.type = 'text';
-            dateInp.value = formatDateDisplay(task.date);
-            dateInp.className = 'date-input';
-            dateInp.placeholder = 'dd-MMM-YYYY';
-            dateInp.onchange = () => {
-                task.date = parseDateDisplay(dateInp.value);
-                saveData(); renderUI();
-            };
+            statusDateDiv.appendChild(dateDisplay);
+            statusDateDiv.appendChild(datePicker);
+            statusDateDiv.appendChild(doneCb);
+            statusDateDiv.appendChild(delBtn);
 
             const titleInp = document.createElement('textarea');
             titleInp.rows = 2;
@@ -467,11 +484,11 @@
             titleInp.placeholder = 'Title';
             titleInp.onchange = () => { task.title = titleInp.value; saveData(); };
 
-            const offInp = document.createElement('input');
-            offInp.type = 'text';
+            const offInp = document.createElement('textarea');
+            offInp.rows = 2;
             offInp.value = task.officers || '';
             offInp.className = 'officers-input';
-            offInp.placeholder = 'Officer / Officer';
+            offInp.placeholder = 'Officers';
             offInp.onchange = () => { task.officers = offInp.value; saveData(); };
 
             const remInp = document.createElement('textarea');
@@ -481,8 +498,7 @@
             remInp.placeholder = 'Remarks';
             remInp.onchange = () => { task.remarks = remInp.value; saveData(); };
 
-            tr.appendChild(createCell(actionsDiv));
-            tr.appendChild(createCell(dateInp));
+            tr.appendChild(createCell(statusDateDiv));
             tr.appendChild(createCell(titleInp));
             tr.appendChild(createCell(offInp));
             tr.appendChild(createCell(remInp));
@@ -499,6 +515,10 @@
         const list = container.querySelector('#officer-list');
         list.innerHTML = '';
         const officerMap = {};
+
+        const now = new Date();
+        const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+
         state.opsTasks.forEach(task => {
             if (state.hideDone && task.done) return;
             const officers = (task.officers || "Unassigned").split('/').map(s => s.trim()).filter(s => s);
@@ -510,12 +530,16 @@
             const h2 = document.createElement('h2'); h2.textContent = o; card.appendChild(h2);
             const taskList = document.createElement('div'); taskList.className = 'task-list';
             officerMap[o].forEach(task => {
-                const item = document.createElement('div'); item.className = 'task-item' + (task.done ? ' done' : '');
+                const isDue = task.date && task.date <= today && !task.done;
+                const item = document.createElement('div');
+                item.className = 'task-item' + (task.done ? ' done' : '');
+                if (isDue) item.style.backgroundColor = '#ffe0b2'; // Orange highlight
+
                 const row = document.createElement('div'); row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '5px';
                 const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!task.done;
                 cb.onchange = () => { task.done = cb.checked; saveData(); renderUI(); };
                 const span = document.createElement('span'); span.className = 'task-display';
-                span.textContent = (task.date ? '['+task.date+'] ' : '') + task.title;
+                span.textContent = (task.date ? '['+formatDateDisplay(task.date)+'] ' : '') + task.title;
                 row.appendChild(cb); row.appendChild(span); item.appendChild(row); taskList.appendChild(item);
             });
             card.appendChild(taskList);
