@@ -413,6 +413,7 @@
         sorted.forEach(task => {
             if (state.hideDone && task.done) return;
             const tr = document.createElement('tr');
+            tr.setAttribute('data-task-id', task.id);
             if (task.done) tr.className = 'done-row';
 
             const createCell = (content) => {
@@ -533,13 +534,33 @@
                 const isDue = task.date && task.date <= today && !task.done;
                 const item = document.createElement('div');
                 item.className = 'task-item' + (task.done ? ' done' : '');
+                item.style.cursor = 'pointer';
                 if (isDue) item.style.backgroundColor = '#ffe0b2'; // Orange highlight
 
                 const row = document.createElement('div'); row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '5px';
                 const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!task.done;
+                cb.onclick = (e) => e.stopPropagation();
                 cb.onchange = () => { task.done = cb.checked; saveData(); renderUI(); };
                 const span = document.createElement('span'); span.className = 'task-display';
                 span.textContent = (task.date ? '['+formatDateDisplay(task.date)+'] ' : '') + task.title;
+
+                item.onclick = () => {
+                    const opsTab = container.querySelector('.nav-tab[data-view="ops"]');
+                    if (opsTab) {
+                        opsTab.click();
+                        setTimeout(() => {
+                            const targetRow = container.querySelector(`tr[data-task-id="${task.id}"]`);
+                            if (targetRow) {
+                                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                const remarkInp = targetRow.querySelector('.remarks-input');
+                                if (remarkInp) remarkInp.focus();
+                                targetRow.style.outline = '2px solid #007BFF';
+                                setTimeout(() => targetRow.style.outline = 'none', 2000);
+                            }
+                        }, 100);
+                    }
+                };
+
                 row.appendChild(cb); row.appendChild(span); item.appendChild(row); taskList.appendChild(item);
             });
             card.appendChild(taskList);
