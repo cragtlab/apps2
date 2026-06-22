@@ -147,16 +147,30 @@
 
     const addOpsBtn = container.querySelector('#add-ops-btn');
     addOpsBtn.onclick = () => {
+        const id = Date.now().toString();
+        const now = new Date();
+        const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         state.opsTasks.push({
-            id: Date.now().toString(),
-            date: "",
+            id: id,
+            date: today,
             title: "",
             url: "",
             officers: "",
             remarks: "",
             done: false
         });
-        saveData(); renderUI();
+        saveData();
+        renderUI();
+        setTimeout(() => {
+            const targetRow = container.querySelector(`tr[data-task-id="${id}"]`);
+            if (targetRow) {
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const titleInp = targetRow.querySelector('.task-name-input');
+                if (titleInp) titleInp.focus();
+                targetRow.style.outline = '2px solid #007BFF';
+                setTimeout(() => targetRow.style.outline = 'none', 2000);
+            }
+        }, 100);
     };
 
     container.querySelectorAll('.nav-tab').forEach(tab => {
