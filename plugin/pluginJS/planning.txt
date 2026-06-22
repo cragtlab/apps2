@@ -252,7 +252,7 @@
                 id: Date.now().toString() + i,
                 title: title,
                 url: url,
-                done: doneStr === 'true'
+                done: doneStr && doneStr.trim().toLowerCase() === 'true'
             };
 
             if (dateVal) {
