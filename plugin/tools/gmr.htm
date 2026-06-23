@@ -202,12 +202,24 @@
             if (!val) return null;
             if (val instanceof Date) return val;
             if (typeof val === 'number') {
-                // SheetJS serial date conversion
-                return new Date(Math.round((val - 25569) * 86400 * 1000));
+                // Correctly convert Excel serial to local Date
+                // 1899-12-30 is the Excel epoch
+                const d = new Date(1899, 11, 30);
+                d.setDate(d.getDate() + val);
+                return d;
             }
             const d = new Date(val);
             if (!isNaN(d.getTime())) return d;
             return null;
+        }
+
+        // Returns an integer YYYYMMDD for easier local comparison
+        function getDateKey(date) {
+            if (!date) return 0;
+            const y = date.getFullYear();
+            const m = date.getMonth() + 1;
+            const d = date.getDate();
+            return y * 10000 + m * 100 + d;
         }
 
         function processFile(file) {
@@ -251,15 +263,17 @@
         function refreshOutput() {
             if (!loadedDataRows.length) return;
 
-            const dateFrom = new Date(dateFromInput.value);
-            const dateTo = new Date(dateToInput.value);
-            dateTo.setHours(23, 59, 59, 999);
+            // Date inputs are already in YYYY-MM-DD local format
+            const fromKey = parseInt(dateFromInput.value.replace(/-/g, ''));
+            const toKey = parseInt(dateToInput.value.replace(/-/g, ''));
 
             const filteredRows = loadedDataRows.filter(row => {
                 const subDateRaw = row['Submission Date'];
                 const subDate = parseExcelDate(subDateRaw);
                 if (!subDate) return true;
-                return subDate >= dateFrom && subDate <= dateTo;
+
+                const currentKey = getDateKey(subDate);
+                return currentKey >= fromKey && currentKey <= toKey;
             });
 
             if (filteredRows.length === 0) {
