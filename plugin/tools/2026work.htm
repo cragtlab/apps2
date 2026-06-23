@@ -194,6 +194,19 @@ function findStatusColumn(headerRow) {
     }
     return -1;
 }
+function formatExcelDate(val) {
+    if (typeof val !== 'number') return val;
+    // 1899-12-30 is the Excel epoch
+    const d = new Date(1899, 11, 30);
+    d.setDate(d.getDate() + val);
+
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+
+    return `${day}-${month}-${year}`;
+}
 function refreshOfficerDropdown() {
     const sel = document.getElementById("officerFilter");
     const current = sel.value;
@@ -482,7 +495,20 @@ async function loadReports(){
         const loaded = loadResults.find(r => r.reportName === reportName);
 
         if (loaded) {
-            const { data, report } = loaded;
+            let { data, report } = loaded;
+
+            if (reportName === "TA Report_" && data.length > 0) {
+                const header = data[0].map(h => String(h).toLowerCase().trim());
+                const dateCols = ["submission date", "date of incident", "closed date", "kpi date"];
+                const targetIndices = dateCols.map(c => header.indexOf(c)).filter(idx => idx !== -1);
+
+                for (let i = 1; i < data.length; i++) {
+                    targetIndices.forEach(idx => {
+                        data[i][idx] = formatExcelDate(data[i][idx]);
+                    });
+                }
+            }
+
             loadedData[reportName] = data;
             // NEW: build indices
             indexData(reportName, data);
