@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMR Notification Processor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            color: #333;
+        }
+        #drop-zone {
+            border: 2px dashed #007BFF;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            color: #007BFF;
+            background-color: #fff;
+            transition: background-color 0.3s;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        #drop-zone.dragover {
+            background-color: #e1f5fe;
+        }
+        #output-container {
+            position: relative;
+        }
+        textarea {
+            width: 100%;
+            height: 400px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            box-sizing: border-box;
+            background-color: #fff;
+        }
+        .controls {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #status {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>GMR Notification Processor</h1>
+    <p>Drop an XLSX file containing GMR notifications to group them by type and venue.</p>
+
+    <div id="drop-zone">
+        Drag & Drop XLSX file here or click to select
+        <input type="file" id="file-input" style="display: none;" accept=".xlsx">
+    </div>
+
+    <div id="output-container">
+        <div class="controls">
+            <button id="copy-btn">Copy to Clipboard</button>
+        </div>
+        <textarea id="output" placeholder="Output will appear here..." readonly></textarea>
+    </div>
+
+    <div id="status"></div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const output = document.getElementById('output');
+        const copyBtn = document.getElementById('copy-btn');
+        const status = document.getElementById('status');
+
+        dropZone.onclick = () => fileInput.click();
+
+        dropZone.ondragover = (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        };
+
+        dropZone.ondragleave = () => {
+            dropZone.classList.remove('dragover');
+        };
+
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                processFile(e.dataTransfer.files[0]);
+            }
+        };
+
+        fileInput.onchange = (e) => {
+            if (e.target.files.length) {
+                processFile(e.target.files[0]);
+            }
+        };
+
+        copyBtn.onclick = () => {
+            output.select();
+            document.execCommand('copy');
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+            }, 2000);
+        };
+
+        function processFile(file) {
+            status.textContent = 'Processing ' + file.name + '...';
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+
+                    // Use header:1 to get an array of arrays to handle potential header issues
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (rows.length < 2) {
+                        output.value = "No data found in the spreadsheet (expected header and data).";
+                        status.textContent = 'Finished.';
+                        return;
+                    }
+
+                    const header = rows[0].map(h => String(h).trim());
+                    const dataRows = rows.slice(1).map(r => {
+                        const obj = {};
+                        header.forEach((h, i) => {
+                            obj[h] = r[i];
+                        });
+                        return obj;
+                    });
+
+                    const grouped = groupData(dataRows);
+                    displayGroupedData(grouped);
+                    status.textContent = 'Processing complete.';
+                } catch (err) {
+                    console.error(err);
+                    output.value = "Error processing file: " + err.message;
+                    status.textContent = 'Error occurred.';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function groupData(data) {
+            const groups = {};
+
+            data.forEach(row => {
+                const rawType = row['Notification Type'] || 'Unknown Type';
+                const type = String(rawType).trim();
+
+                const venueBefore = row['Approved Gambling Venue (Before)'];
+                const venueAfter = row['Approved Gambling Venue (After)'];
+
+                let venue = '';
+                if (type === 'Remove Machine') {
+                    venue = venueBefore || 'Unknown Venue';
+                } else {
+                    venue = venueAfter || 'Unknown Venue';
+                }
+
+                if (!groups[type]) {
+                    groups[type] = {
+                        total: 0,
+                        venues: {}
+                    };
+                }
+
+                groups[type].total++;
+                const venueStr = String(venue).trim();
+                if (!groups[type].venues[venueStr]) {
+                    groups[type].venues[venueStr] = 0;
+                }
+                groups[type].venues[venueStr]++;
+            });
+
+            return groups;
+        }
+
+        function displayGroupedData(groups) {
+            let sections = [];
+
+            const typeMapping = {
+                'Add Machine': 'Machines Added',
+                'Remove Machine': 'Machines Removed',
+                'Modify Machine': 'Modifications'
+            };
+
+            const order = ['Add Machine', 'Remove Machine', 'Modify Machine'];
+            const types = Object.keys(groups).sort((a, b) => {
+                const idxA = order.indexOf(a);
+                const idxB = order.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            types.forEach((type) => {
+                const group = groups[type];
+                const headerSuffix = typeMapping[type] || type;
+                let section = `${group.total} ${headerSuffix}\n`;
+
+                if (type === 'Modify Machine') {
+                    section += '\n';
+                }
+
+                const sortedVenues = Object.keys(group.venues).sort();
+                sortedVenues.forEach(venue => {
+                    const count = group.venues[venue];
+                    const unit = 'Machine';
+                    const displayUnit = count === 1 ? unit : unit + 's';
+                    section += `${venue} (${count} ${displayUnit})\n`;
+                });
+                sections.push(section.trim());
+            });
+
+            output.value = sections.join('\n\n');
+        }
+    </script>
+</body>
+</html>
