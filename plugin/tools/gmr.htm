@@ -116,6 +116,14 @@
 
         let loadedDataRows = [];
 
+        // Helper to format date as YYYY-MM-DD in local time
+        function formatLocalDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         // Default Date Range Logic
         function setDefaultDates() {
             const now = new Date();
@@ -123,11 +131,11 @@
 
             // Period end dates: Apr 30, Jul 31, Oct 31, Jan 31
             const periods = [
-                { start: [year, 1, 1], end: [year, 3, 30], name: 'Feb-Apr' }, // Feb 1 to Apr 30
-                { start: [year, 4, 1], end: [year, 6, 31], name: 'May-Jul' }, // May 1 to Jul 31
-                { start: [year, 7, 1], end: [year, 9, 31], name: 'Aug-Oct' }, // Aug 1 to Oct 31
-                { start: [year, 10, 1], end: [year + 1, 0, 31], name: 'Nov-Jan' }, // Nov 1 to Jan 31
-                { start: [year - 1, 10, 1], end: [year, 0, 31], name: 'Nov-Jan-Prev' } // Nov 1 to Jan 31 (Prev)
+                { start: [year, 1], end: [year, 3, 30], name: 'Feb-Apr' }, // Feb 1 to Apr 30
+                { start: [year, 4], end: [year, 6, 31], name: 'May-Jul' }, // May 1 to Jul 31
+                { start: [year, 7], end: [year, 9, 31], name: 'Aug-Oct' }, // Aug 1 to Oct 31
+                { start: [year, 10], end: [year + 1, 0, 31], name: 'Nov-Jan' }, // Nov 1 to Jan 31
+                { start: [year - 1, 10], end: [year, 0, 31], name: 'Nov-Jan-Prev' } // Nov 1 to Jan 31 (Prev)
             ];
 
             const endDates = periods.map(p => new Date(p.end[0], p.end[1], p.end[2]));
@@ -146,8 +154,8 @@
             const startDate = new Date(closestPeriod.start[0], closestPeriod.start[1], 1); // Always 1st of month
             const endDate = new Date(closestPeriod.end[0], closestPeriod.end[1], closestPeriod.end[2]);
 
-            dateFromInput.value = startDate.toISOString().split('T')[0];
-            dateToInput.value = endDate.toISOString().split('T')[0];
+            dateFromInput.value = formatLocalDate(startDate);
+            dateToInput.value = formatLocalDate(endDate);
         }
 
         setDefaultDates();
