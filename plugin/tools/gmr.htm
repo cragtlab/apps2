@@ -114,6 +114,8 @@
         const dateFromInput = document.getElementById('date-from');
         const dateToInput = document.getElementById('date-to');
 
+        let loadedDataRows = [];
+
         // Default Date Range Logic
         function setDefaultDates() {
             const now = new Date();
@@ -130,20 +132,18 @@
 
             const endDates = periods.map(p => new Date(p.end[0], p.end[1], p.end[2]));
 
-            let closest = endDates[0];
-            let minDiff = Math.abs(now - endDates[0]);
+            let minDiff = Infinity;
             let closestPeriod = periods[0];
 
             endDates.forEach((d, i) => {
                 const diff = Math.abs(now - d);
                 if (diff < minDiff) {
                     minDiff = diff;
-                    closest = d;
                     closestPeriod = periods[i];
                 }
             });
 
-            const startDate = new Date(closestPeriod.start[0], closestPeriod.start[1], closestPeriod.start[2]);
+            const startDate = new Date(closestPeriod.start[0], closestPeriod.start[1], 1); // Always 1st of month
             const endDate = new Date(closestPeriod.end[0], closestPeriod.end[1], closestPeriod.end[2]);
 
             dateFromInput.value = startDate.toISOString().split('T')[0];
@@ -151,6 +151,9 @@
         }
 
         setDefaultDates();
+
+        dateFromInput.onchange = () => refreshOutput();
+        dateToInput.onchange = () => refreshOutput();
 
         dropZone.onclick = () => fileInput.click();
 
@@ -200,7 +203,7 @@
         }
 
         function processFile(file) {
-            status.textContent = 'Processing ' + file.name + '...';
+            status.textContent = 'Loading ' + file.name + '...';
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -218,7 +221,7 @@
                     }
 
                     const header = rows[0].map(h => String(h).trim());
-                    const dataRows = rows.slice(1).map(r => {
+                    loadedDataRows = rows.slice(1).map(r => {
                         const obj = {};
                         header.forEach((h, i) => {
                             obj[h] = r[i];
@@ -226,26 +229,8 @@
                         return obj;
                     });
 
-                    const dateFrom = new Date(dateFromInput.value);
-                    const dateTo = new Date(dateToInput.value);
-                    dateTo.setHours(23, 59, 59, 999);
-
-                    const filteredRows = dataRows.filter(row => {
-                        const subDateRaw = row['Submission Date'];
-                        const subDate = parseExcelDate(subDateRaw);
-                        if (!subDate) return true; // If no date, include it? Or exclude? Let's include for now.
-                        return subDate >= dateFrom && subDate <= dateTo;
-                    });
-
-                    if (filteredRows.length === 0) {
-                        output.value = "No notifications found within the selected date range.";
-                        status.textContent = 'Finished.';
-                        return;
-                    }
-
-                    const grouped = groupData(filteredRows);
-                    displayGroupedData(grouped);
-                    status.textContent = 'Processing complete. (' + filteredRows.length + ' rows processed)';
+                    refreshOutput();
+                    status.textContent = 'File loaded. (' + loadedDataRows.length + ' rows total)';
                 } catch (err) {
                     console.error(err);
                     output.value = "Error processing file: " + err.message;
@@ -253,6 +238,29 @@
                 }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        function refreshOutput() {
+            if (!loadedDataRows.length) return;
+
+            const dateFrom = new Date(dateFromInput.value);
+            const dateTo = new Date(dateToInput.value);
+            dateTo.setHours(23, 59, 59, 999);
+
+            const filteredRows = loadedDataRows.filter(row => {
+                const subDateRaw = row['Submission Date'];
+                const subDate = parseExcelDate(subDateRaw);
+                if (!subDate) return true;
+                return subDate >= dateFrom && subDate <= dateTo;
+            });
+
+            if (filteredRows.length === 0) {
+                output.value = "No notifications found within the selected date range.";
+                return;
+            }
+
+            const grouped = groupData(filteredRows);
+            displayGroupedData(grouped);
         }
 
         function groupData(data) {
