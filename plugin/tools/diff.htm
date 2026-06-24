@@ -76,7 +76,10 @@
         </div>
     </div>
 
-    <button id="compare-btn">Compare</button>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <button id="compare-btn">Compare</button>
+        <button id="copy-btn" style="display:none; padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-bottom: 20px;">Copy Formatted</button>
+    </div>
 
     <h2>Result</h2>
     <div id="output"></div>
@@ -85,6 +88,7 @@
         const oldText = document.getElementById('oldText');
         const newText = document.getElementById('newText');
         const compareBtn = document.getElementById('compare-btn');
+        const copyBtn = document.getElementById('copy-btn');
         const output = document.getElementById('output');
 
         compareBtn.onclick = () => {
@@ -103,6 +107,42 @@
                 span.textContent = part.value;
                 output.appendChild(span);
             });
+            copyBtn.style.display = 'inline-block';
+        };
+
+        copyBtn.onclick = async () => {
+            const html = `<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; white-space: pre-wrap; line-height: 1.5;">${output.innerHTML}</div>`;
+            const text = output.textContent;
+
+            try {
+                const blobHtml = new Blob([html], { type: 'text/html' });
+                const blobText = new Blob([text], { type: 'text/plain' });
+                const data = [new ClipboardItem({
+                    'text/html': blobHtml,
+                    'text/plain': blobText
+                })];
+
+                await navigator.clipboard.write(data);
+
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => copyBtn.textContent = originalText, 2000);
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+                // Fallback for some browsers/contexts
+                const range = document.createRange();
+                range.selectNode(output);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                try {
+                    document.execCommand('copy');
+                    copyBtn.textContent = 'Copied (Fallback)!';
+                    setTimeout(() => copyBtn.textContent = 'Copy Formatted', 2000);
+                } catch (err2) {
+                    alert('Could not copy automatically. Please select the result and copy manually.');
+                }
+                window.getSelection().removeAllRanges();
+            }
         };
     </script>
 </body>
