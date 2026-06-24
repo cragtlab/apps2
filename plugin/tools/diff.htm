@@ -109,6 +109,12 @@
     </div>
 
     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
+        <select id="diffMode" style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 14px;">
+            <option value="words">Words</option>
+            <option value="lines">Lines</option>
+            <option value="sentences">Sentences</option>
+            <option value="chars">Characters</option>
+        </select>
         <button id="compare-btn" style="margin-bottom:0;">Compare</button>
         <button id="copy-btn" style="display:none; padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-bottom: 0;">Copy Formatted</button>
 
@@ -128,6 +134,7 @@
     <script>
         const oldText = document.getElementById('oldText');
         const newText = document.getElementById('newText');
+        const diffMode = document.getElementById('diffMode');
         const compareBtn = document.getElementById('compare-btn');
         const copyBtn = document.getElementById('copy-btn');
         const output = document.getElementById('output');
@@ -141,7 +148,19 @@
         let currentIdx = -1;
 
         compareBtn.onclick = () => {
-            const diff = Diff.diffWords(oldText.value, newText.value);
+            const mode = diffMode.value;
+            let diff;
+
+            if (mode === 'lines') {
+                diff = Diff.diffLines(oldText.value, newText.value);
+            } else if (mode === 'sentences') {
+                diff = Diff.diffSentences(oldText.value, newText.value);
+            } else if (mode === 'chars') {
+                diff = Diff.diffChars(oldText.value, newText.value);
+            } else {
+                diff = Diff.diffWords(oldText.value, newText.value);
+            }
+
             output.innerHTML = '';
             changeElements = [];
 
