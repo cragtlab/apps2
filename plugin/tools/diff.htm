@@ -96,16 +96,21 @@
             output.innerHTML = '';
 
             diff.forEach((part) => {
-                const span = document.createElement(part.removed ? 'del' : 'span');
+                let element;
                 if (part.added) {
-                    span.style.color = 'red';
+                    element = document.createElement('ins');
+                    element.style.color = 'red';
+                    element.style.textDecoration = 'none'; // Avoid browser/Word default underline
                 } else if (part.removed) {
-                    span.style.color = 'red';
-                    span.style.textDecoration = 'line-through';
+                    element = document.createElement('del');
+                    element.style.color = 'red';
+                    element.style.textDecoration = 'line-through';
+                } else {
+                    element = document.createElement('span');
                 }
 
-                span.textContent = part.value;
-                output.appendChild(span);
+                element.textContent = part.value;
+                output.appendChild(element);
             });
             copyBtn.style.display = 'inline-block';
         };
