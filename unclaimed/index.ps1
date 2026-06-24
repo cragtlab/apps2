@@ -15,7 +15,7 @@ function Refresh-Grid {
         return
     }
 
-    $data = Import-Csv $dataFile
+    $data = @(Import-Csv $dataFile)
     $dt = New-Object System.Data.DataTable
 
     if ($data.Count -gt 0) {
