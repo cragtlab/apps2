@@ -154,7 +154,9 @@ function indexData(reportName, rows) {
         const row = rows[i];
 
         const rawOfficer = officerCol !== -1 ? row[officerCol] : null;
-        const officer = normalizeOfficer(rawOfficer);
+        let officer = normalizeOfficer(rawOfficer);
+        if (!officer) officer = "no officer";
+
         const status = statusCol !== -1 ? (row[statusCol] || "").toString().trim() : null;
 
         if (officer) {
@@ -173,6 +175,7 @@ function indexData(reportName, rows) {
             statusIndex[status].push({ report: reportName, row });
         }
     }
+    return -1;
 }
 function isStatusCompleted(status) {
     if (!status) return false;
@@ -190,6 +193,19 @@ function findStatusColumn(headerRow) {
         }
     }
     return -1;
+}
+function formatExcelDate(val) {
+    if (typeof val !== 'number') return val;
+    // 1899-12-30 is the Excel epoch
+    const d = new Date(1899, 11, 30);
+    d.setDate(d.getDate() + val);
+
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+
+    return `${day}-${month}-${year}`;
 }
 function refreshOfficerDropdown() {
     const sel = document.getElementById("officerFilter");
@@ -479,7 +495,20 @@ async function loadReports(){
         const loaded = loadResults.find(r => r.reportName === reportName);
 
         if (loaded) {
-            const { data, report } = loaded;
+            let { data, report } = loaded;
+
+            if (reportName === "TA Report_" && data.length > 0) {
+                const header = data[0].map(h => String(h).toLowerCase().trim());
+                const dateCols = ["submission date", "date of incident", "closed date", "kpi date"];
+                const targetIndices = dateCols.map(c => header.indexOf(c)).filter(idx => idx !== -1);
+
+                for (let i = 1; i < data.length; i++) {
+                    targetIndices.forEach(idx => {
+                        data[i][idx] = formatExcelDate(data[i][idx]);
+                    });
+                }
+            }
+
             loadedData[reportName] = data;
             // NEW: build indices
             indexData(reportName, data);
@@ -527,7 +556,8 @@ function applyFilters() {
 
             // Filter by officer
             if (officer) {
-                const rowOfficer = normalizeOfficer(row[officerCol]);
+                let rowOfficer = normalizeOfficer(row[officerCol]);
+                if (!rowOfficer) rowOfficer = "no officer";
                 if (rowOfficer !== officer) continue;
             }
 
