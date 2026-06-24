@@ -96,7 +96,7 @@
             output.innerHTML = '';
 
             diff.forEach((part) => {
-                const span = document.createElement('span');
+                const span = document.createElement(part.removed ? 'del' : 'span');
                 if (part.added) {
                     span.style.color = 'red';
                 } else if (part.removed) {
@@ -111,7 +111,10 @@
         };
 
         copyBtn.onclick = async () => {
-            const html = `<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; white-space: pre-wrap; line-height: 1.5;">${output.innerHTML}</div>`;
+            // Outlook Web often ignores 'white-space: pre-wrap' in pasted HTML,
+            // so we replace newlines with <br> for the HTML version.
+            const htmlWithBr = output.innerHTML.replace(/\n/g, '<br>');
+            const html = `<html><body><div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.5;">${htmlWithBr}</div></body></html>`;
             const text = output.textContent;
 
             try {
