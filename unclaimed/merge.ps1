@@ -7,10 +7,8 @@ param(
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tmpDir = Join-Path $PSScriptRoot "tmp"
 $dataDir = Join-Path $PSScriptRoot "data"
-$unreadDir = Join-Path $PSScriptRoot "unread"
 $tmpPath = Join-Path $tmpDir $file
 $dataPath = Join-Path $dataDir $file
-$unreadPath = Join-Path $unreadDir $file
 
 function Get-ColumnNames {
     param(
@@ -197,7 +195,6 @@ function Get-UpsertResult {
 
 if (!(Test-Path $tmpDir)) { New-Item -ItemType Directory -Path $tmpDir | Out-Null }
 if (!(Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir | Out-Null }
-if (!(Test-Path $unreadDir)) { New-Item -ItemType Directory -Path $unreadDir | Out-Null }
 
 if (!(Test-Path $tmpPath)) {
     Write-Output "Tmp file not found: $tmpPath"
@@ -206,10 +203,9 @@ if (!(Test-Path $tmpPath)) {
 
 $new = @(Import-Csv $tmpPath)
 $existing = if (Test-Path $dataPath) { @(Import-Csv $dataPath) } else { @() }
-$unreadExisting = if (Test-Path $unreadPath) { @(Import-Csv $unreadPath) } else { @() }
 
 # Ensure Status column exists in columns list
-$allRows = $existing + $new + $unreadExisting
+$allRows = $existing + $new
 $columns = Get-ColumnNames -Rows $allRows
 if ($columns -notcontains "Status") {
     $columns = @("Status") + $columns
@@ -220,6 +216,7 @@ if ($columns.Count -eq 0) {
     return
 }
 
+# If KeyColumns not provided, use all columns except Status for uniqueness
 $effectiveKeyColumns = if ($KeyColumns -and $KeyColumns.Count -gt 0) { $KeyColumns } else { $columns | Where-Object { $_ -ne "Status" } }
 
 # Add Status property to new rows if missing
@@ -237,13 +234,6 @@ $diffRows = @($upsertResult.DiffRows)
 
 $mergedForExport = Convert-RowsToColumnSchema -Rows $merged -Columns $columns
 $mergedForExport | Export-Csv $dataPath -NoTypeInformation -Encoding UTF8
-
-if ($diffRows.Count -gt 0) {
-    $unreadResult = Get-UpsertResult -ExistingRows $unreadExisting -NewRows $diffRows -KeyColumns $effectiveKeyColumns -AllColumns $columns
-    $unreadRows = @($unreadResult.MergedRows)
-    $unreadRowsForExport = Convert-RowsToColumnSchema -Rows $unreadRows -Columns $columns
-    $unreadRowsForExport | Export-Csv $unreadPath -NoTypeInformation -Encoding UTF8
-}
 
 Write-Output "Merged into $dataPath"
 Write-Output "New rows: $($new.Count)"
