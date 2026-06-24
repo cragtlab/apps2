@@ -58,6 +58,33 @@
             min-height: 100px;
             line-height: 1.5;
         }
+        .change-highlight {
+            background-color: yellow;
+            transition: background-color 0.5s;
+        }
+        .nav-controls {
+            display: none;
+            gap: 5px;
+            align-items: center;
+            background: #fff;
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .nav-btn {
+            padding: 5px 10px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+        .nav-btn:hover {
+            background: #e2e6ea;
+        }
+        #currentChangeIdx {
+            width: 40px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -76,9 +103,18 @@
         </div>
     </div>
 
-    <div style="display: flex; gap: 10px; align-items: center;">
-        <button id="compare-btn">Compare</button>
-        <button id="copy-btn" style="display:none; padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-bottom: 20px;">Copy Formatted</button>
+    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
+        <button id="compare-btn" style="margin-bottom:0;">Compare</button>
+        <button id="copy-btn" style="display:none; padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-bottom: 0;">Copy Formatted</button>
+
+        <div id="navControls" class="nav-controls">
+            <button class="nav-btn" id="prevBtn">&lt;</button>
+            <input type="text" id="currentChangeIdx" value="0">
+            <span>of</span>
+            <span id="totalChanges">0</span>
+            <span>changes</span>
+            <button class="nav-btn" id="nextBtn">&gt;</button>
+        </div>
     </div>
 
     <h2>Result</h2>
@@ -90,30 +126,105 @@
         const compareBtn = document.getElementById('compare-btn');
         const copyBtn = document.getElementById('copy-btn');
         const output = document.getElementById('output');
+        const navControls = document.getElementById('navControls');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const currentChangeIdxInput = document.getElementById('currentChangeIdx');
+        const totalChangesSpan = document.getElementById('totalChanges');
+
+        let changeElements = [];
+        let currentIdx = -1;
 
         compareBtn.onclick = () => {
             const diff = Diff.diffWords(oldText.value, newText.value);
             output.innerHTML = '';
+            changeElements = [];
 
             diff.forEach((part) => {
                 let element;
                 if (part.added) {
                     element = document.createElement('ins');
                     element.style.color = 'red';
-                    element.style.textDecoration = 'none'; // Avoid browser/Word default underline
+                    element.style.textDecoration = 'none';
+                    element.classList.add('diff-change');
                 } else if (part.removed) {
                     element = document.createElement('del');
                     element.style.color = 'red';
                     element.style.textDecoration = 'line-through';
+                    element.classList.add('diff-change');
                 } else {
                     element = document.createElement('span');
                 }
 
                 element.textContent = part.value;
                 output.appendChild(element);
+
+                if (part.added || part.removed) {
+                    changeElements.push(element);
+                }
             });
+
             copyBtn.style.display = 'inline-block';
+
+            if (changeElements.length > 0) {
+                navControls.style.display = 'flex';
+                totalChangesSpan.textContent = changeElements.length;
+                currentIdx = 0;
+                updateNav();
+            } else {
+                navControls.style.display = 'none';
+            }
         };
+
+        function updateNav(jump = true) {
+            currentChangeIdxInput.value = currentIdx + 1;
+
+            // Clear highlights
+            changeElements.forEach(el => el.classList.remove('change-highlight'));
+
+            if (currentIdx >= 0 && currentIdx < changeElements.length) {
+                const el = changeElements[currentIdx];
+                el.classList.add('change-highlight');
+                if (jump) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                setTimeout(() => el.classList.remove('change-highlight'), 2000);
+            }
+        }
+
+        prevBtn.onclick = () => {
+            if (changeElements.length === 0) return;
+            currentIdx = (currentIdx - 1 + changeElements.length) % changeElements.length;
+            updateNav();
+        };
+
+        nextBtn.onclick = () => {
+            if (changeElements.length === 0) return;
+            currentIdx = (currentIdx + 1) % changeElements.length;
+            updateNav();
+        };
+
+        currentChangeIdxInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                let val = parseInt(currentChangeIdxInput.value) - 1;
+                if (isNaN(val) || val < 0) val = 0;
+                if (val >= changeElements.length) val = changeElements.length - 1;
+                currentIdx = val;
+                updateNav();
+            }
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (changeElements.length === 0) return;
+            if (document.activeElement === currentChangeIdxInput ||
+                document.activeElement.tagName === 'TEXTAREA') return;
+
+            if (e.key === 'ArrowLeft') {
+                prevBtn.onclick();
+            } else if (e.key === 'ArrowRight') {
+                nextBtn.onclick();
+            }
+        });
 
         copyBtn.onclick = async () => {
             // Outlook Web often ignores 'white-space: pre-wrap' in pasted HTML,
