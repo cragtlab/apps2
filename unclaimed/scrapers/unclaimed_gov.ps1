@@ -69,7 +69,7 @@ try {
     Write-Output "Scraped $($rows.Count) rows."
 
     if (Test-Path $mergeScriptPath) {
-        & $mergeScriptPath -file $csvFileName -KeyColumns "OwnerName", "OwnerId", "SourceAgency"
+        & $mergeScriptPath -file $csvFileName
     }
 }
 catch {
