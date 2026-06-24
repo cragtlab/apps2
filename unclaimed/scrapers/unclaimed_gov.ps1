@@ -35,7 +35,7 @@ if (-not (Test-Path $tmpDir)) {
     New-Item -ItemType Directory -Path $tmpDir | Out-Null
 }
 
-Write-Output "Scraping Unclaimed Monies..."
+Write-Output "Scraping Unclaimed Monies (unclaimed_gov)..."
 
 try {
     $response = Invoke-WebRequest -UseBasicParsing -Uri "https://www.unclaimedmonies.gov.sg/Monies/MoniesListJson" `
@@ -68,7 +68,7 @@ try {
     Write-Output "Scraped $($rows.Count) rows."
 
     if (Test-Path $mergeScriptPath) {
-        & $mergeScriptPath -file $csvFileName -KeyColumns "MoniesId"
+        & $mergeScriptPath -file $csvFileName -target "unclaimed_monies.csv" -KeyColumns "MoniesId"
     }
 }
 catch {

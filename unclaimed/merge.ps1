@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory=$true)]
     [string]$file,
+    [string]$target = "unclaimed_monies.csv",
     [string[]]$KeyColumns
 )
 
@@ -8,9 +9,8 @@ $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tmpDir = Join-Path $PSScriptRoot "tmp"
 $dataDir = Join-Path $PSScriptRoot "data"
 $tmpPath = Join-Path $tmpDir $file
-$dataPath = Join-Path $dataDir $file
+$dataPath = Join-Path $dataDir $target
 
-# Fields to extract from user input requirements: "Status","MoniesId","ClaimedName","LastKnownStreetAddress","CategoryName","YearCollected","Remarks","AgencyName","CreatedDate"
 $trackingFields = @("Status", "Remarks")
 
 function Get-ColumnNames {
@@ -19,7 +19,6 @@ function Get-ColumnNames {
     )
 
     $columns = New-Object System.Collections.Generic.List[string]
-
     foreach ($row in @($Rows)) {
         if ($null -eq $row) { continue }
         foreach ($prop in $row.PSObject.Properties) {
@@ -28,7 +27,6 @@ function Get-ColumnNames {
             }
         }
     }
-
     return $columns.ToArray()
 }
 
@@ -47,7 +45,8 @@ function Get-RowKey {
             [void]$parts.Add(([string]$value).Trim())
         }
     }
-    return $parts -join "`u{001F}"
+    # Using a standard delimiter compatible with PS 5.1
+    return $parts -join [char]31
 }
 
 function Get-RowScore {
@@ -66,39 +65,32 @@ function Get-RowScore {
     return $score
 }
 
-function Get-PreferredRow {
+function Get-MergedRow {
     param(
-        $CurrentRow,
-        $CandidateRow,
+        $ExistingRow,
+        $NewRow,
         [string[]]$Columns
     )
 
-    if ($null -eq $CurrentRow) { return $CandidateRow }
-    if ($null -eq $CandidateRow) { return $CurrentRow }
+    if ($null -eq $ExistingRow) { return $NewRow }
+    if ($null -eq $NewRow) { return $ExistingRow }
 
-    # Preserve tracking data
+    # Start with the new row as the base (to get updated gov info)
+    $merged = $NewRow.psobject.copy()
+
+    # Always preserve tracking data from the existing row
     foreach ($field in $trackingFields) {
-        if ($CurrentRow.$field -and -not [string]::IsNullOrWhiteSpace($CurrentRow.$field)) {
-            if ($field -eq "Status" -and $CurrentRow.Status -eq "New") {
-                # If it's just "New", it can be overwritten if the candidate has something better,
-                # but usually we want to keep the current row's tracking info.
+        $existingVal = $ExistingRow.$field
+        if ($existingVal -and -not [string]::IsNullOrWhiteSpace($existingVal)) {
+            if ($field -eq "Status" -and $existingVal -eq "New") {
+                # If it's just "New", it can be overwritten
             } else {
-                # Preserve existing tracking info
-                if ($null -eq $CandidateRow.$field -or [string]::IsNullOrWhiteSpace($CandidateRow.$field)) {
-                     Add-Member -InputObject $CandidateRow -MemberType NoteProperty -Name $field -Value $CurrentRow.$field -Force -ErrorAction SilentlyContinue
-                }
+                $merged.$field = $existingVal
             }
         }
     }
 
-    $currentScore = Get-RowScore -Row $CurrentRow -Columns $Columns
-    $candidateScore = Get-RowScore -Row $CandidateRow -Columns $Columns
-
-    if ($candidateScore -gt $currentScore) {
-        return $CandidateRow
-    }
-
-    return $CurrentRow
+    return $merged
 }
 
 function Get-UniqueRows {
@@ -155,10 +147,7 @@ function Get-UpsertResult {
         if (-not $mergedMap.ContainsKey($key)) {
             [void]$keyOrder.Add($key)
             $mergedMap[$key] = $row
-            continue
         }
-
-        $mergedMap[$key] = Get-PreferredRow -CurrentRow $mergedMap[$key] -CandidateRow $row -Columns $AllColumns
     }
 
     foreach ($row in @($NewRows)) {
@@ -184,14 +173,14 @@ function Get-UpsertResult {
         $currentDataKey = Get-RowKey -Row $currentRow -Columns $dataColumns
         $newDataKey = Get-RowKey -Row $row -Columns $dataColumns
 
-        if ($currentDataKey -eq $newDataKey) {
-            continue
-        }
+        # Even if data hasn't changed, we call Get-MergedRow to handle Status preservation correctly
+        $mergedRow = Get-MergedRow -ExistingRow $currentRow -NewRow $row -Columns $AllColumns
+        $mergedMap[$key] = $mergedRow
 
-        $preferredRow = Get-PreferredRow -CurrentRow $currentRow -CandidateRow $row -Columns $AllColumns
-        $mergedMap[$key] = $preferredRow
-        if (-not $diffMap.ContainsKey($key)) { [void]$diffOrder.Add($key) }
-        $diffMap[$key] = $preferredRow
+        if ($currentDataKey -ne $newDataKey) {
+            if (-not $diffMap.ContainsKey($key)) { [void]$diffOrder.Add($key) }
+            $diffMap[$key] = $mergedRow
+        }
     }
 
     return @{
@@ -214,7 +203,6 @@ $existing = if (Test-Path $dataPath) { @(Import-Csv $dataPath) } else { @() }
 $allRows = [array]$existing + [array]$new
 $columns = Get-ColumnNames -Rows $allRows
 
-# Fixed schema order as requested
 $preferredOrder = @("Status", "MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "Remarks", "AgencyName", "CreatedDate")
 $finalColumns = New-Object System.Collections.Generic.List[string]
 foreach ($col in $preferredOrder) {
@@ -231,15 +219,6 @@ if ($columns.Count -eq 0) {
 }
 
 $effectiveKeyColumns = if ($KeyColumns -and $KeyColumns.Count -gt 0) { $KeyColumns } else { $columns | Where-Object { $trackingFields -notcontains $_ } }
-
-foreach ($row in $new) {
-    foreach ($field in $trackingFields) {
-        if ($null -eq $row.$field) {
-            $val = if ($field -eq "Status") { "New" } else { "" }
-            Add-Member -InputObject $row -MemberType NoteProperty -Name $field -Value $val -ErrorAction SilentlyContinue
-        }
-    }
-}
 
 $uniqueNew = Get-UniqueRows -Rows $new -Columns $columns
 $upsertResult = Get-UpsertResult -ExistingRows $existing -NewRows $uniqueNew -KeyColumns $effectiveKeyColumns -AllColumns $columns
