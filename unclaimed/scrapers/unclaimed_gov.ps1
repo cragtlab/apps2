@@ -47,8 +47,6 @@ try {
 
     $json = $response.Content | ConvertFrom-Json
 
-    # Typically the list is in a property like 'Data' or 'items'
-    # Based on Kendo UI (common for such sites), it might be 'Data'
     $items = if ($json.Data) { $json.Data } else { $json }
 
     if ($null -eq $items -or $items.Count -eq 0) {
@@ -56,11 +54,12 @@ try {
         exit 1
     }
 
+    $requiredFields = @("MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "AgencyName", "CreatedDate")
+
     $rows = @(foreach ($item in $items) {
-        # Dynamically capture all properties from the JSON object
         $obj = [ordered]@{}
-        foreach ($prop in $item.PSObject.Properties) {
-            $obj[$prop.Name] = $prop.Value
+        foreach ($field in $requiredFields) {
+            $obj[$field] = $item.$field
         }
         [PSCustomObject]$obj
     })
@@ -69,7 +68,7 @@ try {
     Write-Output "Scraped $($rows.Count) rows."
 
     if (Test-Path $mergeScriptPath) {
-        & $mergeScriptPath -file $csvFileName
+        & $mergeScriptPath -file $csvFileName -KeyColumns "MoniesId"
     }
 }
 catch {

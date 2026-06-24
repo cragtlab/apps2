@@ -10,6 +10,9 @@ $dataDir = Join-Path $PSScriptRoot "data"
 $tmpPath = Join-Path $tmpDir $file
 $dataPath = Join-Path $dataDir $file
 
+# Fields to extract from user input requirements: "Status","MoniesId","ClaimedName","LastKnownStreetAddress","CategoryName","YearCollected","Remarks","AgencyName","CreatedDate"
+$trackingFields = @("Status", "Remarks")
+
 function Get-ColumnNames {
     param(
         [object[]]$Rows
@@ -73,9 +76,19 @@ function Get-PreferredRow {
     if ($null -eq $CurrentRow) { return $CandidateRow }
     if ($null -eq $CandidateRow) { return $CurrentRow }
 
-    # Special handling for "Status" column - preserve existing non-empty status
-    if ($CurrentRow.Status -and -not [string]::IsNullOrWhiteSpace($CurrentRow.Status) -and $CurrentRow.Status -ne "New") {
-        return $CurrentRow
+    # Preserve tracking data
+    foreach ($field in $trackingFields) {
+        if ($CurrentRow.$field -and -not [string]::IsNullOrWhiteSpace($CurrentRow.$field)) {
+            if ($field -eq "Status" -and $CurrentRow.Status -eq "New") {
+                # If it's just "New", it can be overwritten if the candidate has something better,
+                # but usually we want to keep the current row's tracking info.
+            } else {
+                # Preserve existing tracking info
+                if ($null -eq $CandidateRow.$field -or [string]::IsNullOrWhiteSpace($CandidateRow.$field)) {
+                     Add-Member -InputObject $CandidateRow -MemberType NoteProperty -Name $field -Value $CurrentRow.$field -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
     }
 
     $currentScore = Get-RowScore -Row $CurrentRow -Columns $Columns
@@ -153,8 +166,12 @@ function Get-UpsertResult {
 
         if (-not $mergedMap.ContainsKey($key)) {
             [void]$keyOrder.Add($key)
+            # Init tracking fields for new items
             if (-not $row.Status) {
                 Add-Member -InputObject $row -MemberType NoteProperty -Name "Status" -Value "New" -ErrorAction SilentlyContinue
+            }
+            if (-not $row.Remarks) {
+                Add-Member -InputObject $row -MemberType NoteProperty -Name "Remarks" -Value "" -ErrorAction SilentlyContinue
             }
             $mergedMap[$key] = $row
             $diffMap[$key] = $row
@@ -163,7 +180,7 @@ function Get-UpsertResult {
         }
 
         $currentRow = $mergedMap[$key]
-        $dataColumns = $AllColumns | Where-Object { $_ -ne "Status" }
+        $dataColumns = $AllColumns | Where-Object { $trackingFields -notcontains $_ }
         $currentDataKey = Get-RowKey -Row $currentRow -Columns $dataColumns
         $newDataKey = Get-RowKey -Row $row -Columns $dataColumns
 
@@ -196,32 +213,42 @@ $existing = if (Test-Path $dataPath) { @(Import-Csv $dataPath) } else { @() }
 
 $allRows = [array]$existing + [array]$new
 $columns = Get-ColumnNames -Rows $allRows
+
+# Fixed schema order as requested
+$preferredOrder = @("Status", "MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "Remarks", "AgencyName", "CreatedDate")
+$finalColumns = New-Object System.Collections.Generic.List[string]
+foreach ($col in $preferredOrder) {
+    [void]$finalColumns.Add($col)
+}
+foreach ($col in $columns) {
+    if (-not $finalColumns.Contains($col)) { [void]$finalColumns.Add($col) }
+}
+$columns = $finalColumns.ToArray()
+
 if ($columns.Count -eq 0) {
     Write-Output "No rows found."
     return
 }
 
-if ($columns -notcontains "Status") {
-    $columns = [string[]](@("Status") + $columns)
-}
-
-$effectiveKeyColumns = if ($KeyColumns -and $KeyColumns.Count -gt 0) { $KeyColumns } else { $columns | Where-Object { $_ -ne "Status" } }
+$effectiveKeyColumns = if ($KeyColumns -and $KeyColumns.Count -gt 0) { $KeyColumns } else { $columns | Where-Object { $trackingFields -notcontains $_ } }
 
 foreach ($row in $new) {
-    if ($null -eq $row.Status) {
-        Add-Member -InputObject $row -MemberType NoteProperty -Name "Status" -Value "New" -ErrorAction SilentlyContinue
+    foreach ($field in $trackingFields) {
+        if ($null -eq $row.$field) {
+            $val = if ($field -eq "Status") { "New" } else { "" }
+            Add-Member -InputObject $row -MemberType NoteProperty -Name $field -Value $val -ErrorAction SilentlyContinue
+        }
     }
 }
 
 $uniqueNew = Get-UniqueRows -Rows $new -Columns $columns
 $upsertResult = Get-UpsertResult -ExistingRows $existing -NewRows $uniqueNew -KeyColumns $effectiveKeyColumns -AllColumns $columns
 $merged = [array]$upsertResult.MergedRows
-$diffRows = [array]$upsertResult.DiffRows
 
 $mergedForExport = Convert-RowsToColumnSchema -Rows $merged -Columns $columns
 $mergedForExport | Export-Csv $dataPath -NoTypeInformation -Encoding UTF8
 
 Write-Output "Merged into $dataPath"
 Write-Output "New rows: $($new.Count)"
-Write-Output "Diff rows: $($diffRows.Count)"
+Write-Output "Diff rows: $($upsertResult.DiffRows.Count)"
 Write-Output "Total rows: $($merged.Count)"

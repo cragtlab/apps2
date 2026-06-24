@@ -46,7 +46,6 @@ function Refresh-Grid {
         }
 
         if ($colIndex -ge 0 -and $table.Columns[$colIndex].GetType().Name -ne "DataGridViewComboBoxColumn") {
-            $oldCol = $table.Columns[$colIndex]
             $newCol = New-Object System.Windows.Forms.DataGridViewComboBoxColumn
             $newCol.HeaderText = "Status"
             $newCol.DataPropertyName = "Status"
@@ -112,38 +111,38 @@ function Run-Scraper {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Unclaimed Monies Tracker"
-$form.Size = New-Object System.Drawing.Size(1000, 600)
+$form.Size = New-Object System.Drawing.Size(1200, 700)
 $form.StartPosition = "CenterScreen"
 
 $table = New-Object System.Windows.Forms.DataGridView
 $table.Location = New-Object System.Drawing.Point(10, 10)
-$table.Size = New-Object System.Drawing.Size(965, 400)
+$table.Size = New-Object System.Drawing.Size(1165, 500)
 $table.Anchor = "Top, Left, Right, Bottom"
 $table.AutoSizeColumnsMode = "AllCells"
 $table.AllowUserToAddRows = $false
 
 $btnRun = New-Object System.Windows.Forms.Button
 $btnRun.Text = "Run Scraper"
-$btnRun.Location = New-Object System.Drawing.Point(10, 420)
+$btnRun.Location = New-Object System.Drawing.Point(10, 520)
 $btnRun.Anchor = "Bottom, Left"
 $btnRun.Add_Click({ Run-Scraper })
 
 $btnSave = New-Object System.Windows.Forms.Button
 $btnSave.Text = "Save Changes"
-$btnSave.Location = New-Object System.Drawing.Point(100, 420)
+$btnSave.Location = New-Object System.Drawing.Point(100, 520)
 $btnSave.Anchor = "Bottom, Left"
 $btnSave.Add_Click({ Save-Changes })
 
 $btnRefresh = New-Object System.Windows.Forms.Button
 $btnRefresh.Text = "Refresh"
-$btnRefresh.Location = New-Object System.Drawing.Point(190, 420)
+$btnRefresh.Location = New-Object System.Drawing.Point(190, 520)
 $btnRefresh.Anchor = "Bottom, Left"
 $btnRefresh.Add_Click({ Refresh-Grid })
 
 $logBox = New-Object System.Windows.Forms.TextBox
 $logBox.Multiline = $true
-$logBox.Location = New-Object System.Drawing.Point(10, 455)
-$logBox.Size = New-Object System.Drawing.Size(965, 100)
+$logBox.Location = New-Object System.Drawing.Point(10, 555)
+$logBox.Size = New-Object System.Drawing.Size(1165, 100)
 $logBox.Anchor = "Bottom, Left, Right"
 $logBox.ScrollBars = "Vertical"
 $logBox.ReadOnly = $true
