@@ -56,14 +56,14 @@ try {
         exit 1
     }
 
-    $rows = foreach ($item in $items) {
+    $rows = @(foreach ($item in $items) {
         # Dynamically capture all properties from the JSON object
         $obj = [ordered]@{}
         foreach ($prop in $item.PSObject.Properties) {
             $obj[$prop.Name] = $prop.Value
         }
         [PSCustomObject]$obj
-    }
+    })
 
     $rows | Export-Csv -Path $tmpCsvPath -NoTypeInformation -Encoding UTF8
     Write-Output "Scraped $($rows.Count) rows."

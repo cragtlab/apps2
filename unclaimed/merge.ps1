@@ -18,9 +18,10 @@ function Get-ColumnNames {
     $columns = New-Object System.Collections.Generic.List[string]
 
     foreach ($row in @($Rows)) {
-        foreach ($name in $row.PSObject.Properties.Name) {
-            if (-not $columns.Contains($name)) {
-                [void]$columns.Add($name)
+        if ($null -eq $row) { continue }
+        foreach ($prop in $row.PSObject.Properties) {
+            if (-not $columns.Contains($prop.Name)) {
+                [void]$columns.Add($prop.Name)
             }
         }
     }
@@ -34,10 +35,16 @@ function Get-RowKey {
         [string[]]$Columns
     )
 
-    return ($Columns | ForEach-Object {
-        $value = $Row.$_
-        if ($null -eq $value) { "" } else { ([string]$value).Trim() }
-    }) -join "`u{001F}"
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($col in $Columns) {
+        $value = $Row.$col
+        if ($null -eq $value) {
+            [void]$parts.Add("")
+        } else {
+            [void]$parts.Add(([string]$value).Trim())
+        }
+    }
+    return $parts -join "`u{001F}"
 }
 
 function Get-RowScore {
@@ -47,14 +54,12 @@ function Get-RowScore {
     )
 
     $score = 0
-
     foreach ($column in $Columns) {
         $value = $Row.$column
         if (-not [string]::IsNullOrWhiteSpace([string]$value)) {
             $score++
         }
     }
-
     return $score
 }
 
@@ -65,13 +70,8 @@ function Get-PreferredRow {
         [string[]]$Columns
     )
 
-    if ($null -eq $CurrentRow) {
-        return $CandidateRow
-    }
-
-    if ($null -eq $CandidateRow) {
-        return $CurrentRow
-    }
+    if ($null -eq $CurrentRow) { return $CandidateRow }
+    if ($null -eq $CandidateRow) { return $CurrentRow }
 
     # Special handling for "Status" column - preserve existing non-empty status
     if ($CurrentRow.Status -and -not [string]::IsNullOrWhiteSpace($CurrentRow.Status) -and $CurrentRow.Status -ne "New") {
@@ -114,17 +114,13 @@ function Convert-RowsToColumnSchema {
     )
 
     $normalizedRows = New-Object System.Collections.Generic.List[object]
-
     foreach ($row in @($Rows)) {
         $normalized = [ordered]@{}
-
         foreach ($column in $Columns) {
             $normalized[$column] = $row.$column
         }
-
         [void]$normalizedRows.Add([PSCustomObject]$normalized)
     }
-
     return $normalizedRows.ToArray()
 }
 
@@ -157,7 +153,6 @@ function Get-UpsertResult {
 
         if (-not $mergedMap.ContainsKey($key)) {
             [void]$keyOrder.Add($key)
-            # Default status for new items
             if (-not $row.Status) {
                 Add-Member -InputObject $row -MemberType NoteProperty -Name "Status" -Value "New" -ErrorAction SilentlyContinue
             }
@@ -168,8 +163,6 @@ function Get-UpsertResult {
         }
 
         $currentRow = $mergedMap[$key]
-
-        # Check if the data itself has changed (excluding Status)
         $dataColumns = $AllColumns | Where-Object { $_ -ne "Status" }
         $currentDataKey = Get-RowKey -Row $currentRow -Columns $dataColumns
         $newDataKey = Get-RowKey -Row $row -Columns $dataColumns
@@ -179,17 +172,14 @@ function Get-UpsertResult {
         }
 
         $preferredRow = Get-PreferredRow -CurrentRow $currentRow -CandidateRow $row -Columns $AllColumns
-
         $mergedMap[$key] = $preferredRow
-        if (-not $diffMap.ContainsKey($key)) {
-            [void]$diffOrder.Add($key)
-        }
+        if (-not $diffMap.ContainsKey($key)) { [void]$diffOrder.Add($key) }
         $diffMap[$key] = $preferredRow
     }
 
     return @{
-        MergedRows = @($keyOrder | ForEach-Object { $mergedMap[$_] })
-        DiffRows = @($diffOrder | ForEach-Object { $diffMap[$_] })
+        MergedRows = [array]($keyOrder | ForEach-Object { $mergedMap[$_] })
+        DiffRows = [array]($diffOrder | ForEach-Object { $diffMap[$_] })
     }
 }
 
@@ -204,22 +194,19 @@ if (!(Test-Path $tmpPath)) {
 $new = @(Import-Csv $tmpPath)
 $existing = if (Test-Path $dataPath) { @(Import-Csv $dataPath) } else { @() }
 
-# Ensure Status column exists in columns list
-$allRows = $existing + $new
+$allRows = [array]$existing + [array]$new
 $columns = Get-ColumnNames -Rows $allRows
-if ($columns -notcontains "Status") {
-    $columns = @("Status") + $columns
-}
-
 if ($columns.Count -eq 0) {
-    Write-Output "No rows found in $tmpPath"
+    Write-Output "No rows found."
     return
 }
 
-# If KeyColumns not provided, use all columns except Status for uniqueness
+if ($columns -notcontains "Status") {
+    $columns = [string[]](@("Status") + $columns)
+}
+
 $effectiveKeyColumns = if ($KeyColumns -and $KeyColumns.Count -gt 0) { $KeyColumns } else { $columns | Where-Object { $_ -ne "Status" } }
 
-# Add Status property to new rows if missing
 foreach ($row in $new) {
     if ($null -eq $row.Status) {
         Add-Member -InputObject $row -MemberType NoteProperty -Name "Status" -Value "New" -ErrorAction SilentlyContinue
@@ -227,10 +214,9 @@ foreach ($row in $new) {
 }
 
 $uniqueNew = Get-UniqueRows -Rows $new -Columns $columns
-
 $upsertResult = Get-UpsertResult -ExistingRows $existing -NewRows $uniqueNew -KeyColumns $effectiveKeyColumns -AllColumns $columns
-$merged = @($upsertResult.MergedRows)
-$diffRows = @($upsertResult.DiffRows)
+$merged = [array]$upsertResult.MergedRows
+$diffRows = [array]$upsertResult.DiffRows
 
 $mergedForExport = Convert-RowsToColumnSchema -Rows $merged -Columns $columns
 $mergedForExport | Export-Csv $dataPath -NoTypeInformation -Encoding UTF8
