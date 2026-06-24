@@ -1,6 +1,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Web
+Add-Type -AssemblyName Microsoft.VisualBasic
 
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $dataDir = Join-Path $PSScriptRoot "data"
@@ -21,14 +22,21 @@ function Refresh-Grid {
 
     if ($data.Count -gt 0) {
         $first = $data[0]
+        # Establish preferred order: Status, Remarks, then the rest
+        $preferred = @("Status", "Remarks")
+        foreach ($p in $preferred) {
+            if (-not $dt.Columns.Contains($p)) { [void]$dt.Columns.Add($p) }
+        }
         foreach ($prop in $first.PSObject.Properties) {
-            [void]$dt.Columns.Add($prop.Name)
+            if (-not $dt.Columns.Contains($prop.Name)) {
+                [void]$dt.Columns.Add($prop.Name)
+            }
         }
 
         foreach ($row in $data) {
             $dr = $dt.NewRow()
             foreach ($prop in $row.PSObject.Properties) {
-                $dr[$prop.Name] = $prop.Value
+                $dr[$prop.Name] = $row.$($prop.Name)
             }
             [void]$dt.Rows.Add($dr)
         }
@@ -36,7 +44,7 @@ function Refresh-Grid {
 
     $table.DataSource = $dt
 
-    # Ensure Status column is a ComboBox if it exists
+    # Ensure Status column is a ComboBox
     if ($dt.Columns.Contains("Status")) {
         $colIndex = -1
         for ($i=0; $i -lt $table.Columns.Count; $i++) {
@@ -139,6 +147,35 @@ function Google-Search-Selected {
     $logBox.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Searched for '$name' and updated status to 'Trying'.`r`n")
 }
 
+function Update-Remark-Prompt {
+    if ($table.SelectedRows.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Please select a row first.", "No Selection") | Out-Null
+        return
+    }
+
+    $row = $table.SelectedRows[0]
+    $currentRemark = [string]$row.Cells["Remarks"].Value
+    $newRemark = [Microsoft.VisualBasic.Interaction]::InputBox("Enter new remark:", "Update Remark", $currentRemark)
+
+    if ($null -ne $newRemark) {
+        $row.Cells["Remarks"].Value = $newRemark
+        Save-Changes
+        $logBox.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Updated remark.`r`n")
+    }
+}
+
+function Mark-Status {
+    param([string]$Status)
+    if ($table.SelectedRows.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Please select a row first.", "No Selection") | Out-Null
+        return
+    }
+    $row = $table.SelectedRows[0]
+    $row.Cells["Status"].Value = $Status
+    Save-Changes
+    $logBox.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Marked status as '$Status'.`r`n")
+}
+
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Unclaimed Monies Tracker"
 $form.Size = New-Object System.Drawing.Size(1200, 700)
@@ -146,7 +183,7 @@ $form.StartPosition = "CenterScreen"
 
 $table = New-Object System.Windows.Forms.DataGridView
 $table.Location = New-Object System.Drawing.Point(10, 10)
-$table.Size = New-Object System.Drawing.Size(1165, 500)
+$table.Size = New-Object System.Drawing.Size(1165, 480)
 $table.Anchor = "Top, Left, Right, Bottom"
 $table.AutoSizeColumnsMode = "AllCells"
 $table.AllowUserToAddRows = $false
@@ -155,22 +192,43 @@ $table.MultiSelect = $false
 
 $btnRun = New-Object System.Windows.Forms.Button
 $btnRun.Text = "Run All Scrapers"
-$btnRun.Location = New-Object System.Drawing.Point(10, 520)
+$btnRun.Location = New-Object System.Drawing.Point(10, 500)
 $btnRun.Size = New-Object System.Drawing.Size(120, 30)
 $btnRun.Anchor = "Bottom, Left"
 $btnRun.Add_Click({ Run-Scrapers })
 
 $btnSearch = New-Object System.Windows.Forms.Button
-$btnSearch.Text = "Google Search Person"
-$btnSearch.Location = New-Object System.Drawing.Point(140, 520)
-$btnSearch.Size = New-Object System.Drawing.Size(150, 30)
+$btnSearch.Text = "Google Search"
+$btnSearch.Location = New-Object System.Drawing.Point(140, 500)
+$btnSearch.Size = New-Object System.Drawing.Size(100, 30)
 $btnSearch.Anchor = "Bottom, Left"
 $btnSearch.Add_Click({ Google-Search-Selected })
 
+$btnRemark = New-Object System.Windows.Forms.Button
+$btnRemark.Text = "Update Remark"
+$btnRemark.Location = New-Object System.Drawing.Point(250, 500)
+$btnRemark.Size = New-Object System.Drawing.Size(110, 30)
+$btnRemark.Anchor = "Bottom, Left"
+$btnRemark.Add_Click({ Update-Remark-Prompt })
+
+$btnTrying = New-Object System.Windows.Forms.Button
+$btnTrying.Text = "Mark Trying"
+$btnTrying.Location = New-Object System.Drawing.Point(370, 500)
+$btnTrying.Size = New-Object System.Drawing.Size(100, 30)
+$btnTrying.Anchor = "Bottom, Left"
+$btnTrying.Add_Click({ Mark-Status "Trying" })
+
+$btnNotFound = New-Object System.Windows.Forms.Button
+$btnNotFound.Text = "Mark Not Found"
+$btnNotFound.Location = New-Object System.Drawing.Point(480, 500)
+$btnNotFound.Size = New-Object System.Drawing.Size(110, 30)
+$btnNotFound.Anchor = "Bottom, Left"
+$btnNotFound.Add_Click({ Mark-Status "Failed to Find" })
+
 $btnSave = New-Object System.Windows.Forms.Button
 $btnSave.Text = "Save Changes"
-$btnSave.Location = New-Object System.Drawing.Point(300, 520)
-$btnSave.Size = New-Object System.Drawing.Size(120, 30)
+$btnSave.Location = New-Object System.Drawing.Point(600, 500)
+$btnSave.Size = New-Object System.Drawing.Size(110, 30)
 $btnSave.Anchor = "Bottom, Left"
 $btnSave.Add_Click({
     Save-Changes
@@ -179,20 +237,20 @@ $btnSave.Add_Click({
 
 $btnRefresh = New-Object System.Windows.Forms.Button
 $btnRefresh.Text = "Refresh"
-$btnRefresh.Location = New-Object System.Drawing.Point(430, 520)
+$btnRefresh.Location = New-Object System.Drawing.Point(720, 500)
 $btnRefresh.Size = New-Object System.Drawing.Size(100, 30)
 $btnRefresh.Anchor = "Bottom, Left"
 $btnRefresh.Add_Click({ Refresh-Grid })
 
 $logBox = New-Object System.Windows.Forms.TextBox
 $logBox.Multiline = $true
-$logBox.Location = New-Object System.Drawing.Point(10, 555)
-$logBox.Size = New-Object System.Drawing.Size(1165, 100)
+$logBox.Location = New-Object System.Drawing.Point(10, 545)
+$logBox.Size = New-Object System.Drawing.Size(1165, 110)
 $logBox.Anchor = "Bottom, Left, Right"
 $logBox.ScrollBars = "Vertical"
 $logBox.ReadOnly = $true
 
-$form.Controls.AddRange(@($table, $btnRun, $btnSearch, $btnSave, $btnRefresh, $logBox))
+$form.Controls.AddRange(@($table, $btnRun, $btnSearch, $btnRemark, $btnTrying, $btnNotFound, $btnSave, $btnRefresh, $logBox))
 
 Refresh-Grid
 

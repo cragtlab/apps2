@@ -203,7 +203,7 @@ $existing = if (Test-Path $dataPath) { @(Import-Csv $dataPath) } else { @() }
 $allRows = [array]$existing + [array]$new
 $columns = Get-ColumnNames -Rows $allRows
 
-$preferredOrder = @("Status", "MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "Remarks", "AgencyName", "CreatedDate")
+$preferredOrder = @("Status", "Remarks", "MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "AgencyName", "CreatedDate")
 $finalColumns = New-Object System.Collections.Generic.List[string]
 foreach ($col in $preferredOrder) {
     [void]$finalColumns.Add($col)
