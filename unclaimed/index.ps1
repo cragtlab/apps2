@@ -22,8 +22,8 @@ function Refresh-Grid {
 
     if ($data.Count -gt 0) {
         $first = $data[0]
-        # Establish preferred order: Status, Remarks, then the rest
-        $preferred = @("Status", "Remarks")
+        # Establish preferred order: Status, MyRemarks, then the rest
+        $preferred = @("Status", "MyRemarks")
         foreach ($p in $preferred) {
             if (-not $dt.Columns.Contains($p)) { [void]$dt.Columns.Add($p) }
         }
@@ -154,13 +154,13 @@ function Update-Remark-Prompt {
     }
 
     $row = $table.SelectedRows[0]
-    $currentRemark = [string]$row.Cells["Remarks"].Value
-    $newRemark = [Microsoft.VisualBasic.Interaction]::InputBox("Enter new remark:", "Update Remark", $currentRemark)
+    $currentRemark = [string]$row.Cells["MyRemarks"].Value
+    $newRemark = [Microsoft.VisualBasic.Interaction]::InputBox("Enter your remark:", "Update My Remark", $currentRemark)
 
     if ($null -ne $newRemark) {
-        $row.Cells["Remarks"].Value = $newRemark
+        $row.Cells["MyRemarks"].Value = $newRemark
         Save-Changes
-        $logBox.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Updated remark.`r`n")
+        $logBox.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] Updated my remark.`r`n")
     }
 }
 
@@ -205,29 +205,29 @@ $btnSearch.Anchor = "Bottom, Left"
 $btnSearch.Add_Click({ Google-Search-Selected })
 
 $btnRemark = New-Object System.Windows.Forms.Button
-$btnRemark.Text = "Update Remark"
+$btnRemark.Text = "Update My Remark"
 $btnRemark.Location = New-Object System.Drawing.Point(250, 500)
-$btnRemark.Size = New-Object System.Drawing.Size(110, 30)
+$btnRemark.Size = New-Object System.Drawing.Size(130, 30)
 $btnRemark.Anchor = "Bottom, Left"
 $btnRemark.Add_Click({ Update-Remark-Prompt })
 
 $btnTrying = New-Object System.Windows.Forms.Button
 $btnTrying.Text = "Mark Trying"
-$btnTrying.Location = New-Object System.Drawing.Point(370, 500)
+$btnTrying.Location = New-Object System.Drawing.Point(390, 500)
 $btnTrying.Size = New-Object System.Drawing.Size(100, 30)
 $btnTrying.Anchor = "Bottom, Left"
 $btnTrying.Add_Click({ Mark-Status "Trying" })
 
 $btnNotFound = New-Object System.Windows.Forms.Button
 $btnNotFound.Text = "Mark Not Found"
-$btnNotFound.Location = New-Object System.Drawing.Point(480, 500)
+$btnNotFound.Location = New-Object System.Drawing.Point(500, 500)
 $btnNotFound.Size = New-Object System.Drawing.Size(110, 30)
 $btnNotFound.Anchor = "Bottom, Left"
 $btnNotFound.Add_Click({ Mark-Status "Failed to Find" })
 
 $btnSave = New-Object System.Windows.Forms.Button
 $btnSave.Text = "Save Changes"
-$btnSave.Location = New-Object System.Drawing.Point(600, 500)
+$btnSave.Location = New-Object System.Drawing.Point(620, 500)
 $btnSave.Size = New-Object System.Drawing.Size(110, 30)
 $btnSave.Anchor = "Bottom, Left"
 $btnSave.Add_Click({
@@ -237,7 +237,7 @@ $btnSave.Add_Click({
 
 $btnRefresh = New-Object System.Windows.Forms.Button
 $btnRefresh.Text = "Refresh"
-$btnRefresh.Location = New-Object System.Drawing.Point(720, 500)
+$btnRefresh.Location = New-Object System.Drawing.Point(740, 500)
 $btnRefresh.Size = New-Object System.Drawing.Size(100, 30)
 $btnRefresh.Anchor = "Bottom, Left"
 $btnRefresh.Add_Click({ Refresh-Grid })

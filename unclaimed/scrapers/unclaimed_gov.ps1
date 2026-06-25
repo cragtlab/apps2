@@ -54,7 +54,7 @@ try {
         exit 1
     }
 
-    $requiredFields = @("MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "AgencyName", "CreatedDate")
+    $requiredFields = @("MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "AgencyName", "CreatedDate", "Remarks")
 
     $rows = @(foreach ($item in $items) {
         $obj = [ordered]@{}
