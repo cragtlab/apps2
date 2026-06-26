@@ -30,6 +30,12 @@
     .item .meta { font-size: 12px; color: #666; display: flex; justify-content: space-between; }
     .item .desc { font-size: 14px; color: #333; margin-top: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .item .actions { margin-top: 10px; display: flex; gap: 10px; }
+
+    /* Minimal View Styles */
+    .minimal .item { padding: 5px 10px; border: none; border-bottom: 1px solid #f0f0f0; border-radius: 0; }
+    .minimal .item h3 { font-size: 0.9rem; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .minimal .item .meta, .minimal .item .desc, .minimal .item .actions { display: none; }
+
     .hidden { display: none; }
     .settings-toggle { font-size: 12px; cursor: pointer; color: #007bff; text-decoration: underline; }
 </style>
@@ -60,6 +66,8 @@
             <button class="icon-btn" onclick="refreshAll()" title="Refresh All" aria-label="Refresh All">🔄</button>
             <button class="icon-btn" onclick="toggleManageFeeds()" title="Manage Feeds" aria-label="Manage Feeds">📋</button>
             <button class="icon-btn" onclick="toggleRead()" title="Show/Hide Read" aria-label="Show/Hide Read">👁️</button>
+            <button class="icon-btn" onclick="toggleMinimal()" title="Toggle Minimal View" aria-label="Toggle Minimal View">🗂️</button>
+            <button class="icon-btn" onclick="markAllRead()" title="Mark All as Read" aria-label="Mark All as Read">✔️</button>
             <input type="search" id="searchInput" placeholder="Search..." oninput="renderItems()" style="max-width: 150px;">
         </div>
     </div>
@@ -75,7 +83,7 @@
     const DEFAULT_WORKER_URL = 'https://amzwatch.donkey.workers.dev/';
 
     let feeds = [];
-    let settings = { workerUrl: DEFAULT_WORKER_URL, showRead: true };
+    let settings = { workerUrl: DEFAULT_WORKER_URL, showRead: true, isMinimal: true };
     let readItems = new Set();
     let allItems = [];
 
@@ -83,13 +91,15 @@
         const storedFeeds = JSON.parse(localStorage.getItem(STORAGE_KEY_FEEDS) || '[]');
         feeds = storedFeeds.map(f => typeof f === 'string' ? {url: f, lastFetch: null, itemCount: 0} : f);
 
-        settings = JSON.parse(localStorage.getItem(STORAGE_KEY_SETTINGS) || JSON.stringify({workerUrl: DEFAULT_WORKER_URL, showRead: true}));
+        settings = JSON.parse(localStorage.getItem(STORAGE_KEY_SETTINGS) || JSON.stringify({workerUrl: DEFAULT_WORKER_URL, showRead: true, isMinimal: true}));
         if (!settings.workerUrl) settings.workerUrl = DEFAULT_WORKER_URL;
+        if (settings.isMinimal === undefined) settings.isMinimal = true;
 
         readItems = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY_READ) || '[]'));
 
         document.getElementById('workerUrl').value = settings.workerUrl;
         renderFeeds();
+        applyViewMode();
         if (feeds.length > 0 && settings.workerUrl) {
             refreshAll();
         }
@@ -113,6 +123,22 @@
         settings.showRead = !settings.showRead;
         localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
         renderItems();
+    }
+
+    function toggleMinimal() {
+        settings.isMinimal = !settings.isMinimal;
+        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+        applyViewMode();
+        renderItems();
+    }
+
+    function applyViewMode() {
+        const container = document.getElementById('itemsContainer');
+        if (settings.isMinimal) {
+            container.classList.add('minimal');
+        } else {
+            container.classList.remove('minimal');
+        }
     }
 
     function addFeed() {
@@ -316,12 +342,9 @@
         return count;
     }
 
-    function renderItems() {
-        const container = document.getElementById('itemsContainer');
+    function getFilteredItems() {
         const q = document.getElementById('searchInput').value.toLowerCase();
-
         let filtered = settings.showRead ? allItems : allItems.filter(i => !readItems.has(i.id));
-
         if (q) {
             filtered = filtered.filter(i =>
                 i.title.toLowerCase().includes(q) ||
@@ -329,6 +352,12 @@
                 i.feedTitle.toLowerCase().includes(q)
             );
         }
+        return filtered;
+    }
+
+    function renderItems() {
+        const container = document.getElementById('itemsContainer');
+        const filtered = getFilteredItems();
 
         container.innerHTML = '';
         filtered.forEach(item => {
@@ -392,6 +421,13 @@
         } else {
             readItems.add(id);
         }
+        saveRead();
+        renderItems();
+    }
+
+    function markAllRead() {
+        const visible = getFilteredItems();
+        visible.forEach(item => readItems.add(item.id));
         saveRead();
         renderItems();
     }
