@@ -13,7 +13,8 @@ button { padding:8px 12px; margin:3px; cursor:pointer;border-radius:2px; }
 .btn-danger { background:#ff4d4d; color:white; }
 .btn-snooze { background:orange; color:white; }
 .btn-add {    background:#28a745;color:white; }
-#linkFreqContainer { display:none; gap:10px; margin-bottom:10px; }
+.btn-manage { background:#007bff; color:white; }
+#linkFreqContainer { display:none; gap:10px; margin-bottom:10px; flex-wrap: wrap; align-items: center; }
 #frequencyInput { width:30px; padding:8px }
 #btn-update-url {    background:#007bff; color:white;border:none; }
 textarea { width:100%; height:80px; }
@@ -50,11 +51,32 @@ small  {
     <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
     <a id="linkDisplay" target="_blank" style="flex:1;"></a>
       <input id="tickerInput" placeholder="ticker" oninput="saveCurrentTickerDraft()">
-    <button onclick="window.open('https://www.google.com/finance/beta/quote/'+tickerInput.value)">Finance</button> 
-    <button onclick="window.open('https://www.google.com/search?q=3 growth areas for '+tickerInput.value)">3 Growth</button>
-    <button onclick="window.open('https://altindex.com/ticker/'+tickerInput.value.replace(/:.*$/,'').toLowerCase())">Altindex</button>
-    <button onclick="window.open('https://x.com/search?q=%24'+tickerInput.value.replace(/:.*$/,'')+'&src=typeahead_click')">X</button>
+    <div id="dynamicSearchButtons" style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;"></div>
+    <button id="btn-manage-searches" class="btn-manage" onclick="toggleSearchManager()">Manage</button>
+</div>
 
+<div id="searchManagementSection" style="display:none; margin-bottom:10px; border:1px solid #ddd; padding:10px; border-radius:5px; background:#fafafa;">
+    <h4 style="margin-top:0; margin-bottom:10px;">Manage Ticker Searches</h4>
+    <table id="searchManagerTable" style="margin-top:0;">
+        <thead>
+            <tr>
+                <th style="width:100px;">Title</th>
+                <th>URL Template</th>
+                <th style="width:80px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="searchManagerTableBody"></tbody>
+        <tfoot>
+            <tr id="searchManagerAddRow">
+                <td><input id="newSearchTitle" placeholder="Title" style="width:90%; padding:4px;"></td>
+                <td><input id="newSearchURL" placeholder="URL Template (use %full%, %short%, %short_lc%)" style="width:95%; padding:4px;"></td>
+                <td><button onclick="addCustomSearch()" class="btn-add" style="margin:0; width:100%;">Add</button></td>
+            </tr>
+        </tfoot>
+    </table>
+    <div style="font-size:x-small; margin-top:8px; color:#666;">
+        <b>%full%</b>: NASDAQ:AAPL | <b>%short%</b>: AAPL | <b>%short_lc%</b>: aapl
+    </div>
 </div>
 
 <div id="titleEditorContainer" style="display:none;">
@@ -111,9 +133,18 @@ small  {
 
 <script>
 const STORAGE_KEY='10x_tracker';
+const SEARCHES_KEY='10x_custom_searches';
 
 let links=[];
 let currentLink=null;
+let customSearches=[];
+
+const DEFAULT_SEARCHES = [
+    { title: 'Finance', url: 'https://www.google.com/finance/beta/quote/%full%' },
+    { title: '3 Growth', url: 'https://www.google.com/search?q=3 growth areas for %full%' },
+    { title: 'Altindex', url: 'https://altindex.com/ticker/%short_lc%' },
+    { title: 'X', url: 'https://x.com/search?q=%24%short%&src=typeahead_click' }
+];
 
 function isTrackItem(link){
     return !!(link && normalizeTicker(link.ticker));
@@ -121,8 +152,115 @@ function isTrackItem(link){
 
 function init(){
     loadLinks();
+    loadCustomSearches();
     displayNextAvailable();
     updateLinksList();
+}
+
+function loadCustomSearches(){
+    const stored = localStorage.getItem(SEARCHES_KEY);
+    if(stored){
+        customSearches = JSON.parse(stored);
+    } else {
+        customSearches = DEFAULT_SEARCHES;
+        saveCustomSearches();
+    }
+}
+
+function saveCustomSearches(){
+    localStorage.setItem(SEARCHES_KEY, JSON.stringify(customSearches));
+}
+
+function renderSearchButtons(){
+    const container = document.getElementById('dynamicSearchButtons');
+    if(!container) return;
+
+    const ticker = (tickerInput.value || '').trim();
+    if(!ticker){
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = customSearches.map((s, idx) => {
+        return `<button onclick="triggerSearchByIndex(${idx})">${escapeHTML(s.title)}</button>`;
+    }).join('');
+}
+
+function triggerSearchByIndex(index){
+    const s = customSearches[index];
+    if(!s) return;
+    triggerSearch(s.url);
+}
+
+function triggerSearch(template){
+    const full = (tickerInput.value || '').trim().toUpperCase();
+    const short = full.includes(':') ? full.split(':')[1] : full;
+    const short_lc = short.toLowerCase();
+
+    const url = template
+        .replace(/%full%/g, encodeURIComponent(full))
+        .replace(/%short%/g, encodeURIComponent(short))
+        .replace(/%short_lc%/g, encodeURIComponent(short_lc));
+
+    window.open(url, '_blank');
+}
+
+function toggleSearchManager(){
+    const section = document.getElementById('searchManagementSection');
+    if(section.style.display === 'none'){
+        section.style.display = 'block';
+        renderSearchManagerTable();
+    } else {
+        section.style.display = 'none';
+    }
+}
+
+function renderSearchManagerTable(){
+    const tbody = document.getElementById('searchManagerTableBody');
+    tbody.innerHTML = customSearches.map((s, idx) => `
+        <tr>
+            <td><input value="${escapeHTML(s.title)}" onchange="updateCustomSearch(${idx}, 'title', this.value)" style="width:90%; padding:4px;"></td>
+            <td><input value="${escapeHTML(s.url)}" onchange="updateCustomSearch(${idx}, 'url', this.value)" style="width:95%; padding:4px;"></td>
+            <td style="display:flex; gap:2px;">
+                <button onclick="saveCustomSearchEdit()" title="Save">💾</button>
+                <button onclick="deleteCustomSearch(${idx})" title="Delete">🗑️</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function addCustomSearch(){
+    const title = document.getElementById('newSearchTitle').value.trim();
+    const url = document.getElementById('newSearchURL').value.trim();
+
+    if(!title || !url) return;
+
+    customSearches.push({ title, url });
+    saveCustomSearches();
+
+    document.getElementById('newSearchTitle').value = '';
+    document.getElementById('newSearchURL').value = '';
+
+    renderSearchManagerTable();
+    renderSearchButtons();
+}
+
+function updateCustomSearch(index, field, value){
+    customSearches[index][field] = value;
+}
+
+function saveCustomSearchEdit(){
+    saveCustomSearches();
+    renderSearchButtons();
+    renderSearchManagerTable();
+}
+
+function deleteCustomSearch(index){
+    if(!confirm('Delete this search?')) return;
+    customSearches.splice(index, 1);
+    saveCustomSearches();
+    renderSearchManagerTable();
+    renderSearchButtons();
 }
 
 function loadLinks(){
@@ -328,6 +466,8 @@ function displayLink(link){
 
     tickerInput.value = normalizeTicker(link.ticker);
 
+    renderSearchButtons();
+
     updateLinksList();
 }
 
@@ -377,6 +517,8 @@ function saveCurrentTickerDraft(){
     currentLink.ticker = normalizeTicker(tickerInput.value);
 
     saveLinks();
+
+    renderSearchButtons();
 
     updateLinksList();
 }
