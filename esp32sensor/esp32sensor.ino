@@ -32,12 +32,13 @@
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
 #include <esp_wifi.h>
+#include <esp_task_wdt.h>
 #include <math.h>
 
 // Put your router Wi-Fi here for http://esp32sensor.local/.
 // Leave WIFI_SSID blank to use fallback access-point mode only.
-static const char *WIFI_SSID = "craGTLab";
-static const char *WIFI_PASSWORD = "craGT7013";
+static const char *WIFI_SSID = "SilverGate";
+static const char *WIFI_PASSWORD = "OneSG!Advance#26";
 static const char *MDNS_NAME = "esp32sensor";
 
 // Fallback direct ESP32 Wi-Fi. Connect to this network if router mode is off
@@ -46,7 +47,8 @@ static const char *AP_SSID = "ESP32-Presence";
 static const char *AP_PASSWORD = "presence123";  // At least 8 chars.
 
 // Tune these for your room.
-static const bool ENABLE_SERIAL_LOG = false;
+static const bool ENABLE_SERIAL_LOG = true;
+static const bool ENABLE_HEAP_LOG = true;
 static const bool ENABLE_CSI_TEST = true;
 static const int BLE_SCAN_SECONDS = 1;
 static const int BLE_SCAN_PERIOD_MS = 5000;
@@ -54,15 +56,21 @@ static const int WIFI_SCAN_PERIOD_MS = 30000;
 static const int CSI_STIMULUS_PERIOD_MS = 1000;
 static const int CSI_BASELINE_LEARN_MS = 30000;
 static const int CSI_MOTION_THRESHOLD = 18;
+static const int CSI_VARIANCE_WINDOW = 20;
+static const int CSI_VARIANCE_THRESHOLD = 10;
 static const int STATUS_CACHE_PERIOD_MS = 1000;
 static const int REPORT_PERIOD_MS = 10000;
+static const int HEAP_LOG_PERIOD_MS = 10000;
 static const int BLE_NEAR_RSSI = -82;       // Closer to 0 means nearer.
 static const int WIFI_CLIENT_NEAR_RSSI = -78;
 static const int WIFI_NEAR_RSSI = -78;
 static const int DEVICE_TTL_MS = 90000;     // Forget devices not seen recently.
 static const int MAX_TRACKED_DEVICES = 80;
-static const int PRESENCE_ON_SCORE = 2;
-static const int PRESENCE_OFF_SCORE = 1;
+static const int OCCUPIED_CONFIRM_MS = 15000;
+static const int VACANT_CONFIRM_MS = 300000;
+static const int BASELINE_SAMPLE_PERIOD_MS = 60000;
+static const int BASELINE_SAMPLE_COUNT = 60;
+static const int BASELINE_QUIET_MS = 120000;
 
 struct SeenDevice {
   uint32_t hash;
@@ -83,29 +91,53 @@ unsigned long lastBleScanMs = 0;
 unsigned long lastReportMs = 0;
 unsigned long lastStatusCacheMs = 0;
 unsigned long lastCsiStimulusMs = 0;
+unsigned long lastHeapLogMs = 0;
+unsigned long lastBaselineSampleMs = 0;
+unsigned long lastMotionSignalMs = 0;
+unsigned long lastStrongPresenceMs = 0;
+unsigned long pendingOccupiedSinceMs = 0;
+unsigned long pendingVacantSinceMs = 0;
 int lastWifiNearCount = 0;
 int lastWifiClientNearCount = 0;
 int lastWifiClientTotalCount = 0;
 int lastBleNearCount = 0;
 int lastBleTotalCount = 0;
 int lastCsiMotionScore = 0;
+int lastCsiVarianceScore = 0;
 int lastCsiPacketCount = 0;
 int lastCsiRssi = 0;
 int lastScore = 0;
+int baselineBleNear = 0;
+int baselineWifiClientNear = 0;
+int baselineWifiApNear = 0;
+int baselineSampleTotal = 0;
+int baselineSampleIndex = 0;
+int lastDeviceExtraCount = 0;
 bool roomOccupied = false;
 bool apMode = false;
 bool mdnsStarted = false;
 bool lastCsiReady = false;
 bool lastCsiPresence = false;
-String statusCacheJson = "{}";
+bool lastMotionSignal = false;
+bool lastDeviceSignal = false;
+bool lastStrongDeviceSignal = false;
+char statusCacheJson[1536] = "{}";
+
+int baselineBleSamples[BASELINE_SAMPLE_COUNT];
+int baselineWifiClientSamples[BASELINE_SAMPLE_COUNT];
+int baselineWifiApSamples[BASELINE_SAMPLE_COUNT];
 
 portMUX_TYPE csiMux = portMUX_INITIALIZER_UNLOCKED;
 float csiBaseline = 0.0f;
 float csiMotionScore = 0.0f;
+float csiVarianceScore = 0.0f;
+float csiAmplitudeWindow[CSI_VARIANCE_WINDOW];
 volatile uint32_t csiPacketCount = 0;
 unsigned long csiStartedAtMs = 0;
 unsigned long lastCsiPacketMs = 0;
 int csiLastRssi = 0;
+int csiAmplitudeCount = 0;
+int csiAmplitudeIndex = 0;
 bool csiBaselineReady = false;
 
 const char INDEX_HTML[] PROGMEM = R"HTML(
@@ -149,10 +181,15 @@ const char INDEX_HTML[] PROGMEM = R"HTML(
       <div class="metric"><span class="label">BLE total</span><span id="bleTotal" class="value">...</span></div>
       <div class="metric"><span class="label">Wi-Fi clients near</span><span id="wifiClientNear" class="value">...</span></div>
       <div class="metric"><span class="label">Wi-Fi clients total</span><span id="wifiClientTotal" class="value">...</span></div>
+      <div class="metric"><span class="label">Device baseline</span><span id="deviceBaseline" class="value">...</span></div>
+      <div class="metric"><span class="label">Device signal</span><span id="deviceSignal" class="value">...</span></div>
       <div class="metric"><span class="label">CSI status</span><span id="csiStatus" class="value">...</span></div>
       <div class="metric"><span class="label">CSI motion</span><span id="csiMotion" class="value">...</span></div>
+      <div class="metric"><span class="label">CSI variance</span><span id="csiVariance" class="value">...</span></div>
       <div class="metric"><span class="label">CSI packets</span><span id="csiPackets" class="value">...</span></div>
       <div class="metric"><span class="label">CSI RSSI</span><span id="csiRssi" class="value">...</span></div>
+      <div class="metric"><span class="label">Transition</span><span id="transitionState" class="value">...</span></div>
+      <div class="metric"><span class="label">Vacant timer</span><span id="vacantTimer" class="value">...</span></div>
       <div class="metric"><span class="label">Wi-Fi APs near</span><span id="wifiNear" class="value">...</span></div>
       <div class="metric"><span class="label">Uptime</span><span id="uptime" class="value">...</span></div>
     </section>
@@ -173,10 +210,15 @@ const char INDEX_HTML[] PROGMEM = R"HTML(
       bleTotal.textContent = data.ble_total;
       wifiClientNear.textContent = data.wifi_clients_near;
       wifiClientTotal.textContent = data.wifi_clients_total;
+      deviceBaseline.textContent = 'BLE ' + data.baseline_ble_near + ' / Wi-Fi ' + data.baseline_wifi_clients_near;
+      deviceSignal.textContent = data.device_signal;
       csiStatus.textContent = data.csi_status;
       csiMotion.textContent = data.csi_motion;
+      csiVariance.textContent = data.csi_variance;
       csiPackets.textContent = data.csi_packets;
       csiRssi.textContent = data.csi_rssi;
+      transitionState.textContent = data.transition_state;
+      vacantTimer.textContent = data.vacant_seconds_remaining + 's';
       wifiNear.textContent = data.wifi_aps_near;
       uptime.textContent = Math.floor(data.uptime_ms / 1000) + 's';
       net.textContent = data.network;
@@ -297,22 +339,196 @@ bool isOwnRouterMac(const uint8_t *mac) {
 
 void wifiPromiscuousCallback(void *buf, wifi_promiscuous_pkt_type_t type);
 
+void feedWatchdog() {
+  esp_task_wdt_reset();
+  yield();
+}
+
+int medianBaseline(const int samples[], int count) {
+  if (count <= 0) {
+    return 0;
+  }
+
+  int sorted[BASELINE_SAMPLE_COUNT];
+  for (int i = 0; i < count; i++) {
+    sorted[i] = samples[i];
+  }
+
+  for (int i = 1; i < count; i++) {
+    const int value = sorted[i];
+    int j = i - 1;
+    while (j >= 0 && sorted[j] > value) {
+      sorted[j + 1] = sorted[j];
+      j--;
+    }
+    sorted[j + 1] = value;
+  }
+
+  return sorted[count / 2];
+}
+
+const char *deviceSignalLabel() {
+  if (lastStrongDeviceSignal) {
+    return "strong";
+  }
+  if (lastDeviceSignal) {
+    return "weak";
+  }
+  return "quiet";
+}
+
+const char *transitionStateLabel() {
+  if (roomOccupied && pendingVacantSinceMs > 0) {
+    return "vacant pending";
+  }
+  if (!roomOccupied && pendingOccupiedSinceMs > 0) {
+    return "occupied pending";
+  }
+  return roomOccupied ? "stable occupied" : "stable vacant";
+}
+
+int vacantSecondsRemaining() {
+  if (!roomOccupied || pendingVacantSinceMs == 0) {
+    return 0;
+  }
+
+  const unsigned long elapsed = millis() - pendingVacantSinceMs;
+  if (elapsed >= VACANT_CONFIRM_MS) {
+    return 0;
+  }
+  return static_cast<int>((VACANT_CONFIRM_MS - elapsed + 999) / 1000);
+}
+
+void calculateDeviceSignal() {
+  const int bleExtra = max(0, lastBleNearCount - baselineBleNear);
+  const int wifiExtra = max(0, lastWifiClientNearCount - baselineWifiClientNear);
+  lastDeviceExtraCount = bleExtra + wifiExtra;
+
+  if (baselineSampleTotal == 0) {
+    lastDeviceSignal = lastBleNearCount > 0 || lastWifiClientNearCount > 0;
+    lastStrongDeviceSignal = lastBleNearCount + lastWifiClientNearCount >= 2;
+    return;
+  }
+
+  const bool bleActive = lastBleNearCount >= baselineBleNear + 1;
+  const bool wifiActive = lastWifiClientNearCount >= baselineWifiClientNear + 1;
+
+  lastDeviceSignal = bleActive || wifiActive;
+  lastStrongDeviceSignal = bleActive || wifiActive || lastDeviceExtraCount >= 2;
+}
+
+void recordBaselineSampleIfQuiet() {
+  const unsigned long now = millis();
+  if (now - lastBaselineSampleMs < BASELINE_SAMPLE_PERIOD_MS) {
+    return;
+  }
+  lastBaselineSampleMs = now;
+
+  const bool csiQuietLongEnough = lastCsiReady && lastMotionSignalMs > 0 && now - lastMotionSignalMs >= BASELINE_QUIET_MS;
+  if (roomOccupied || !csiQuietLongEnough || lastMotionSignal) {
+    return;
+  }
+
+  baselineBleSamples[baselineSampleIndex] = lastBleNearCount;
+  baselineWifiClientSamples[baselineSampleIndex] = lastWifiClientNearCount;
+  baselineWifiApSamples[baselineSampleIndex] = lastWifiNearCount;
+
+  baselineSampleIndex = (baselineSampleIndex + 1) % BASELINE_SAMPLE_COUNT;
+  if (baselineSampleTotal < BASELINE_SAMPLE_COUNT) {
+    baselineSampleTotal++;
+  }
+
+  baselineBleNear = medianBaseline(baselineBleSamples, baselineSampleTotal);
+  baselineWifiClientNear = medianBaseline(baselineWifiClientSamples, baselineSampleTotal);
+  baselineWifiApNear = medianBaseline(baselineWifiApSamples, baselineSampleTotal);
+}
+
+float updateCsiVariance(float amplitude) {
+  csiAmplitudeWindow[csiAmplitudeIndex] = amplitude;
+  csiAmplitudeIndex = (csiAmplitudeIndex + 1) % CSI_VARIANCE_WINDOW;
+  if (csiAmplitudeCount < CSI_VARIANCE_WINDOW) {
+    csiAmplitudeCount++;
+  }
+
+  if (csiAmplitudeCount < 2) {
+    return 0.0f;
+  }
+
+  float mean = 0.0f;
+  for (int i = 0; i < csiAmplitudeCount; i++) {
+    mean += csiAmplitudeWindow[i];
+  }
+  mean /= static_cast<float>(csiAmplitudeCount);
+
+  float variance = 0.0f;
+  for (int i = 0; i < csiAmplitudeCount; i++) {
+    const float delta = csiAmplitudeWindow[i] - mean;
+    variance += delta * delta;
+  }
+  variance /= static_cast<float>(csiAmplitudeCount - 1);
+  return sqrtf(variance);
+}
+
+void updatePresenceStateMachine() {
+  const unsigned long now = millis();
+  const bool occupiedIntent = lastMotionSignal || lastStrongDeviceSignal;
+  const bool quietIntent = !lastMotionSignal && !lastDeviceSignal;
+
+  if (occupiedIntent) {
+    lastStrongPresenceMs = now;
+    pendingVacantSinceMs = 0;
+
+    if (!roomOccupied) {
+      if (pendingOccupiedSinceMs == 0) {
+        pendingOccupiedSinceMs = now;
+      }
+      if (now - pendingOccupiedSinceMs >= OCCUPIED_CONFIRM_MS) {
+        roomOccupied = true;
+        pendingOccupiedSinceMs = 0;
+      }
+    } else {
+      pendingOccupiedSinceMs = 0;
+    }
+  } else {
+    pendingOccupiedSinceMs = 0;
+  }
+
+  if (roomOccupied) {
+    if (quietIntent) {
+      if (pendingVacantSinceMs == 0) {
+        pendingVacantSinceMs = now;
+      }
+      if (now - pendingVacantSinceMs >= VACANT_CONFIRM_MS) {
+        roomOccupied = false;
+        pendingVacantSinceMs = 0;
+      }
+    } else {
+      pendingVacantSinceMs = 0;
+    }
+  }
+}
+
 void resetCsiBaseline() {
   portENTER_CRITICAL(&csiMux);
   csiBaseline = 0.0f;
   csiMotionScore = 0.0f;
+  csiVarianceScore = 0.0f;
   csiPacketCount = 0;
   csiStartedAtMs = millis();
   lastCsiPacketMs = 0;
   csiLastRssi = 0;
+  csiAmplitudeCount = 0;
+  csiAmplitudeIndex = 0;
   csiBaselineReady = false;
   portEXIT_CRITICAL(&csiMux);
+  lastMotionSignalMs = millis();
 }
 
 void updateCsiSnapshot() {
   portENTER_CRITICAL(&csiMux);
   const uint32_t packets = csiPacketCount;
   const float motion = csiMotionScore;
+  const float variance = csiVarianceScore;
   const bool ready = csiBaselineReady;
   const unsigned long packetMs = lastCsiPacketMs;
   const int rssi = csiLastRssi;
@@ -320,12 +536,18 @@ void updateCsiSnapshot() {
 
   lastCsiPacketCount = packets > 999999 ? 999999 : static_cast<int>(packets);
   lastCsiMotionScore = static_cast<int>(motion + 0.5f);
+  lastCsiVarianceScore = static_cast<int>(variance + 0.5f);
   lastCsiReady = ready;
   lastCsiRssi = rssi;
-  lastCsiPresence = ready && millis() - packetMs < 10000 && lastCsiMotionScore >= CSI_MOTION_THRESHOLD;
+  lastMotionSignal = ready && millis() - packetMs < 10000 &&
+      (lastCsiMotionScore >= CSI_MOTION_THRESHOLD || lastCsiVarianceScore >= CSI_VARIANCE_THRESHOLD);
+  lastCsiPresence = lastMotionSignal;
+  if (lastMotionSignal) {
+    lastMotionSignalMs = millis();
+  }
 }
 
-String csiStatusLabel() {
+const char *csiStatusLabel() {
   if (!ENABLE_CSI_TEST) {
     return "off";
   }
@@ -372,6 +594,7 @@ void wifiCsiCallback(void *ctx, wifi_csi_info_t *data) {
 
   const float diff = fabsf(amplitude - csiBaseline);
   csiMotionScore = (csiMotionScore * 0.82f) + (diff * 0.18f);
+  csiVarianceScore = updateCsiVariance(amplitude);
 
   const bool learning = now - csiStartedAtMs < CSI_BASELINE_LEARN_MS || csiPacketCount < 50;
   if (learning || csiMotionScore < (CSI_MOTION_THRESHOLD * 0.55f)) {
@@ -458,9 +681,6 @@ void sendCsiStimulus() {
 void resumeWifiRadioSensing() {
   esp_wifi_set_promiscuous_rx_cb(wifiPromiscuousCallback);
   esp_wifi_set_promiscuous(true);
-  if (ENABLE_CSI_TEST && WiFi.status() == WL_CONNECTED) {
-    esp_wifi_set_csi(true);
-  }
 }
 
 void wifiPromiscuousCallback(void *buf, wifi_promiscuous_pkt_type_t type) {
@@ -515,23 +735,27 @@ class PresenceAdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
     }
 
     // Hash in RAM so Serial output is useful without exposing device addresses.
-    const uint32_t hash = fnv1aHash(advertisedDevice.getAddress().toString().c_str());
+    BLEAddress address = advertisedDevice.getAddress();
+    const uint8_t *addressBytes = reinterpret_cast<const uint8_t *>(address.getNative());
+    const uint32_t hash = fnv1aHashBytes(addressBytes, 6);
     rememberBleDevice(hash, rssi);
   }
 };
 
 void scanBle() {
+  feedWatchdog();
   bleScan->start(BLE_SCAN_SECONDS, false);
+  feedWatchdog();
   bleScan->clearResults();
   countBleDevices(lastBleTotalCount, lastBleNearCount);
+  feedWatchdog();
 }
 
 void scanWifi() {
+  feedWatchdog();
   esp_wifi_set_promiscuous(false);
-  if (ENABLE_CSI_TEST) {
-    esp_wifi_set_csi(false);
-  }
   const int networkCount = WiFi.scanNetworks(false, true);
+  feedWatchdog();
   int nearCount = 0;
   for (int i = 0; i < networkCount; i++) {
     if (WiFi.RSSI(i) >= WIFI_NEAR_RSSI) {
@@ -543,9 +767,10 @@ void scanWifi() {
   WiFi.scanDelete();
   lastWifiScanMs = millis();
   resumeWifiRadioSensing();
+  feedWatchdog();
 }
 
-String presenceLabel(int score) {
+const char *presenceLabel(int score) {
   if (score >= 5) {
     return "busy";
   }
@@ -558,14 +783,14 @@ String presenceLabel(int score) {
 void calculatePresence() {
   countWifiClientDevices(lastWifiClientTotalCount, lastWifiClientNearCount);
   updateCsiSnapshot();
+  calculateDeviceSignal();
 
   lastScore = 0;
-  lastScore += lastBleNearCount * 2;
-  lastScore += max(0, lastBleTotalCount - lastBleNearCount);
-  lastScore += lastWifiClientNearCount * 2;
-  lastScore += max(0, lastWifiClientTotalCount - lastWifiClientNearCount);
+  lastScore += max(0, lastBleNearCount - baselineBleNear) * 2;
+  lastScore += max(0, lastWifiClientNearCount - baselineWifiClientNear) * 2;
+  lastScore += lastDeviceExtraCount;
 
-  if (lastCsiPresence) {
+  if (lastMotionSignal) {
     lastScore += 3;
   } else if (lastCsiReady && lastCsiMotionScore >= CSI_MOTION_THRESHOLD / 2) {
     lastScore += 1;
@@ -577,11 +802,8 @@ void calculatePresence() {
     lastScore += 1;
   }
 
-  if (!roomOccupied && lastScore >= PRESENCE_ON_SCORE) {
-    roomOccupied = true;
-  } else if (roomOccupied && lastScore <= PRESENCE_OFF_SCORE) {
-    roomOccupied = false;
-  }
+  updatePresenceStateMachine();
+  recordBaselineSampleIfQuiet();
 }
 
 void updatePresence() {
@@ -602,61 +824,130 @@ void updatePresence() {
     Serial.print(lastWifiClientNearCount);
     Serial.print(" wifi_clients_total=");
     Serial.print(lastWifiClientTotalCount);
+    Serial.print(" device_signal=");
+    Serial.print(deviceSignalLabel());
+    Serial.print(" baseline_ble=");
+    Serial.print(baselineBleNear);
+    Serial.print(" baseline_wifi_clients=");
+    Serial.print(baselineWifiClientNear);
     Serial.print(" csi_status=");
     Serial.print(csiStatusLabel());
     Serial.print(" csi_motion=");
     Serial.print(lastCsiMotionScore);
+    Serial.print(" csi_variance=");
+    Serial.print(lastCsiVarianceScore);
     Serial.print(" csi_packets=");
     Serial.print(lastCsiPacketCount);
+    Serial.print(" transition=");
+    Serial.print(transitionStateLabel());
+    Serial.print(" vacant_timer=");
+    Serial.print(vacantSecondsRemaining());
     Serial.print(" wifi_aps_near=");
     Serial.print(lastWifiNearCount);
     Serial.println();
   }
 }
 
-String networkSummary() {
+void writeNetworkSummary(char *buffer, size_t bufferSize) {
   if (WiFi.status() == WL_CONNECTED) {
-    return "Open http://" + String(MDNS_NAME) + ".local/ or http://" + WiFi.localIP().toString() + "/";
+    const IPAddress ip = WiFi.localIP();
+    snprintf(
+      buffer,
+      bufferSize,
+      "Open http://%s.local/ or http://%u.%u.%u.%u/",
+      MDNS_NAME,
+      static_cast<unsigned>(ip[0]),
+      static_cast<unsigned>(ip[1]),
+      static_cast<unsigned>(ip[2]),
+      static_cast<unsigned>(ip[3])
+    );
+    return;
   }
   if (apMode) {
-    return "Connected to fallback Wi-Fi " + String(AP_SSID) + ". Open http://192.168.4.1/.";
+    snprintf(
+      buffer,
+      bufferSize,
+      "Connected to fallback Wi-Fi %s. Open http://192.168.4.1/.",
+      AP_SSID
+    );
+    return;
   }
-  return "Wi-Fi is starting...";
+  snprintf(buffer, bufferSize, "Wi-Fi is starting...");
 }
 
-String buildStatusJson() {
+unsigned long lastStrongPresenceAgeMs() {
+  if (lastStrongPresenceMs == 0) {
+    return 0;
+  }
+  return millis() - lastStrongPresenceMs;
+}
+
+void buildStatusJson(char *buffer, size_t bufferSize) {
   calculatePresence();
 
-  String json = "{";
-  json += "\"occupied\":";
-  json += roomOccupied ? "true" : "false";
-  json += ",\"level\":\"" + presenceLabel(lastScore) + "\"";
-  json += ",\"score\":" + String(lastScore);
-  json += ",\"ble_near\":" + String(lastBleNearCount);
-  json += ",\"ble_total\":" + String(lastBleTotalCount);
-  json += ",\"wifi_clients_near\":" + String(lastWifiClientNearCount);
-  json += ",\"wifi_clients_total\":" + String(lastWifiClientTotalCount);
-  json += ",\"csi_status\":\"" + csiStatusLabel() + "\"";
-  json += ",\"csi_motion\":" + String(lastCsiMotionScore);
-  json += ",\"csi_packets\":" + String(lastCsiPacketCount);
-  json += ",\"csi_rssi\":" + String(lastCsiRssi);
-  json += ",\"csi_presence\":";
-  json += lastCsiPresence ? "true" : "false";
-  json += ",\"wifi_aps_near\":" + String(lastWifiNearCount);
-  json += ",\"uptime_ms\":" + String(millis());
-  json += ",\"network\":\"" + networkSummary() + "\"";
-  json += "}";
+  char network[128];
+  writeNetworkSummary(network, sizeof(network));
 
-  return json;
+  const int written = snprintf(
+    buffer,
+    bufferSize,
+    "{\"occupied\":%s,\"level\":\"%s\",\"score\":%d,"
+    "\"ble_near\":%d,\"ble_total\":%d,"
+    "\"wifi_clients_near\":%d,\"wifi_clients_total\":%d,"
+    "\"baseline_ble_near\":%d,\"baseline_wifi_clients_near\":%d,"
+    "\"baseline_wifi_aps_near\":%d,\"baseline_samples\":%d,"
+    "\"device_signal\":\"%s\",\"csi_status\":\"%s\","
+    "\"csi_motion\":%d,\"csi_variance\":%d,\"csi_packets\":%d,"
+    "\"csi_rssi\":%d,\"csi_presence\":%s,"
+    "\"transition_state\":\"%s\",\"vacant_seconds_remaining\":%d,"
+    "\"last_strong_presence_age_ms\":%lu,"
+    "\"wifi_aps_near\":%d,\"uptime_ms\":%lu,\"free_heap\":%u,"
+    "\"network\":\"%s\"}",
+    roomOccupied ? "true" : "false",
+    presenceLabel(lastScore),
+    lastScore,
+    lastBleNearCount,
+    lastBleTotalCount,
+    lastWifiClientNearCount,
+    lastWifiClientTotalCount,
+    baselineBleNear,
+    baselineWifiClientNear,
+    baselineWifiApNear,
+    baselineSampleTotal,
+    deviceSignalLabel(),
+    csiStatusLabel(),
+    lastCsiMotionScore,
+    lastCsiVarianceScore,
+    lastCsiPacketCount,
+    lastCsiRssi,
+    lastCsiPresence ? "true" : "false",
+    transitionStateLabel(),
+    vacantSecondsRemaining(),
+    lastStrongPresenceAgeMs(),
+    lastWifiNearCount,
+    millis(),
+    ESP.getFreeHeap(),
+    network
+  );
+
+  if (written < 0 || static_cast<size_t>(written) >= bufferSize) {
+    snprintf(buffer, bufferSize, "{\"error\":\"status buffer too small\",\"free_heap\":%u}", ESP.getFreeHeap());
+  }
 }
 
 void updateStatusCache() {
-  statusCacheJson = buildStatusJson();
+  buildStatusJson(statusCacheJson, sizeof(statusCacheJson));
   lastStatusCacheMs = millis();
+
+  if (ENABLE_SERIAL_LOG && ENABLE_HEAP_LOG && lastStatusCacheMs - lastHeapLogMs >= HEAP_LOG_PERIOD_MS) {
+    lastHeapLogMs = lastStatusCacheMs;
+    Serial.print("free_heap=");
+    Serial.println(ESP.getFreeHeap());
+  }
 }
 
 void handleStatus() {
-  if (statusCacheJson == "{}") {
+  if (strcmp(statusCacheJson, "{}") == 0) {
     updateStatusCache();
   }
 
@@ -778,8 +1069,7 @@ void setup() {
   bleScan->setWindow(120);
 
   setupWifiSensing();
-  scanWifi();
-  scanBle();
+  lastWifiScanMs = millis();
   lastBleScanMs = millis();
   updateStatusCache();
 }
@@ -798,18 +1088,16 @@ void loop() {
     updateStatusCache();
   }
 
-  if (now - lastBleScanMs >= BLE_SCAN_PERIOD_MS) {
+  if (now - lastWifiScanMs >= WIFI_SCAN_PERIOD_MS) {
+    scanWifi();
+    updateStatusCache();
+  } else if (now - lastBleScanMs >= BLE_SCAN_PERIOD_MS) {
     scanBle();
     lastBleScanMs = millis();
     updateStatusCache();
   }
 
   server.handleClient();
-
-  if (now - lastWifiScanMs >= WIFI_SCAN_PERIOD_MS) {
-    scanWifi();
-    updateStatusCache();
-  }
 
   if (ENABLE_SERIAL_LOG && now - lastReportMs >= REPORT_PERIOD_MS) {
     updatePresence();
