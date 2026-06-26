@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Data Plugin Manager</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; }
+    #tabBar {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      background: #444;
+      padding: 5px;
+      width: 180px;
+      min-width: 180px;
+    }
+    .tabButton {
+      background: #666; color: white; padding: 10px 16px; margin-bottom: 5px;
+      border: none; cursor: pointer; text-align: left;
+      border-radius: 4px;
+    }
+    .tabButton.active { background: #28a745; }
+    #contentArea {
+      flex-grow: 1;
+      overflow: auto;
+      background: #f9f9f9;
+    }
+    #contentArea > div { display: none; padding: 20px; }
+    #contentArea > div.active { display: block; }
+    .controlBtn {
+      background: #888;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      margin-bottom: 10px;
+      cursor: pointer;
+      text-align: left;
+      border-radius: 4px;
+    }
+    .controlBtn:hover { background: #999; }
+
+    /* Catalogue Table Styles */
+    table.catalogue-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+    table.catalogue-table th, table.catalogue-table td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+    table.catalogue-table th { background: #eee; }
+    .status-found { color: green; font-weight: bold; }
+    .status-missing { color: red; }
+  </style>
+</head>
+<body>
+  <div id="tabBar">
+    <div style="color:white; margin-bottom: 10px; font-size: 0.8em;">Alt-L: Load, Alt-R: Refresh</div>
+    <button id="loadBtn" class="controlBtn">📂 Load Data Folder</button>
+    <button id="refreshBtn" class="controlBtn">🔄 Refresh Plugins</button>
+    <div id="pluginTabs"></div>
+  </div>
+  <div id="contentArea">
+    <div id="tab_Catalogue" class="active">
+      <h1>Data Catalogue</h1>
+      <table class="catalogue-table">
+        <thead>
+          <tr>
+            <th>Report Type</th>
+            <th>Status</th>
+            <th>Latest File Found</th>
+            <th>Rows Loaded</th>
+          </tr>
+        </thead>
+        <tbody id="catalogueBody">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let globalRootHandle = null;
+    let dataJSFolderHandle = null;
+    let pluginScripts = {}; // name -> { text, evaluated, div }
+    let dataCache = {}; // type -> rows[]
+
+    const reportTypes = [
+      "LJA_KPI_Report",
+      "GEGM_KPI_Report",
+      "EGM_KPI_Report",
+      "SDA_KPI_Report",
+      "TA Report_"
+    ];
+    let foundFiles = {}; // type -> { name, handle }
+
+    const PluginAPI = {
+      add: function(title) {
+        // Find existing div if any (pre-created by tab loader)
+        const tabId = "tab_" + title.replace(/\s+/g, "_");
+        let div = document.getElementById(tabId);
+        if (!div) {
+          div = document.createElement("div");
+          div.id = tabId;
+          document.getElementById("contentArea").appendChild(div);
+        }
+        // Ensure it is visible if it is the current tab
+        if (tabId === currentActiveTabId) {
+          div.classList.add("active");
+        }
+        return div;
+      },
+      pullData: async function(type) {
+        if (dataCache[type]) return dataCache[type];
+
+        if (!foundFiles[type]) {
+          throw new Error(`Report type "${type}" not found in the selected folder.`);
+        }
+
+        const data = await loadExcelFile(foundFiles[type].handle, type);
+        dataCache[type] = data;
+        updateCatalogueUI();
+        return data;
+      }
+    };
+
+    let currentActiveTabId = "tab_Catalogue";
+    function showTab(id) {
+      currentActiveTabId = id;
+      document.querySelectorAll(".tabButton").forEach(btn => {
+        btn.classList.remove("active");
+        if (btn.getAttribute("data-tab-id") === id) btn.classList.add("active");
+      });
+
+      document.querySelectorAll("#contentArea > div").forEach(div => div.classList.remove("active"));
+
+      // On-demand load
+      const pluginName = id.replace("tab_", "");
+      if (pluginScripts[pluginName] && !pluginScripts[pluginName].evaluated) {
+        console.log(`Loading plugin on demand: ${pluginName}`);
+        try {
+          eval(pluginScripts[pluginName].text);
+          pluginScripts[pluginName].evaluated = true;
+        } catch (err) {
+          console.error(`Failed to evaluate plugin ${pluginName}:`, err);
+          // Only show error if the div was already there
+          const errDiv = document.getElementById(id);
+          if (errDiv) errDiv.innerHTML = `<div style="color:red">Error loading plugin: ${err.message}</div>`;
+        }
+      }
+
+      const targetDiv = document.getElementById(id);
+      if (targetDiv) targetDiv.classList.add("active");
+    }
+
+    async function scanDataJS() {
+      try {
+        dataJSFolderHandle = await globalRootHandle.getDirectoryHandle("dataJS");
+        const tabsContainer = document.getElementById("pluginTabs");
+
+        // Clear existing plugin tabs (except Catalogue)
+        tabsContainer.innerHTML = "";
+
+        // Catalogue tab button
+        const catBtn = document.createElement("button");
+        catBtn.className = "tabButton active";
+        catBtn.innerText = "Catalogue";
+        catBtn.setAttribute("data-tab-id", "tab_Catalogue");
+        catBtn.onclick = () => showTab("tab_Catalogue");
+        tabsContainer.appendChild(catBtn);
+
+        for await (const entry of dataJSFolderHandle.values()) {
+          if (entry.kind === 'file' && entry.name.endsWith('.txt')) {
+            const name = entry.name.replace('.txt', '');
+            const file = await entry.getFile();
+            const text = await file.text();
+
+            pluginScripts[name] = { text, evaluated: false };
+
+            const btn = document.createElement("button");
+            btn.className = "tabButton";
+            btn.innerText = name;
+            btn.setAttribute("data-tab-id", "tab_" + name);
+            btn.onclick = () => showTab("tab_" + name);
+            tabsContainer.appendChild(btn);
+
+            // Pre-create div
+            const div = document.createElement("div");
+            div.id = "tab_" + name;
+            document.getElementById("contentArea").appendChild(div);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to scan dataJS:", err);
+      }
+    }
+
+    async function scanDataFiles() {
+      foundFiles = {};
+      const found = [];
+      for await (const [name, handle] of globalRootHandle.entries()) {
+        if (handle.kind === "file") found.push({ name, handle });
+      }
+
+      for (const type of reportTypes) {
+        let latest = null;
+        for (const file of found) {
+          if (type === "TA Report_") {
+            if (file.name.toLowerCase().startsWith("ta report_")) {
+              if (!latest) {
+                latest = file;
+              } else {
+                const a = parseTAFile(latest.name);
+                const b = parseTAFile(file.name);
+                if (b && (!a || b.date > a.date || (b.date === a.date && b.copy > a.copy))) {
+                  latest = file;
+                }
+              }
+            }
+          } else {
+            if (file.name.toLowerCase().startsWith(type.toLowerCase())) {
+              if (!latest) {
+                latest = file;
+              } else {
+                const oldNum = extractNumber(latest.name);
+                const newNum = extractNumber(file.name);
+                if (newNum > oldNum) latest = file;
+              }
+            }
+          }
+        }
+        if (latest) foundFiles[type] = latest;
+      }
+      updateCatalogueUI();
+    }
+
+    function extractNumber(filename) {
+      const m = filename.match(/\((\d+)\)/);
+      return m ? parseInt(m[1]) : 0;
+    }
+
+    function parseTAFile(filename) {
+      const m = filename.match(/TA Report_(\d{8})(?: \((\d+)\))?/i);
+      if (!m) return null;
+      return { date: m[1], copy: parseInt(m[2] || 1) };
+    }
+
+    async function loadExcelFile(fileHandle, type) {
+      const file = await fileHandle.getFile();
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    }
+
+    function updateCatalogueUI() {
+      const tbody = document.getElementById("catalogueBody");
+      tbody.innerHTML = "";
+      for (const type of reportTypes) {
+        const tr = document.createElement("tr");
+        const file = foundFiles[type];
+        const rows = dataCache[type] ? dataCache[type].length - 1 : 0;
+        tr.innerHTML = `
+          <td>${type}</td>
+          <td class="${file ? 'status-found' : 'status-missing'}">${file ? 'Found' : 'Missing'}</td>
+          <td>${file ? file.name : '-'}</td>
+          <td>${dataCache[type] ? rows : (file ? 'Click plugin to load' : 'N/A')}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    document.getElementById("loadBtn").onclick = async () => {
+      try {
+        globalRootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        await scanDataFiles();
+        await scanDataJS();
+      } catch (err) {
+        console.error('Loading failed:', err);
+        alert(err);
+      }
+    };
+
+    document.getElementById("refreshBtn").onclick = async () => {
+      if (!globalRootHandle) {
+        alert("Please load a folder first.");
+        return;
+      }
+      // Reset plugins but keep catalogue if possible, or just re-scan everything
+      document.querySelectorAll("#contentArea > div:not(#tab_Catalogue)").forEach(div => div.remove());
+      dataCache = {};
+      await scanDataFiles();
+      await scanDataJS();
+      showTab("tab_Catalogue");
+    };
+
+    document.addEventListener("keydown", (e) => {
+      if (!e.altKey) return;
+      if (e.code === 'KeyL') {
+        e.preventDefault();
+        document.getElementById('loadBtn').click();
+      }
+      if (e.code === 'KeyR') {
+        e.preventDefault();
+        document.getElementById('refreshBtn').click();
+      }
+    });
+
+  </script>
+</body>
+</html>
