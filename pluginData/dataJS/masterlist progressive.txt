@@ -38,19 +38,22 @@ const masterlistProgressivePlugin = {
     this.isLoaded = true;
 
     const summaryDiv = this.container.querySelector("#prog-summary");
-    summaryDiv.innerHTML = "Loading and merging progressive data...";
+    summaryDiv.innerHTML = `<div class="loading-overlay">Loading and merging cumulative data... (this may take a few seconds)</div>`;
 
-    try {
-      const grambsData = await PluginAPI.pullData("GRAMBSPR");
-      const grarwsData = await PluginAPI.pullData("GRARWSPR");
+    // Use setTimeout to allow UI to update
+    setTimeout(async () => {
+      try {
+        const grambsData = await PluginAPI.pullData("GRAMBSPR");
+        const grarwsData = await PluginAPI.pullData("GRARWSPR");
 
-      const summary = this.processData(grambsData, grarwsData);
-      this.renderSummary(summary);
-    } catch (err) {
-      console.error(err);
-      summaryDiv.innerHTML = `<div style="color:red">Error: ${err.message}</div>`;
-      this.isLoaded = false;
-    }
+        const summary = this.processData(grambsData, grarwsData);
+        this.renderSummary(summary);
+      } catch (err) {
+        console.error(err);
+        summaryDiv.innerHTML = `<div style="color:red">Error: ${err.message}</div>`;
+        this.isLoaded = false;
+      }
+    }, 100);
   },
 
   processData: function(grambs, grarws) {

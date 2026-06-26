@@ -152,45 +152,42 @@
 
         if (type.endsWith("PR")) {
           // Progressive: load all months and combine
-          let combined = [];
-          for (const f of info.files) {
-             const data = await loadExcelFile(f.handle, type);
-             const month = f.date.substring(0, 6);
+          // For GRAMBSPR/GRARWSPR, we merge sheets 1 to day cumulatively
+          const targetKey = type.replace("PR", ""); // e.g. "GRAMBS"
+          let combinedResult = {};
+          let masterRows = [];
 
-             if (typeof data === 'object' && !Array.isArray(data)) {
-                if (combined.length === 0) {
-                   combined = data;
-                   // Add Source Month column to sheets
-                   for (const s in combined) {
-                      if (combined[s].length > 0) combined[s][0].push("Source Month");
-                      for (let i=1; i < combined[s].length; i++) combined[s][i].push(month);
+          for (const f of info.files) {
+             const allSheets = await loadExcelFile(f.handle, type);
+             const month = f.date.substring(0, 6);
+             const day = parseInt(f.date.substring(6, 8));
+
+             let rowsForThisFile = [];
+             for (let d = 1; d <= day; d++) {
+                const sheetName = d.toString();
+                if (allSheets[sheetName]) {
+                   const sheetData = allSheets[sheetName];
+                   if (rowsForThisFile.length === 0) {
+                      rowsForThisFile = sheetData.map(r => [...r]);
+                   } else {
+                      // Append without header
+                      rowsForThisFile = rowsForThisFile.concat(sheetData.slice(1).map(r => [...r]));
                    }
-                } else {
-                   for (const sheet in data) {
-                      if (!combined[sheet]) {
-                         combined[sheet] = data[sheet];
-                         if (combined[sheet].length > 0) combined[sheet][0].push("Source Month");
-                         for (let i=1; i < combined[sheet].length; i++) combined[sheet][i].push(month);
-                      } else {
-                         const rows = data[sheet].slice(1);
-                         rows.forEach(r => r.push(month));
-                         combined[sheet] = combined[sheet].concat(rows);
-                      }
-                   }
-                }
-             } else {
-                if (combined.length === 0) {
-                   combined = data;
-                   if (combined.length > 0) combined[0].push("Source Month");
-                   for (let i=1; i < combined.length; i++) combined[i].push(month);
-                } else {
-                   const rows = data.slice(1);
-                   rows.forEach(r => r.push(month));
-                   combined = combined.concat(rows);
                 }
              }
+
+             if (masterRows.length === 0) {
+                masterRows = rowsForThisFile;
+                if (masterRows.length > 0) masterRows[0].push("Source Month");
+                for (let i=1; i < masterRows.length; i++) masterRows[i].push(month);
+             } else {
+                const newRows = rowsForThisFile.slice(1).map(r => [...r]);
+                newRows.forEach(r => r.push(month));
+                masterRows = masterRows.concat(newRows);
+             }
           }
-          dataCache[type] = combined;
+          combinedResult[targetKey] = masterRows;
+          dataCache[type] = combinedResult;
         } else {
           const data = await loadExcelFile(info.handle, type);
           dataCache[type] = data;
