@@ -1,0 +1,36 @@
+(async function() {
+    const title = "masterlist summary";
+    const container = PluginAPI.add(title);
+
+    const style = document.createElement('style');
+    style.textContent = `
+        .masterlist-plugin { padding: 20px; font-family: sans-serif; }
+        .masterlist-plugin .header { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; }
+        .masterlist-plugin .stats-card { background: #fff; border: 1px solid #ddd; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    `;
+    document.head.appendChild(style);
+
+    container.className = "masterlist-plugin";
+    container.innerHTML = `
+        <div class="header">
+            <h1>Masterlist Summary</h1>
+            <button id="loadMasterlist">🔄 Load Masterlist</button>
+            <span id="loadStatus"></span>
+        </div>
+        <div id="summaryArea" class="stats-card">
+            <p>Data display logic pending...</p>
+        </div>
+    `;
+
+    container.querySelector("#loadMasterlist").onclick = async () => {
+        const status = container.querySelector("#loadStatus");
+        status.textContent = "Loading...";
+        try {
+            const data = await PluginAPI.pullData("GRAMBS");
+            status.textContent = `✅ Loaded ${data.length - 1} rows from latest GRAMBS report.`;
+            // Further logic will be added here
+        } catch (err) {
+            status.textContent = `❌ Error: ${err.message}`;
+        }
+    };
+})();
