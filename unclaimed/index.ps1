@@ -124,7 +124,6 @@ function Run-Scrapers {
 
 function Google-Search-Selected {
     if ($table.SelectedRows.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a row first.", "No Selection") | Out-Null
         return
     }
 
@@ -133,11 +132,11 @@ function Google-Search-Selected {
     $address = [string]$row.Cells["LastKnownStreetAddress"].Value
 
     if ([string]::IsNullOrWhiteSpace($name)) {
-        [System.Windows.Forms.MessageBox]::Show("Selected row has no name.", "Missing Data") | Out-Null
         return
     }
 
-    $query = "$name $address Singapore"
+    # Wrap name in quotes as requested: "Name" Address Singapore
+    $query = "`"$name`" $address Singapore"
     $url = "https://www.google.com/search?q=" + [System.Web.HttpUtility]::UrlEncode($query)
     Start-Process $url
 
@@ -178,11 +177,18 @@ function Mark-Status {
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Unclaimed Monies Tracker"
-$form.Size = New-Object System.Drawing.Size(1200, 700)
+$form.Size = New-Object System.Drawing.Size(1200, 750)
 $form.StartPosition = "CenterScreen"
 
+$instructionLabel = New-Object System.Windows.Forms.Label
+$instructionLabel.Text = "ℹ️ Double-click a 'New' row to Google Search (exact name) and mark as 'Trying'."
+$instructionLabel.Location = New-Object System.Drawing.Point(10, 5)
+$instructionLabel.AutoSize = $true
+$instructionLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$instructionLabel.ForeColor = [System.Drawing.Color]::Navy
+
 $table = New-Object System.Windows.Forms.DataGridView
-$table.Location = New-Object System.Drawing.Point(10, 10)
+$table.Location = New-Object System.Drawing.Point(10, 30)
 $table.Size = New-Object System.Drawing.Size(1165, 480)
 $table.Anchor = "Top, Left, Right, Bottom"
 $table.AutoSizeColumnsMode = "AllCells"
@@ -190,44 +196,39 @@ $table.AllowUserToAddRows = $false
 $table.SelectionMode = "FullRowSelect"
 $table.MultiSelect = $false
 
+$table.Add_CellDoubleClick({
+    if ($_.RowIndex -ge 0) {
+        $row = $table.Rows[$_.RowIndex]
+        if ($row.Cells["Status"].Value -eq "New") {
+            Google-Search-Selected
+        }
+    }
+})
+
 $btnRun = New-Object System.Windows.Forms.Button
 $btnRun.Text = "Run All Scrapers"
-$btnRun.Location = New-Object System.Drawing.Point(10, 500)
+$btnRun.Location = New-Object System.Drawing.Point(10, 530)
 $btnRun.Size = New-Object System.Drawing.Size(120, 30)
 $btnRun.Anchor = "Bottom, Left"
 $btnRun.Add_Click({ Run-Scrapers })
 
-$btnSearch = New-Object System.Windows.Forms.Button
-$btnSearch.Text = "Google Search"
-$btnSearch.Location = New-Object System.Drawing.Point(140, 500)
-$btnSearch.Size = New-Object System.Drawing.Size(100, 30)
-$btnSearch.Anchor = "Bottom, Left"
-$btnSearch.Add_Click({ Google-Search-Selected })
-
 $btnRemark = New-Object System.Windows.Forms.Button
 $btnRemark.Text = "Update My Remark"
-$btnRemark.Location = New-Object System.Drawing.Point(250, 500)
+$btnRemark.Location = New-Object System.Drawing.Point(140, 530)
 $btnRemark.Size = New-Object System.Drawing.Size(130, 30)
 $btnRemark.Anchor = "Bottom, Left"
 $btnRemark.Add_Click({ Update-Remark-Prompt })
 
-$btnTrying = New-Object System.Windows.Forms.Button
-$btnTrying.Text = "Mark Trying"
-$btnTrying.Location = New-Object System.Drawing.Point(390, 500)
-$btnTrying.Size = New-Object System.Drawing.Size(100, 30)
-$btnTrying.Anchor = "Bottom, Left"
-$btnTrying.Add_Click({ Mark-Status "Trying" })
-
 $btnNotFound = New-Object System.Windows.Forms.Button
 $btnNotFound.Text = "Mark Not Found"
-$btnNotFound.Location = New-Object System.Drawing.Point(500, 500)
+$btnNotFound.Location = New-Object System.Drawing.Point(280, 530)
 $btnNotFound.Size = New-Object System.Drawing.Size(110, 30)
 $btnNotFound.Anchor = "Bottom, Left"
 $btnNotFound.Add_Click({ Mark-Status "Failed to Find" })
 
 $btnSave = New-Object System.Windows.Forms.Button
 $btnSave.Text = "Save Changes"
-$btnSave.Location = New-Object System.Drawing.Point(620, 500)
+$btnSave.Location = New-Object System.Drawing.Point(400, 530)
 $btnSave.Size = New-Object System.Drawing.Size(110, 30)
 $btnSave.Anchor = "Bottom, Left"
 $btnSave.Add_Click({
@@ -237,20 +238,20 @@ $btnSave.Add_Click({
 
 $btnRefresh = New-Object System.Windows.Forms.Button
 $btnRefresh.Text = "Refresh"
-$btnRefresh.Location = New-Object System.Drawing.Point(740, 500)
+$btnRefresh.Location = New-Object System.Drawing.Point(520, 530)
 $btnRefresh.Size = New-Object System.Drawing.Size(100, 30)
 $btnRefresh.Anchor = "Bottom, Left"
 $btnRefresh.Add_Click({ Refresh-Grid })
 
 $logBox = New-Object System.Windows.Forms.TextBox
 $logBox.Multiline = $true
-$logBox.Location = New-Object System.Drawing.Point(10, 545)
-$logBox.Size = New-Object System.Drawing.Size(1165, 110)
+$logBox.Location = New-Object System.Drawing.Point(10, 575)
+$logBox.Size = New-Object System.Drawing.Size(1165, 120)
 $logBox.Anchor = "Bottom, Left, Right"
 $logBox.ScrollBars = "Vertical"
 $logBox.ReadOnly = $true
 
-$form.Controls.AddRange(@($table, $btnRun, $btnSearch, $btnRemark, $btnTrying, $btnNotFound, $btnSave, $btnRefresh, $logBox))
+$form.Controls.AddRange(@($instructionLabel, $table, $btnRun, $btnRemark, $btnNotFound, $btnSave, $btnRefresh, $logBox))
 
 Refresh-Grid
 

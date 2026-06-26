@@ -79,12 +79,8 @@ function Get-MergedRow {
     # Always preserve tracking data from the existing row
     foreach ($field in $trackingFields) {
         $existingVal = $ExistingRow.$field
-        if ($existingVal -and -not [string]::IsNullOrWhiteSpace($existingVal)) {
-            if ($field -eq "Status" -and $existingVal -eq "New") {
-                # skip
-            } else {
-                $merged.$field = $existingVal
-            }
+        if ($null -ne $existingVal -and -not [string]::IsNullOrWhiteSpace($existingVal)) {
+            $merged.$field = $existingVal
         }
     }
 
