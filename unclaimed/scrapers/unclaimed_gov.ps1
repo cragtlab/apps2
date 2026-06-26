@@ -54,13 +54,22 @@ try {
         exit 1
     }
 
-    $requiredFields = @("MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "AgencyName", "CreatedDate", "Remarks")
-
     $rows = @(foreach ($item in $items) {
+        # Robust mapping to handle different potential JSON property names
+        # We need: MoniesId, ClaimedName, LastKnownStreetAddress, CategoryName, YearCollected, AgencyName, CreatedDate, Remarks
+
         $obj = [ordered]@{}
-        foreach ($field in $requiredFields) {
-            $obj[$field] = $item.$field
-        }
+        $obj["MoniesId"] = if ($item.MoniesId) { $item.MoniesId } else { $item.Id }
+        $obj["ClaimedName"] = if ($item.ClaimedName) { $item.ClaimedName } else { $item.OwnerName }
+        $obj["LastKnownStreetAddress"] = if ($item.LastKnownStreetAddress) { $item.LastKnownStreetAddress } else { $item.Address }
+        $obj["CategoryName"] = if ($item.CategoryName) { $item.CategoryName } else { $item.Category }
+        $obj["YearCollected"] = if ($item.YearCollected) { $item.YearCollected } else { $item.Year }
+        $obj["AgencyName"] = if ($item.AgencyName) { $item.AgencyName } else { $item.SourceAgency }
+        $obj["CreatedDate"] = if ($item.CreatedDate) { $item.CreatedDate } else { $item.DateAdded }
+
+        # Capture government-provided remarks/descriptions
+        $obj["Remarks"] = if ($null -ne $item.Remarks) { $item.Remarks } else { $item.Description }
+
         [PSCustomObject]$obj
     })
 
