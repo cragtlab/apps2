@@ -1,6 +1,23 @@
 (async function() {
     const title = "masterlist summary";
-    const container = PluginAPI.add(title);
+
+    let isLoaded = false;
+    const DEFAULT_ALIASES = [
+        { canonical: 'LNW', aliases: 'WMS, LNW Gaming, Light & Wonder, ShuffleMaster, Shuffle Master, SG Gaming, Scientific Games, Bally Technologies, Bally' },
+        { canonical: 'Aristocrat',              aliases: 'Aristocrat Technologies' },
+        { canonical: 'IGT',                     aliases: 'International Game Technology' },
+        { canonical: 'Konami',                  aliases: 'Konami Gaming, Konami Australia' },
+        { canonical: 'Alfastreet / Pockaj D.O.O.', aliases: 'Alfastreet, Pockaj, Pockaj D.O.O.' },
+        { canonical: 'Interblock D.O.O.',       aliases: 'Interblock, Interblock DOO' },
+        { canonical: 'Aruze', aliases: 'Aruze Gaming' },
+        { canonical: 'Ainsworth', aliases: 'Ainsworth, AGT'}
+    ];
+
+    const container = PluginAPI.add(title, {
+        onActivated: () => {
+            if (!isLoaded) loadData();
+        }
+    });
 
     // Scoped styles for the plugin
     const style = document.createElement('style');
@@ -11,7 +28,6 @@
         .masterlist-plugin .controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; align-items: center; }
         .masterlist-plugin button { padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
         .masterlist-plugin .btn-primary { background: #1a1a2e; color: white; }
-        .masterlist-plugin .btn-primary:hover { background: #2d2d5e; }
 
         .masterlist-plugin .section-title { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; margin: 32px 0 12px; padding-left: 10px; border-left: 4px solid #c8a84b; }
         .masterlist-plugin table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 8px; }
@@ -37,21 +53,8 @@
         .masterlist-plugin .tab-btn.active { background: #1a1a2e; color: white; }
         .masterlist-plugin .tab-content { display: none; background: white; padding: 20px; border-radius: 0 10px 10px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
         .masterlist-plugin .tab-content.active { display: block; }
-
-        .masterlist-plugin .warn-box { background: #fff8e1; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.82rem; color: #555; }
     `;
     document.head.appendChild(style);
-
-    const DEFAULT_ALIASES = [
-        { canonical: 'LNW', aliases: 'WMS, LNW Gaming, Light & Wonder, ShuffleMaster, Shuffle Master, SG Gaming, Scientific Games, Bally Technologies, Bally' },
-        { canonical: 'Aristocrat',              aliases: 'Aristocrat Technologies' },
-        { canonical: 'IGT',                     aliases: 'International Game Technology' },
-        { canonical: 'Konami',                  aliases: 'Konami Gaming, Konami Australia' },
-        { canonical: 'Alfastreet / Pockaj D.O.O.', aliases: 'Alfastreet, Pockaj, Pockaj D.O.O.' },
-        { canonical: 'Interblock D.O.O.',       aliases: 'Interblock, Interblock DOO' },
-        { canonical: 'Aruze', aliases: 'Aruze Gaming' },
-        { canonical: 'Ainsworth', aliases: 'Ainsworth, AGT'}
-    ];
 
     container.className = "masterlist-plugin";
     container.innerHTML = `
@@ -59,8 +62,7 @@
         <p class="subtitle">Pulls from latest GRAMBS and GRARWS files automatically</p>
 
         <div class="controls">
-            <button id="loadDataBtn" class="btn-primary">🔄 Load Casino Data</button>
-            <span id="loadStatus"></span>
+            <span id="loadStatus">Loading data...</span>
         </div>
 
         <div class="alias-section">
@@ -87,8 +89,6 @@
     }
     DEFAULT_ALIASES.forEach(r => addAliasRow(r.canonical, r.aliases));
     container.querySelector('#add-alias-btn').onclick = () => addAliasRow();
-
-    let isLoaded = false;
 
     function getAliasMap() {
         const map = new Map();
@@ -173,11 +173,13 @@
         return t;
     }
 
-    container.querySelector("#loadDataBtn").onclick = async () => {
+    async function loadData() {
         if (isLoaded) return;
         const status = container.querySelector("#loadStatus");
         const output = container.querySelector("#outputArea");
-        status.textContent = "Loading data...";
+        if (!status || !output) return;
+
+        status.textContent = "Loading casino data...";
         output.innerHTML = "";
 
         try {
@@ -210,7 +212,6 @@
                 ['Total', mbsEGMTotal + mbsETGTotal, rwsEGMTotal + rwsETGTotal, mbsEGMTotal + mbsETGTotal + rwsEGMTotal + rwsETGTotal]
             ));
 
-            // Manufacturers tables
             const merge = (m1, m2) => {
                 const keys = new Set([...Object.keys(m1), ...Object.keys(m2)]);
                 return Array.from(keys).map(k => ({ name: k, mbs: m1[k]||0, rws: m2[k]||0, total: (m1[k]||0)+(m2[k]||0) })).sort((a,b)=>b.total-a.total);
@@ -224,7 +225,6 @@
             const div3 = document.createElement('div'); div3.className = 'section-title'; div3.textContent = 'ETG Manufacturers'; output.appendChild(div3);
             output.appendChild(buildTable(['Manufacturer', 'MBS', 'RWS', 'Total'], etgMerged.map(r=>[r.name, r.mbs, r.rws, r.total]), ['Total', mbsETGTotal, rwsETGTotal, mbsETGTotal+rwsETGTotal]));
 
-            // Tabs for per-casino breakdown
             const div4 = document.createElement('div'); div4.className = 'section-title'; div4.textContent = 'Per-Casino Breakdown'; output.appendChild(div4);
             const tabsContainer = document.createElement('div'); tabsContainer.className = 'tabs';
             const contentContainer = document.createElement('div');
@@ -241,7 +241,8 @@
                 btn.onclick = () => {
                     tabsContainer.querySelectorAll('button').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
                     contentContainer.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-                    document.getElementById('tab-'+def.id).classList.add('active');
+                    const target = contentContainer.querySelector('#tab-'+def.id);
+                    if (target) target.classList.add('active');
                 };
                 tabsContainer.appendChild(btn);
 
@@ -257,11 +258,9 @@
             output.appendChild(contentContainer);
 
             isLoaded = true;
-            container.querySelector("#loadDataBtn").style.display = "none";
-
         } catch (err) {
             status.textContent = "❌ Error: " + err.message;
         }
-    };
+    }
 
 })();

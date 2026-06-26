@@ -87,6 +87,7 @@
     let globalRootHandle = null;
     let dataJSFolderHandle = null;
     let pluginScripts = {}; // name -> { text, evaluated, div }
+    let pluginHandlers = {}; // name -> { onActivated }
     let dataCache = {}; // type -> rows[]
 
     const reportTypes = [
@@ -101,7 +102,8 @@
     let foundFiles = {}; // type -> { name, handle }
 
     const PluginAPI = {
-      add: function(title) {
+      add: function(title, handlers) {
+        if (handlers) pluginHandlers[title] = handlers;
         // Find existing div if any (pre-created by tab loader)
         const tabId = "tab_" + title.replace(/\s+/g, "_");
         let div = document.getElementById(tabId);
@@ -157,7 +159,13 @@
       }
 
       const targetDiv = document.getElementById(id);
-      if (targetDiv) targetDiv.classList.add("active");
+      if (targetDiv) {
+        targetDiv.classList.add("active");
+        // Trigger activation handler
+        if (pluginName && pluginHandlers[pluginName] && pluginHandlers[pluginName].onActivated) {
+          pluginHandlers[pluginName].onActivated();
+        }
+      }
     }
 
     async function scanDataJS() {
@@ -343,6 +351,8 @@
       // Reset plugins but keep catalogue if possible, or just re-scan everything
       document.querySelectorAll("#contentArea > div:not(#tab_Catalogue)").forEach(div => div.remove());
       dataCache = {};
+      pluginScripts = {};
+      pluginHandlers = {};
       await scanDataFiles();
       await scanDataJS();
       showTab("tab_Catalogue");
