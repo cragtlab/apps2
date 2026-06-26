@@ -22,8 +22,8 @@ function Refresh-Grid {
 
     if ($data.Count -gt 0) {
         $first = $data[0]
-        # Establish preferred order: Status, MyRemarks, then the rest
-        $preferred = @("Status", "MyRemarks")
+        # Establish preferred order: Status, MyRemarks, Remarks then the rest
+        $preferred = @("Status", "MyRemarks", "Remarks")
         foreach ($p in $preferred) {
             if (-not $dt.Columns.Contains($p)) { [void]$dt.Columns.Add($p) }
         }
