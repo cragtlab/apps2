@@ -8,7 +8,7 @@
 <style>
     body { font-family: sans-serif; background: #f5f5f5; margin: 0; padding: 10px; }
     .container { max-width: 600px; margin: auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    h1 { font-size: 1.2rem; margin-top: 0; }
+    h1 { font-size: 1.2rem; margin-top: 0; display: flex; justify-content: space-between; align-items: center; }
     .controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
     .row { display: flex; gap: 5px; flex-wrap: wrap; }
     input[type="text"], input[type="url"], input[type="search"] { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; min-width: 120px; }
@@ -16,7 +16,10 @@
     button.secondary { background: #6c757d; }
     button.danger { background: #dc3545; }
     .feed-list { margin: 10px 0; }
-    .feed-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 13px; }
+    .feed-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13px; border-bottom: 1px dashed #eee; }
+    .feed-info { display: flex; flex-direction: column; flex: 1; min-width: 0; margin-right: 10px; }
+    .feed-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
+    .feed-meta { font-size: 11px; color: #666; }
     .items { display: flex; flex-direction: column; gap: 15px; }
     .item { padding: 10px; border: 1px solid #eee; border-radius: 4px; position: relative; }
     .item.read { opacity: 0.5; }
@@ -26,18 +29,24 @@
     .item .desc { font-size: 14px; color: #333; margin-top: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .item .actions { margin-top: 10px; display: flex; gap: 10px; }
     .hidden { display: none; }
+    .settings-toggle { font-size: 12px; cursor: pointer; color: #007bff; text-decoration: underline; }
 </style>
 </head>
 <body>
 <div class="container">
-    <h1>Cloud RSS</h1>
+    <h1>
+        Cloud RSS
+        <span class="settings-toggle" onclick="toggleSettings()">Settings</span>
+    </h1>
 
     <div class="controls">
-        <div class="row">
-            <input type="url" id="workerUrl" placeholder="Cloudflare Worker URL (https://...)" onchange="saveSettings()">
+        <div id="settingsPanel" class="hidden">
+            <div class="row" style="margin-bottom: 10px;">
+                <input type="url" id="workerUrl" placeholder="Worker URL" onchange="saveSettings()">
+            </div>
         </div>
         <div class="row">
-            <input type="url" id="newFeedUrl" placeholder="Add Feed URL">
+            <input type="url" id="newFeedUrl" placeholder="Add RSS or Page URL">
             <button onclick="addFeed()">Add</button>
         </div>
         <div id="manageFeeds" class="hidden">
@@ -59,18 +68,24 @@
     const STORAGE_KEY_FEEDS = 'cloud_rss_feeds';
     const STORAGE_KEY_SETTINGS = 'cloud_rss_settings';
     const STORAGE_KEY_READ = 'cloud_rss_read';
+    const DEFAULT_WORKER_URL = 'https://amzwatch.donkey.workers.dev/';
 
-    let feeds = [];
-    let settings = { workerUrl: '', showRead: true };
+    let feeds = []; // Array of {url, lastFetch, itemCount}
+    let settings = { workerUrl: DEFAULT_WORKER_URL, showRead: true };
     let readItems = new Set();
     let allItems = [];
 
     function init() {
-        feeds = JSON.parse(localStorage.getItem(STORAGE_KEY_FEEDS) || '[]');
-        settings = JSON.parse(localStorage.getItem(STORAGE_KEY_SETTINGS) || '{"workerUrl":"","showRead":true}');
+        const storedFeeds = JSON.parse(localStorage.getItem(STORAGE_KEY_FEEDS) || '[]');
+        // Migration for old array-of-strings format
+        feeds = storedFeeds.map(f => typeof f === 'string' ? {url: f, lastFetch: null, itemCount: 0} : f);
+
+        settings = JSON.parse(localStorage.getItem(STORAGE_KEY_SETTINGS) || JSON.stringify({workerUrl: DEFAULT_WORKER_URL, showRead: true}));
+        if (!settings.workerUrl) settings.workerUrl = DEFAULT_WORKER_URL;
+
         readItems = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY_READ) || '[]'));
 
-        document.getElementById('workerUrl').value = settings.workerUrl || '';
+        document.getElementById('workerUrl').value = settings.workerUrl;
         renderFeeds();
         if (feeds.length > 0 && settings.workerUrl) {
             refreshAll();
@@ -78,8 +93,12 @@
     }
 
     function saveSettings() {
-        settings.workerUrl = document.getElementById('workerUrl').value.trim();
+        settings.workerUrl = document.getElementById('workerUrl').value.trim() || DEFAULT_WORKER_URL;
         localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+    }
+
+    function toggleSettings() {
+        document.getElementById('settingsPanel').classList.toggle('hidden');
     }
 
     function toggleManageFeeds() {
@@ -96,39 +115,54 @@
     function addFeed() {
         const url = document.getElementById('newFeedUrl').value.trim();
         if (!url) return;
-        if (feeds.includes(url)) return;
-        feeds.push(url);
-        localStorage.setItem(STORAGE_KEY_FEEDS, JSON.stringify(feeds));
+        if (feeds.some(f => f.url === url)) return;
+        feeds.push({url, lastFetch: null, itemCount: 0});
+        saveFeeds();
         document.getElementById('newFeedUrl').value = '';
         renderFeeds();
         refreshAll();
     }
 
     function removeFeed(url) {
-        feeds = feeds.filter(f => f !== url);
-        localStorage.setItem(STORAGE_KEY_FEEDS, JSON.stringify(feeds));
+        feeds = feeds.filter(f => f.url !== url);
+        saveFeeds();
         renderFeeds();
         refreshAll();
+    }
+
+    function saveFeeds() {
+        localStorage.setItem(STORAGE_KEY_FEEDS, JSON.stringify(feeds));
     }
 
     function renderFeeds() {
         const container = document.getElementById('feedsContainer');
         container.innerHTML = '';
-        feeds.forEach(url => {
+        feeds.forEach(f => {
             const div = document.createElement('div');
             div.className = 'feed-item';
 
-            const span = document.createElement('span');
-            span.style.cssText = 'overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; margin-right: 10px;';
-            span.textContent = url;
+            const info = document.createElement('div');
+            info.className = 'feed-info';
+
+            const urlSpan = document.createElement('span');
+            urlSpan.className = 'feed-url';
+            urlSpan.textContent = f.url;
+
+            const meta = document.createElement('div');
+            meta.className = 'feed-meta';
+            const fetchStr = f.lastFetch ? new Date(f.lastFetch).toLocaleTimeString() : 'Never';
+            meta.textContent = `${f.itemCount || 0} items | Last: ${fetchStr}`;
+
+            info.appendChild(urlSpan);
+            info.appendChild(meta);
 
             const btn = document.createElement('button');
             btn.className = 'danger';
             btn.style.cssText = 'padding: 2px 6px; font-size: 10px;';
             btn.textContent = 'Remove';
-            btn.onclick = () => removeFeed(url);
+            btn.onclick = () => removeFeed(f.url);
 
-            div.appendChild(span);
+            div.appendChild(info);
             div.appendChild(btn);
             container.appendChild(div);
         });
@@ -148,10 +182,10 @@
         const priorityFeeds = feeds.slice(0, 2);
         const backgroundFeeds = feeds.slice(2);
 
-        const priorityPromises = priorityFeeds.map(url => fetchSingle(url));
+        const priorityPromises = priorityFeeds.map(f => fetchSingle(f.url));
         let backgroundPromise = Promise.resolve();
         if (backgroundFeeds.length > 0) {
-            backgroundPromise = fetchBulk(backgroundFeeds);
+            backgroundPromise = fetchBulk(backgroundFeeds.map(f => f.url));
         }
 
         await Promise.all([...priorityPromises, backgroundPromise]);
@@ -164,10 +198,19 @@
             workerUrl.searchParams.set('url', url);
             const response = await fetch(workerUrl.toString());
             if (!response.ok) throw new Error(response.statusText);
+
+            const contentType = response.headers.get('Content-Type') || '';
             const text = await response.text();
-            const parser = new DOMParser();
-            const xml = parser.parseFromString(text, 'text/xml');
-            parseFeed(xml, url);
+
+            let count = 0;
+            if (contentType.includes('application/json')) {
+                count = parseScraped(JSON.parse(text), url);
+            } else {
+                const xml = new DOMParser().parseFromString(text, 'text/xml');
+                count = parseFeed(xml, url);
+            }
+
+            updateFeedStats(url, count);
             sortAndRender();
         } catch (e) {
             console.error('Fetch error for ' + url, e);
@@ -185,13 +228,17 @@
             if (!response.ok) throw new Error('Worker error: ' + response.status);
 
             const results = await response.json();
-            const parser = new DOMParser();
-
             results.forEach(res => {
                 if (res.body) {
+                    let count = 0;
                     try {
-                        const xml = parser.parseFromString(res.body, 'text/xml');
-                        parseFeed(xml, res.url);
+                        if (res.isJSON) {
+                            count = parseScraped(JSON.parse(res.body), res.url);
+                        } else {
+                            const xml = new DOMParser().parseFromString(res.body, 'text/xml');
+                            count = parseFeed(xml, res.url);
+                        }
+                        updateFeedStats(res.url, count);
                     } catch (e) {
                         console.error('Parse error for ' + res.url, e);
                     }
@@ -203,17 +250,45 @@
         }
     }
 
+    function updateFeedStats(url, count) {
+        const f = feeds.find(x => x.url === url);
+        if (f) {
+            f.lastFetch = Date.now();
+            f.itemCount = count;
+            saveFeeds();
+            renderFeeds();
+        }
+    }
+
     function sortAndRender() {
         allItems.sort((a, b) => b.date - a.date);
         renderItems();
     }
 
+    function parseScraped(links, feedUrl) {
+        let count = 0;
+        links.forEach(l => {
+            count++;
+            allItems.push({
+                id: l.link,
+                title: l.title,
+                link: l.link,
+                date: new Date(), // Scraped links don't have dates usually
+                description: '',
+                feedTitle: feedUrl
+            });
+        });
+        return count;
+    }
+
     function parseFeed(xml, feedUrl) {
         const feedTitle = xml.querySelector('channel > title, feed > title')?.textContent || feedUrl;
+        let count = 0;
 
         // RSS 2.0
         const items = xml.querySelectorAll('item');
         items.forEach(item => {
+            count++;
             const title = item.querySelector('title')?.textContent || 'No Title';
             const link = item.querySelector('link')?.textContent || '';
             const pubDate = item.querySelector('pubDate, dc\\:date')?.textContent;
@@ -227,6 +302,7 @@
         // Atom
         const entries = xml.querySelectorAll('entry');
         entries.forEach(entry => {
+            count++;
             const title = entry.querySelector('title')?.textContent || 'No Title';
             const link = entry.querySelector('link')?.getAttribute('href') || '';
             const updated = entry.querySelector('updated, published')?.textContent;
@@ -236,6 +312,7 @@
 
             allItems.push({ id, title, link, date, description: content, feedTitle });
         });
+        return count;
     }
 
     function renderItems() {
@@ -271,7 +348,7 @@
             const feedSpan = document.createElement('span');
             feedSpan.textContent = item.feedTitle;
             const dateSpan = document.createElement('span');
-            dateSpan.textContent = `${item.date.toLocaleDateString()} ${item.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            dateSpan.textContent = item.date.getTime() > 0 ? `${item.date.toLocaleDateString()} ${item.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : '';
             metaDiv.appendChild(feedSpan);
             metaDiv.appendChild(dateSpan);
 
@@ -297,6 +374,7 @@
     }
 
     function stripHtml(html) {
+        if (!html) return "";
         const doc = new DOMParser().parseFromString(html, 'text/html');
         return doc.body.textContent || "";
     }
