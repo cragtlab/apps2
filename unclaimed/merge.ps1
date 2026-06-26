@@ -11,7 +11,7 @@ $dataDir = Join-Path $PSScriptRoot "data"
 $tmpPath = Join-Path $tmpDir $file
 $dataPath = Join-Path $dataDir $target
 
-$trackingFields = @("Status", "Remarks")
+$trackingFields = @("Status", "MyRemarks")
 
 function Get-ColumnNames {
     param(
@@ -45,7 +45,6 @@ function Get-RowKey {
             [void]$parts.Add(([string]$value).Trim())
         }
     }
-    # Using a standard delimiter compatible with PS 5.1
     return $parts -join [char]31
 }
 
@@ -75,7 +74,6 @@ function Get-MergedRow {
     if ($null -eq $ExistingRow) { return $NewRow }
     if ($null -eq $NewRow) { return $ExistingRow }
 
-    # Start with the new row as the base (to get updated gov info)
     $merged = $NewRow.psobject.copy()
 
     # Always preserve tracking data from the existing row
@@ -83,7 +81,7 @@ function Get-MergedRow {
         $existingVal = $ExistingRow.$field
         if ($existingVal -and -not [string]::IsNullOrWhiteSpace($existingVal)) {
             if ($field -eq "Status" -and $existingVal -eq "New") {
-                # If it's just "New", it can be overwritten
+                # skip
             } else {
                 $merged.$field = $existingVal
             }
@@ -155,12 +153,11 @@ function Get-UpsertResult {
 
         if (-not $mergedMap.ContainsKey($key)) {
             [void]$keyOrder.Add($key)
-            # Init tracking fields for new items
             if (-not $row.Status) {
                 Add-Member -InputObject $row -MemberType NoteProperty -Name "Status" -Value "New" -ErrorAction SilentlyContinue
             }
-            if (-not $row.Remarks) {
-                Add-Member -InputObject $row -MemberType NoteProperty -Name "Remarks" -Value "" -ErrorAction SilentlyContinue
+            if (-not $row.MyRemarks) {
+                Add-Member -InputObject $row -MemberType NoteProperty -Name "MyRemarks" -Value "" -ErrorAction SilentlyContinue
             }
             $mergedMap[$key] = $row
             $diffMap[$key] = $row
@@ -173,7 +170,6 @@ function Get-UpsertResult {
         $currentDataKey = Get-RowKey -Row $currentRow -Columns $dataColumns
         $newDataKey = Get-RowKey -Row $row -Columns $dataColumns
 
-        # Even if data hasn't changed, we call Get-MergedRow to handle Status preservation correctly
         $mergedRow = Get-MergedRow -ExistingRow $currentRow -NewRow $row -Columns $AllColumns
         $mergedMap[$key] = $mergedRow
 
@@ -203,7 +199,7 @@ $existing = if (Test-Path $dataPath) { @(Import-Csv $dataPath) } else { @() }
 $allRows = [array]$existing + [array]$new
 $columns = Get-ColumnNames -Rows $allRows
 
-$preferredOrder = @("Status", "Remarks", "MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "AgencyName", "CreatedDate")
+$preferredOrder = @("Status", "MyRemarks", "MoniesId", "ClaimedName", "LastKnownStreetAddress", "CategoryName", "YearCollected", "Remarks", "AgencyName", "CreatedDate")
 $finalColumns = New-Object System.Collections.Generic.List[string]
 foreach ($col in $preferredOrder) {
     [void]$finalColumns.Add($col)
