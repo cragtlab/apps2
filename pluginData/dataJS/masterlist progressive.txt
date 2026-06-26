@@ -54,8 +54,8 @@ const progressiveHitsPlugin = {
 
         .prog-hits-plugin .empty { padding: 24px; text-align: center; color: #475569; font-size: 0.85rem; }
         .prog-hits-plugin .loading-overlay {
-          position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.8);
-          display: flex; align-items: center; justify-content: center; z-index: 1000;
+          background: rgba(15, 23, 42, 0.6);
+          padding: 20px; text-align: center; border-radius: 10px; margin-bottom: 20px;
         }
       </style>
       <div class="prog-hits-plugin">
@@ -63,7 +63,7 @@ const progressiveHitsPlugin = {
         <p class="sub">Pulls from latest cumulative monthly reports (tabs 1–31)</p>
 
         <div id="hits-loading" class="loading-overlay hidden">
-          <div style="font-size: 1.2rem; color: #6366f1;">Processing cumulative hits data...</div>
+          <div style="font-size: 1.2rem; color: #6366f1;">Loading data...</div>
         </div>
 
         <div id="hits-dashboard" class="hidden">
@@ -166,7 +166,7 @@ const progressiveHitsPlugin = {
       if (!data) return;
       for (const sheetName in data) {
         const rows = data[sheetName];
-        if (!rows || rows.length < 2) continue;
+        if (!rows || rows.length < 2 || !Array.isArray(rows[0])) continue;
 
         const headers = rows[0].map(c => String(c||'').trim().toLowerCase());
         const col = k => headers.findIndex(h => h.includes(k.toLowerCase()));
