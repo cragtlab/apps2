@@ -10,12 +10,14 @@
     .container { max-width: 600px; margin: auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     h1 { font-size: 1.2rem; margin-top: 0; display: flex; justify-content: space-between; align-items: center; }
     .controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-    .row { display: flex; gap: 5px; flex-wrap: wrap; }
+    .row { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
     input[type="text"], input[type="url"], input[type="search"] { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; min-width: 120px; }
-    button { padding: 8px 12px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; }
+    button { padding: 8px 12px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; display: flex; align-items: center; justify-content: center; }
     button.secondary { background: #6c757d; }
     button.danger { background: #dc3545; }
-    .feed-list { margin: 10px 0; }
+    button.icon-btn { padding: 5px 8px; font-size: 1rem; background: none; color: #333; border: 1px solid #ccc; opacity: 0.7; }
+    button.icon-btn:hover { opacity: 1; background: #eee; }
+    .feed-list { margin: 10px 0; max-height: 200px; overflow-y: auto; }
     .feed-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13px; border-bottom: 1px dashed #eee; }
     .feed-info { display: flex; flex-direction: column; flex: 1; min-width: 0; margin-right: 10px; }
     .feed-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
@@ -45,18 +47,20 @@
                 <input type="url" id="workerUrl" placeholder="Worker URL" onchange="saveSettings()">
             </div>
         </div>
-        <div class="row">
-            <input type="url" id="newFeedUrl" placeholder="Add RSS or Page URL">
-            <button onclick="addFeed()">Add</button>
-        </div>
-        <div id="manageFeeds" class="hidden">
+
+        <div id="manageFeeds" class="hidden" style="background: #fafafa; padding: 10px; border-radius: 4px; border: 1px solid #eee; margin-bottom: 10px;">
+            <div class="row">
+                <input type="url" id="newFeedUrl" placeholder="Add RSS or Page URL">
+                <button onclick="addFeed()">Add</button>
+            </div>
             <div id="feedsContainer" class="feed-list"></div>
         </div>
+
         <div class="row">
-            <button onclick="refreshAll()">Refresh All</button>
-            <button class="secondary" onclick="toggleManageFeeds()">Manage Feeds</button>
-            <button class="secondary" onclick="toggleRead()">Show/Hide Read</button>
-            <input type="search" id="searchInput" placeholder="Search items..." oninput="renderItems()">
+            <button class="icon-btn" onclick="refreshAll()" title="Refresh All" aria-label="Refresh All">🔄</button>
+            <button class="icon-btn" onclick="toggleManageFeeds()" title="Manage Feeds" aria-label="Manage Feeds">📋</button>
+            <button class="icon-btn" onclick="toggleRead()" title="Show/Hide Read" aria-label="Show/Hide Read">👁️</button>
+            <input type="search" id="searchInput" placeholder="Search..." oninput="renderItems()" style="max-width: 150px;">
         </div>
     </div>
 
@@ -70,14 +74,13 @@
     const STORAGE_KEY_READ = 'cloud_rss_read';
     const DEFAULT_WORKER_URL = 'https://amzwatch.donkey.workers.dev/';
 
-    let feeds = []; // Array of {url, lastFetch, itemCount}
+    let feeds = [];
     let settings = { workerUrl: DEFAULT_WORKER_URL, showRead: true };
     let readItems = new Set();
     let allItems = [];
 
     function init() {
         const storedFeeds = JSON.parse(localStorage.getItem(STORAGE_KEY_FEEDS) || '[]');
-        // Migration for old array-of-strings format
         feeds = storedFeeds.map(f => typeof f === 'string' ? {url: f, lastFetch: null, itemCount: 0} : f);
 
         settings = JSON.parse(localStorage.getItem(STORAGE_KEY_SETTINGS) || JSON.stringify({workerUrl: DEFAULT_WORKER_URL, showRead: true}));
@@ -273,7 +276,7 @@
                 id: l.link,
                 title: l.title,
                 link: l.link,
-                date: new Date(), // Scraped links don't have dates usually
+                date: new Date(),
                 description: '',
                 feedTitle: feedUrl
             });
@@ -285,7 +288,6 @@
         const feedTitle = xml.querySelector('channel > title, feed > title')?.textContent || feedUrl;
         let count = 0;
 
-        // RSS 2.0
         const items = xml.querySelectorAll('item');
         items.forEach(item => {
             count++;
@@ -299,7 +301,6 @@
             allItems.push({ id, title, link, date, description, feedTitle });
         });
 
-        // Atom
         const entries = xml.querySelectorAll('entry');
         entries.forEach(entry => {
             count++;
