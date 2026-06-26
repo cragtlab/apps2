@@ -46,6 +46,7 @@
     `;
 
     const reportsToLoad = ["LJA_KPI_Report", "GEGM_KPI_Report", "EGM_KPI_Report", "SDA_KPI_Report", "TA Report_"];
+    let isLoaded = false;
     const loadedData = {};
     const officerIndex = {};
     const statusIndex = {};
@@ -117,6 +118,7 @@
     }
 
     async function loadAll() {
+        if (isLoaded) return;
         const startTime = performance.now();
         container.querySelector("#timerDisplay").textContent = "Loading...";
         container.querySelector("#log").innerHTML = "";
@@ -151,6 +153,8 @@
         }
 
         refreshUI();
+        isLoaded = true;
+        container.querySelector("#loadAll").style.display = "none";
         const duration = ((performance.now() - startTime) / 1000).toFixed(2);
         container.querySelector("#timerDisplay").textContent = `Finished in ${duration}s`;
     }

@@ -88,6 +88,8 @@
     DEFAULT_ALIASES.forEach(r => addAliasRow(r.canonical, r.aliases));
     container.querySelector('#add-alias-btn').onclick = () => addAliasRow();
 
+    let isLoaded = false;
+
     function getAliasMap() {
         const map = new Map();
         aliasList.querySelectorAll('.alias-row').forEach(row => {
@@ -172,6 +174,7 @@
     }
 
     container.querySelector("#loadDataBtn").onclick = async () => {
+        if (isLoaded) return;
         const status = container.querySelector("#loadStatus");
         const output = container.querySelector("#outputArea");
         status.textContent = "Loading data...";
@@ -252,6 +255,9 @@
             });
             output.appendChild(tabsContainer);
             output.appendChild(contentContainer);
+
+            isLoaded = true;
+            container.querySelector("#loadDataBtn").style.display = "none";
 
         } catch (err) {
             status.textContent = "❌ Error: " + err.message;
