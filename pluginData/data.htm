@@ -95,7 +95,8 @@
       "EGM_KPI_Report",
       "SDA_KPI_Report",
       "TA Report_",
-      "GRAMBS"
+      "GRAMBS",
+      "GRARWS"
     ];
     let foundFiles = {}; // type -> { name, handle }
 
@@ -222,8 +223,9 @@
                 }
               }
             }
-          } else if (type === "GRAMBS") {
-            const m = file.name.match(/GRAMBS(\d{8})/i);
+          } else if (type === "GRAMBS" || type === "GRARWS") {
+            const regex = new RegExp(type + "(\\d{8})", "i");
+            const m = file.name.match(regex);
             if (m) {
               const date = m[1];
               if (!latest || date > latest.date) {
