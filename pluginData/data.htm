@@ -66,7 +66,10 @@
   </div>
   <div id="contentArea">
     <div id="tab_Catalogue" class="active">
-      <h1>Data Catalogue</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h1>Data Catalogue</h1>
+          <button id="exportAllBtn" class="controlBtn" style="background: #007bff;">📥 Export All to Excel</button>
+        </div>
       <table class="catalogue-table">
         <thead>
           <tr>
@@ -97,9 +100,30 @@
       "SDA_KPI_Report",
       "TA Report_",
       "GRAMBS",
-      "GRARWS"
+      "GRARWS",
+      "GRAMBSPR",
+      "GRARWSPR"
     ];
-    let foundFiles = {}; // type -> { name, handle }
+    let foundFiles = {}; // type -> { name, handle, files: [] } (files used for progressive)
+
+    function formatTimeAgo(date) {
+      if (!date) return "-";
+      const seconds = Math.floor((new Date() - date) / 1000);
+      let interval = seconds / 31536000;
+      if (interval > 1) return Math.floor(interval) + " years ago";
+      interval = seconds / 2592000;
+      if (interval > 1) return Math.floor(interval) + " months ago";
+      interval = seconds / 86400;
+      if (interval > 1) {
+         const days = Math.floor(interval);
+         return days === 1 ? "Yesterday" : days + " days ago";
+      }
+      interval = seconds / 3600;
+      if (interval > 1) return Math.floor(interval) + " hours ago";
+      interval = seconds / 60;
+      if (interval > 1) return Math.floor(interval) + " minutes ago";
+      return "Just now";
+    }
 
     const PluginAPI = {
       add: function(title, handlers) {
@@ -121,14 +145,59 @@
       pullData: async function(type) {
         if (dataCache[type]) return dataCache[type];
 
-        if (!foundFiles[type]) {
+        const info = foundFiles[type];
+        if (!info) {
           throw new Error(`Report type "${type}" not found in the selected folder.`);
         }
 
-        const data = await loadExcelFile(foundFiles[type].handle, type);
-        dataCache[type] = data;
+        if (type.endsWith("PR")) {
+          // Progressive: load all months and combine
+          let combined = [];
+          for (const f of info.files) {
+             const data = await loadExcelFile(f.handle, type);
+             const month = f.date.substring(0, 6);
+
+             if (typeof data === 'object' && !Array.isArray(data)) {
+                if (combined.length === 0) {
+                   combined = data;
+                   // Add Source Month column to sheets
+                   for (const s in combined) {
+                      if (combined[s].length > 0) combined[s][0].push("Source Month");
+                      for (let i=1; i < combined[s].length; i++) combined[s][i].push(month);
+                   }
+                } else {
+                   for (const sheet in data) {
+                      if (!combined[sheet]) {
+                         combined[sheet] = data[sheet];
+                         if (combined[sheet].length > 0) combined[sheet][0].push("Source Month");
+                         for (let i=1; i < combined[sheet].length; i++) combined[sheet][i].push(month);
+                      } else {
+                         const rows = data[sheet].slice(1);
+                         rows.forEach(r => r.push(month));
+                         combined[sheet] = combined[sheet].concat(rows);
+                      }
+                   }
+                }
+             } else {
+                if (combined.length === 0) {
+                   combined = data;
+                   if (combined.length > 0) combined[0].push("Source Month");
+                   for (let i=1; i < combined.length; i++) combined[i].push(month);
+                } else {
+                   const rows = data.slice(1);
+                   rows.forEach(r => r.push(month));
+                   combined = combined.concat(rows);
+                }
+             }
+          }
+          dataCache[type] = combined;
+        } else {
+          const data = await loadExcelFile(info.handle, type);
+          dataCache[type] = data;
+        }
+
         updateCatalogueUI();
-        return data;
+        return dataCache[type];
       }
     };
 
@@ -219,49 +288,78 @@
       }
 
       for (const type of reportTypes) {
-        let latest = null;
-        for (const file of found) {
-          if (type === "TA Report_") {
-            if (file.name.toLowerCase().startsWith("ta report_")) {
-              if (!latest) {
-                latest = file;
-              } else {
-                const a = parseTAFile(latest.name);
-                const b = parseTAFile(file.name);
-                if (b && (!a || b.date > a.date || (b.date === a.date && b.copy > a.copy))) {
-                  latest = file;
-                }
-              }
-            }
-          } else if (type === "GRAMBS" || type === "GRARWS") {
+        if (type.endsWith("PR")) {
+          // Progressive logic: latest file per month
+          const monthMap = {}; // YYYYMM -> latest file info
+          for (const file of found) {
             const regex = new RegExp(type + "(\\d{8})", "i");
             const m = file.name.match(regex);
             if (m) {
-              const date = m[1];
-              if (!latest || date > latest.date) {
-                latest = { ...file, date };
-              }
-            }
-          } else {
-            if (file.name.toLowerCase().startsWith(type.toLowerCase())) {
-              if (!latest) {
-                latest = file;
-              } else {
-                const oldNum = extractNumber(latest.name);
-                const newNum = extractNumber(file.name);
-                if (newNum > oldNum) latest = file;
+              const dateStr = m[1];
+              const month = dateStr.substring(0, 6);
+              if (!monthMap[month] || dateStr > monthMap[month].date) {
+                monthMap[month] = { ...file, date: dateStr };
               }
             }
           }
-        }
-        if (latest) {
-          // Fetch additional file info
-          const fileInfo = await latest.handle.getFile();
-          foundFiles[type] = {
-             name: latest.name,
-             handle: latest.handle,
-             lastModified: new Date(fileInfo.lastModified).toLocaleString()
-          };
+          const sortedMonths = Object.keys(monthMap).sort();
+          if (sortedMonths.length > 0) {
+            const files = sortedMonths.map(m => monthMap[m]);
+            const latest = files[files.length - 1];
+            const fileInfo = await latest.handle.getFile();
+            foundFiles[type] = {
+              name: `${files.length} months (${latest.name})`,
+              handle: latest.handle, // primarily for catalogue link if we had one, but we use .files
+              files: files,
+              lastModified: fileInfo.lastModified,
+              lastModifiedDisplay: formatTimeAgo(fileInfo.lastModified)
+            };
+          }
+        } else {
+          let latest = null;
+          for (const file of found) {
+            if (type === "TA Report_") {
+              if (file.name.toLowerCase().startsWith("ta report_")) {
+                if (!latest) {
+                  latest = file;
+                } else {
+                  const a = parseTAFile(latest.name);
+                  const b = parseTAFile(file.name);
+                  if (b && (!a || b.date > a.date || (b.date === a.date && b.copy > a.copy))) {
+                    latest = file;
+                  }
+                }
+              }
+            } else if (type === "GRAMBS" || type === "GRARWS") {
+              const regex = new RegExp(type + "(\\d{8})", "i");
+              const m = file.name.match(regex);
+              if (m) {
+                const date = m[1];
+                if (!latest || date > latest.date) {
+                  latest = { ...file, date };
+                }
+              }
+            } else {
+              if (file.name.toLowerCase().startsWith(type.toLowerCase())) {
+                if (!latest) {
+                  latest = file;
+                } else {
+                  const oldNum = extractNumber(latest.name);
+                  const newNum = extractNumber(file.name);
+                  if (newNum > oldNum) latest = file;
+                }
+              }
+            }
+          }
+          if (latest) {
+            const fileInfo = await latest.handle.getFile();
+            foundFiles[type] = {
+              name: latest.name,
+              handle: latest.handle,
+              lastModified: fileInfo.lastModified,
+              lastModifiedDisplay: formatTimeAgo(fileInfo.lastModified)
+            };
+          }
         }
       }
       updateCatalogueUI();
@@ -283,7 +381,7 @@
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer);
 
-      if (type === "GRAMBS" || type === "GRARWS") {
+      if (type.startsWith("GRAMBS") || type.startsWith("GRARWS")) {
         const result = {};
         workbook.SheetNames.forEach(name => {
           result[name] = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
@@ -326,7 +424,7 @@
           <td class="${file ? 'status-found' : 'status-missing'}">${file ? 'Found' : 'Missing'}</td>
           <td>${file ? file.name : '-'}</td>
           <td>${rowDisplay}</td>
-          <td>${file ? file.lastModified : '-'}</td>
+          <td>${file ? file.lastModifiedDisplay : '-'}</td>
         `;
         tbody.appendChild(tr);
       }
@@ -342,6 +440,48 @@
         alert(err);
       }
     };
+
+      document.getElementById("exportAllBtn").onclick = async () => {
+        if (!globalRootHandle) {
+          alert("Please load a folder first.");
+          return;
+        }
+
+        const btn = document.getElementById("exportAllBtn");
+        const originalText = btn.innerText;
+        btn.disabled = true;
+
+        try {
+          const wb = XLSX.utils.book_new();
+          for (const type of reportTypes) {
+            if (foundFiles[type]) {
+              btn.innerText = `Loading ${type}...`;
+              const data = await PluginAPI.pullData(type);
+
+              if (typeof data === 'object' && !Array.isArray(data)) {
+                 // Multi-sheet (GRAMBS/GRARWS)
+                 for (const sheetName in data) {
+                    const ws = XLSX.utils.aoa_to_sheet(data[sheetName]);
+                    // Sheet name must be unique and <= 31 chars
+                    let finalSheetName = `${type}_${sheetName}`.substring(0, 31);
+                    XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
+                 }
+              } else {
+                 const ws = XLSX.utils.aoa_to_sheet(data);
+                 XLSX.utils.book_append_sheet(wb, ws, type.substring(0, 31));
+              }
+            }
+          }
+          btn.innerText = "Generating File...";
+          XLSX.writeFile(wb, `Data_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
+        } catch (err) {
+          console.error("Export failed:", err);
+          alert("Export failed: " + err.message);
+        } finally {
+          btn.innerText = originalText;
+          btn.disabled = false;
+        }
+      };
 
     document.getElementById("refreshBtn").onclick = async () => {
       if (!globalRootHandle) {

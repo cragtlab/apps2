@@ -1,0 +1,159 @@
+
+const masterlistProgressivePlugin = {
+  container: null,
+  isLoaded: false,
+
+  init: function() {
+    this.container = PluginAPI.add("masterlist progressive", {
+      onActivated: () => this.onActivated()
+    });
+    this.renderInitial();
+  },
+
+  renderInitial: function() {
+    this.container.innerHTML = `
+      <style>
+        .prog-plugin { padding: 20px; font-family: sans-serif; }
+        .prog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .prog-table { width: 100%; border-collapse: collapse; background: white; margin-top: 20px; font-size: 0.9em; }
+        .prog-table th, .prog-table td { border: 1px solid #ccc; padding: 10px; text-align: right; }
+        .prog-table th { background: #eee; position: sticky; top: 0; text-align: center; }
+        .prog-table td:first-child { text-align: left; position: sticky; left: 0; background: white; font-weight: bold; }
+        .summary-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .loading-overlay { font-style: italic; color: #666; }
+      </style>
+      <div class="prog-plugin">
+        <div class="prog-header">
+          <h1>Masterlist Progressive Summary</h1>
+        </div>
+        <div id="prog-summary" class="summary-card">
+          <div class="loading-overlay">Pulls from latest GRAMBSPR and GRARWSPR files per month automatically...</div>
+        </div>
+      </div>
+    `;
+  },
+
+  onActivated: async function() {
+    if (this.isLoaded) return;
+    this.isLoaded = true;
+
+    const summaryDiv = this.container.querySelector("#prog-summary");
+    summaryDiv.innerHTML = "Loading and merging progressive data...";
+
+    try {
+      const grambsData = await PluginAPI.pullData("GRAMBSPR");
+      const grarwsData = await PluginAPI.pullData("GRARWSPR");
+
+      const summary = this.processData(grambsData, grarwsData);
+      this.renderSummary(summary);
+    } catch (err) {
+      console.error(err);
+      summaryDiv.innerHTML = `<div style="color:red">Error: ${err.message}</div>`;
+      this.isLoaded = false;
+    }
+  },
+
+  processData: function(grambs, grarws) {
+    const stats = {}; // Manufacturer -> { Month -> Count, total -> sum }
+    const months = new Set();
+
+    const processRows = (rows) => {
+      if (!rows || rows.length < 2) return;
+      const header = rows[0];
+      const mIdx = header.indexOf("Manufacturer");
+      const sIdx = header.indexOf("Status");
+      const monthIdx = header.indexOf("Source Month");
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (row[mIdx] === "Manufacturer") continue;
+
+        const manRaw = (row[mIdx] || "Unknown").toString().trim();
+        const status = (row[sIdx] || "").toString().trim();
+        const month = monthIdx !== -1 ? (row[monthIdx] || "Unknown") : "Total";
+
+        if (status.toLowerCase() === 'active') {
+          const man = this.normalizeManufacturer(manRaw);
+          if (!stats[man]) stats[man] = { total: 0 };
+
+          if (!stats[man][month]) stats[man][month] = 0;
+          stats[man][month]++;
+          stats[man].total++;
+
+          months.add(month);
+        }
+      }
+    };
+
+    if (grambs && grambs["GRAMBS"]) processRows(grambs["GRAMBS"]);
+    if (grarws && grarws["GRARWS"]) processRows(grarws["GRARWS"]);
+
+    return { stats, months: Array.from(months).sort() };
+  },
+
+  normalizeManufacturer: function(name) {
+    const n = name.toUpperCase();
+    if (n.includes("WMS") || n.includes("LNW") || n.includes("LIGHT & WONDER") || n.includes("SHUFFLEMASTER") || n.includes("SHUFFLE MASTER")) return "LNW";
+    if (n.includes("ARISTOCRAT")) return "Aristocrat";
+    if (n.includes("IGT") || n.includes("INTERNATIONAL GAME TECHNOLOGY")) return "IGT";
+    if (n.includes("KONAMI")) return "Konami";
+    if (n.includes("ALFASTREET")) return "Alfastreet";
+    if (n.includes("INTERBLOCK")) return "Interblock";
+    if (n.includes("ARUZE")) return "Aruze";
+    if (n.includes("AINSWORTH")) return "Ainsworth";
+    return name;
+  },
+
+  renderSummary: function(summary) {
+    const { stats, months } = summary;
+    const summaryDiv = this.container.querySelector("#prog-summary");
+
+    if (months.length === 0) {
+      summaryDiv.innerHTML = "No active records found in progressive reports.";
+      return;
+    }
+
+    let html = `<h3>Active Machines Summary (Monthly Progressive)</h3>`;
+    html += `<div style="overflow-x: auto;">
+      <table class="prog-table">
+      <thead>
+        <tr>
+          <th style="text-align:left">Manufacturer</th>
+          ${months.map(m => `<th>${m}</th>`).join('')}
+          <th>Grand Total</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    const sortedMans = Object.keys(stats).sort((a,b) => stats[b].total - stats[a].total);
+    const colTotals = {};
+    let totalAll = 0;
+
+    for (const man of sortedMans) {
+      html += `<tr>
+        <td>${man}</td>
+        ${months.map(m => {
+          const val = stats[man][m] || 0;
+          colTotals[m] = (colTotals[m] || 0) + val;
+          return `<td>${val}</td>`;
+        }).join('')}
+        <td style="background:#f9f9f9; font-weight:bold">${stats[man].total}</td>
+      </tr>`;
+      totalAll += stats[man].total;
+    }
+
+    html += `</tbody>
+      <tfoot>
+        <tr style="font-weight:bold; background:#eee;">
+          <td style="text-align:left">GRAND TOTAL</td>
+          ${months.map(m => `<td>${colTotals[m] || 0}</td>`).join('')}
+          <td>${totalAll}</td>
+        </tr>
+      </tfoot>
+    </table></div>`;
+
+    summaryDiv.innerHTML = html;
+  }
+};
+
+masterlistProgressivePlugin.init();
