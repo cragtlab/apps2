@@ -168,22 +168,25 @@
                 if (allSheets[sheetName]) {
                    const sheetData = allSheets[sheetName];
                    if (rowsForThisFile.length === 0) {
-                      rowsForThisFile = sheetData.map(r => [...r]);
+                      // First sheet of first file or just first sheet of this file
+                      const header = [...sheetData[0], "Source Month", "Source Day"];
+                      rowsForThisFile.push(header);
+                      for (let i=1; i < sheetData.length; i++) {
+                         rowsForThisFile.push([...sheetData[i], month, d]);
+                      }
                    } else {
                       // Append without header
-                      rowsForThisFile = rowsForThisFile.concat(sheetData.slice(1).map(r => [...r]));
+                      for (let i=1; i < sheetData.length; i++) {
+                         rowsForThisFile.push([...sheetData[i], month, d]);
+                      }
                    }
                 }
              }
 
              if (masterRows.length === 0) {
                 masterRows = rowsForThisFile;
-                if (masterRows.length > 0) masterRows[0].push("Source Month");
-                for (let i=1; i < masterRows.length; i++) masterRows[i].push(month);
              } else {
-                const newRows = rowsForThisFile.slice(1).map(r => [...r]);
-                newRows.forEach(r => r.push(month));
-                masterRows = masterRows.concat(newRows);
+                masterRows = masterRows.concat(rowsForThisFile.slice(1));
              }
           }
           combinedResult[targetKey] = masterRows;
