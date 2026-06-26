@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-size='80' fill='orange' font-family='sans-serif' font-weight='bold'%3ES%3C/text%3E%3C/svg%3E">
 <title>Stumble Links</title>
 
 
@@ -48,6 +49,7 @@ small  {
 </div>
 
 <div id="buttonContainer" style="display:none;">
+    <button id="btn-start" class="btn-add" onclick="startLinks()" style="display:none;">Start</button>
     <button class="btn-snooze" onclick="snoozeCurrentLink()">Snooze</button>
     <button class="btn-danger" onclick="deleteCurrentLink()">Delete</button>
     <button id="btn-update-url" onclick="updateCurrentURL()">Update URL only</button>
@@ -92,6 +94,11 @@ function init(){
     loadLinks();
     displayNextAvailable();
     updateLinksList();
+
+    if(getAvailableLinks().length > 0){
+        const btn = document.getElementById('btn-start');
+        if(btn) btn.style.display = 'inline-block';
+    }
 }
 
 function loadLinks(){
@@ -385,9 +392,21 @@ function laterLink(){
     saveLinks();
 }
 
+function startLinks(){
+    if(!currentLink) return;
+    openLink(currentLink);
+    hideStartButton();
+}
+
+function hideStartButton(){
+    const btn = document.getElementById('btn-start');
+    if(btn) btn.style.display = 'none';
+}
+
 function snoozeCurrentLink(){
 
     saveCurrent();
+    hideStartButton();
 
     const current = currentLink;
 
@@ -459,6 +478,7 @@ function deleteCurrentLink(){
     }
 
     saveCurrent();
+    hideStartButton();
 
     const current = currentLink;
 

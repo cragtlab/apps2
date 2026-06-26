@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diff Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.2.0/diff.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        textarea {
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        #compare-btn {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        #compare-btn:hover {
+            background-color: #0056b3;
+        }
+        #output {
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            min-height: 100px;
+            line-height: 1.5;
+        }
+        .change-highlight {
+            background-color: yellow;
+            transition: background-color 0.5s;
+        }
+        .nav-controls {
+            display: none;
+            gap: 5px;
+            align-items: center;
+            background: #fff;
+            padding: 8px 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+        .nav-btn {
+            padding: 5px 10px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+        .nav-btn:hover {
+            background: #e2e6ea;
+        }
+        #currentChangeIdx {
+            width: 40px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Diff Tool</h1>
+    <p>Enter original and new text to see the differences. Ideal for copying into emails.</p>
+
+    <div class="container">
+        <div class="input-group">
+            <label for="oldText">Original Text</label>
+            <textarea id="oldText" placeholder="Paste original text here..."></textarea>
+        </div>
+        <div class="input-group">
+            <label for="newText">New Text</label>
+            <textarea id="newText" placeholder="Paste new text here..."></textarea>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
+        <select id="diffMode" style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 14px;">
+            <option value="words">Words</option>
+            <option value="lines">Lines</option>
+            <option value="sentences">Sentences</option>
+            <option value="chars">Characters</option>
+        </select>
+        <button id="compare-btn" style="margin-bottom:0;">Compare</button>
+        <button id="copy-btn" style="display:none; padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-bottom: 0;">Copy Formatted</button>
+
+        <div id="navControls" class="nav-controls">
+            <button class="nav-btn" id="prevBtn">&lt;</button>
+            <input type="text" id="currentChangeIdx" value="0">
+            <span>of</span>
+            <span id="totalChanges">0</span>
+            <span>changes</span>
+            <button class="nav-btn" id="nextBtn">&gt;</button>
+        </div>
+    </div>
+
+    <h2>Result</h2>
+    <div id="output"></div>
+
+    <script>
+        const oldText = document.getElementById('oldText');
+        const newText = document.getElementById('newText');
+        const diffMode = document.getElementById('diffMode');
+        const compareBtn = document.getElementById('compare-btn');
+        const copyBtn = document.getElementById('copy-btn');
+        const output = document.getElementById('output');
+        const navControls = document.getElementById('navControls');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const currentChangeIdxInput = document.getElementById('currentChangeIdx');
+        const totalChangesSpan = document.getElementById('totalChanges');
+
+        let changeElements = [];
+        let currentIdx = -1;
+
+        compareBtn.onclick = () => {
+            const mode = diffMode.value;
+            let diff;
+
+            if (mode === 'lines') {
+                diff = Diff.diffLines(oldText.value, newText.value);
+            } else if (mode === 'sentences') {
+                diff = Diff.diffSentences(oldText.value, newText.value);
+            } else if (mode === 'chars') {
+                diff = Diff.diffChars(oldText.value, newText.value);
+            } else {
+                diff = Diff.diffWords(oldText.value, newText.value);
+            }
+
+            output.innerHTML = '';
+            changeElements = [];
+
+            diff.forEach((part) => {
+                let element;
+                if (part.added) {
+                    element = document.createElement('ins');
+                    element.style.color = 'red';
+                    element.style.textDecoration = 'none';
+                    element.classList.add('diff-change');
+                } else if (part.removed) {
+                    element = document.createElement('del');
+                    element.style.color = 'red';
+                    element.style.textDecoration = 'line-through';
+                    element.classList.add('diff-change');
+                } else {
+                    element = document.createElement('span');
+                }
+
+                element.textContent = part.value;
+                output.appendChild(element);
+
+                if (part.added || part.removed) {
+                    changeElements.push(element);
+                }
+            });
+
+            copyBtn.style.display = 'inline-block';
+
+            if (changeElements.length > 0) {
+                navControls.style.display = 'flex';
+                totalChangesSpan.textContent = changeElements.length;
+                currentIdx = 0;
+                updateNav();
+            } else {
+                navControls.style.display = 'none';
+            }
+        };
+
+        function updateNav(jump = true) {
+            currentChangeIdxInput.value = currentIdx + 1;
+
+            // Clear highlights
+            changeElements.forEach(el => el.classList.remove('change-highlight'));
+
+            if (currentIdx >= 0 && currentIdx < changeElements.length) {
+                const el = changeElements[currentIdx];
+                el.classList.add('change-highlight');
+                if (jump) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                setTimeout(() => el.classList.remove('change-highlight'), 2000);
+            }
+        }
+
+        prevBtn.onclick = () => {
+            if (changeElements.length === 0) return;
+            currentIdx = (currentIdx - 1 + changeElements.length) % changeElements.length;
+            updateNav();
+        };
+
+        nextBtn.onclick = () => {
+            if (changeElements.length === 0) return;
+            currentIdx = (currentIdx + 1) % changeElements.length;
+            updateNav();
+        };
+
+        currentChangeIdxInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                let val = parseInt(currentChangeIdxInput.value) - 1;
+                if (isNaN(val) || val < 0) val = 0;
+                if (val >= changeElements.length) val = changeElements.length - 1;
+                currentIdx = val;
+                updateNav();
+            }
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (changeElements.length === 0) return;
+            if (document.activeElement === currentChangeIdxInput ||
+                document.activeElement.tagName === 'TEXTAREA') return;
+
+            if (e.key === 'ArrowLeft') {
+                prevBtn.onclick();
+            } else if (e.key === 'ArrowRight') {
+                nextBtn.onclick();
+            }
+        });
+
+        copyBtn.onclick = async () => {
+            // Outlook Web often ignores 'white-space: pre-wrap' in pasted HTML,
+            // so we replace newlines with <br> for the HTML version.
+            const htmlWithBr = output.innerHTML.replace(/\n/g, '<br>');
+            const html = `<html><body><div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.5;">${htmlWithBr}</div></body></html>`;
+            const text = output.textContent;
+
+            try {
+                const blobHtml = new Blob([html], { type: 'text/html' });
+                const blobText = new Blob([text], { type: 'text/plain' });
+                const data = [new ClipboardItem({
+                    'text/html': blobHtml,
+                    'text/plain': blobText
+                })];
+
+                await navigator.clipboard.write(data);
+
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => copyBtn.textContent = originalText, 2000);
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+                // Fallback for some browsers/contexts
+                const range = document.createRange();
+                range.selectNode(output);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                try {
+                    document.execCommand('copy');
+                    copyBtn.textContent = 'Copied (Fallback)!';
+                    setTimeout(() => copyBtn.textContent = 'Copy Formatted', 2000);
+                } catch (err2) {
+                    alert('Could not copy automatically. Please select the result and copy manually.');
+                }
+                window.getSelection().removeAllRanges();
+            }
+        };
+    </script>
+</body>
+</html>

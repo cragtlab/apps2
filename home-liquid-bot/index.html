@@ -1,0 +1,2528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Morpho Blue Liquidation Scanner</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Premium CSS Variables & Reset */
+    :root {
+      --bg-color: #06070a;
+      --panel-bg: rgba(17, 19, 28, 0.7);
+      --card-bg: rgba(22, 26, 41, 0.5);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      
+      --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      --accent-color: #8b5cf6;
+      --accent-glow: rgba(139, 92, 246, 0.15);
+      
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.15);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.15);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.25);
+      
+      --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
+      background-attachment: fixed;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.01);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Layout Containers */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* Hero Section */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1.5rem;
+    }
+
+    .logo-area h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo-area p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      margin-top: 0.25rem;
+      font-weight: 400;
+    }
+
+    .network-badge-list {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    /* Summary Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      backdrop-filter: blur(12px);
+      transition: transform 0.3s ease, border-color 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--accent-gradient);
+    }
+
+    .stat-card.liquidatable::before {
+      background: var(--danger);
+    }
+
+    .stat-card.at-risk::before {
+      background: var(--warning);
+    }
+
+    .stat-card.safe::before {
+      background: var(--success);
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+
+    .stat-subtext {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+
+    /* Filters Panel */
+    .filter-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      backdrop-filter: blur(12px);
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      align-items: flex-end;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .filter-group.shrink {
+      flex: 0 1 auto;
+      min-width: unset;
+    }
+
+    .filter-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .input-control {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: var(--text-primary);
+      padding: 0.65rem 1rem;
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.3s ease, background 0.3s ease;
+      width: 100%;
+    }
+
+    .input-control:focus {
+      border-color: var(--accent-color);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 0.25rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.25rem;
+    }
+
+    .btn-toggle {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .btn-toggle:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-toggle.active {
+      color: var(--text-primary);
+      background: var(--accent-gradient);
+      box-shadow: 0 2px 10px rgba(139, 92, 246, 0.25);
+    }
+
+    .btn-primary {
+      background: var(--accent-gradient);
+      border: none;
+      color: var(--text-primary);
+      padding: 0.65rem 1.5rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Multi-chain Checkboxes Styling */
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .checkbox-btn {
+      position: relative;
+    }
+
+    .checkbox-btn input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      height: 0;
+      width: 0;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .checkbox-btn input:checked + .checkbox-label {
+      color: var(--text-primary);
+      border-color: var(--accent-color);
+      background: var(--accent-glow);
+    }
+
+    .checkbox-label:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Interactive Table Section */
+    .table-container {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+      margin-bottom: 2rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .table-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .table-count {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+    }
+
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    th {
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.01);
+    }
+
+    td {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+      transition: background-color 0.2s ease;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Data presentation helpers */
+    .mono {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-chain-1 {
+      background: rgba(99, 102, 241, 0.12);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    .badge-chain-8453 {
+      background: rgba(14, 165, 233, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(14, 165, 233, 0.3);
+    }
+
+    .badge-chain-42161 {
+      background: rgba(249, 115, 22, 0.12);
+      color: #fb923c;
+      border: 1px solid rgba(249, 115, 22, 0.3);
+    }
+
+    .badge-chain-10 {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .health-badge {
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .health-safe {
+      background: var(--success-glow);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .health-warning {
+      background: var(--warning-glow);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .health-danger {
+      background: var(--danger-glow);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      animation: pulse-danger 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-danger {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+      }
+      50% {
+        box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.4);
+      }
+    }
+
+    .asset-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .asset-val {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .asset-link {
+      color: inherit;
+      text-decoration: underline;
+      text-decoration-color: rgba(255, 255, 255, 0.35);
+      text-underline-offset: 0.12rem;
+    }
+
+    .asset-link:hover {
+      color: var(--accent-color);
+      text-decoration-color: currentColor;
+    }
+
+    .asset-sub {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .profit-val {
+      color: var(--success);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .address-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      cursor: pointer;
+      color: var(--text-primary);
+      transition: color 0.2s;
+    }
+
+    .address-copy:hover {
+      color: var(--accent-color);
+      text-decoration: underline;
+    }
+
+    .address-copy svg {
+      width: 14px;
+      height: 14px;
+      opacity: 0.5;
+    }
+
+    .address-copy:hover svg {
+      opacity: 1;
+    }
+
+    /* Actions buttons */
+    .btn-action {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 0.4rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-action:hover {
+      background: var(--accent-gradient);
+      border-color: transparent;
+      box-shadow: 0 2px 10px rgba(139, 92, 246, 0.25);
+    }
+
+    /* Loading overlay */
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(6, 7, 10, 0.8);
+      backdrop-filter: blur(4px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 1rem;
+      z-index: 10;
+      border-radius: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .loading-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255, 255, 255, 0.05);
+      border-top-color: var(--accent-color);
+      border-radius: 50%;
+      animation: spin 1s infinite linear;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+    }
+
+    .status-alert {
+      padding: 1rem;
+      border-radius: 12px;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      font-size: 0.9rem;
+      display: none;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Modal Inspector Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(6, 7, 10, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: #0e111a;
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      width: 90%;
+      max-width: 680px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      transform: translateY(20px);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .modal-overlay.active .modal {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .modal-title {
+      font-weight: 800;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+      color: var(--text-primary);
+    }
+
+    .modal-content {
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .modal-section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .gauge-wrapper {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      text-align: center;
+    }
+
+    .gauge-hfactor {
+      font-size: 2.5rem;
+      font-weight: 800;
+    }
+
+    .gauge-status {
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+    }
+
+    .gauge-bar-outer {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 0.25rem;
+    }
+
+    .gauge-bar-inner {
+      height: 100%;
+      width: 50%;
+      background: var(--accent-gradient);
+      border-radius: 4px;
+    }
+
+    .grid-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .info-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+
+    .info-card-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+
+    .info-card-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .info-card-subvalue {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.15rem;
+    }
+
+    .profit-card {
+      background: rgba(16, 185, 129, 0.05);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .profit-card-text h4 {
+      color: var(--success);
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+
+    .profit-card-text p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.15rem;
+    }
+
+    .profit-badge {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--success);
+    }
+
+    .execution-guide {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .empty-state {
+      padding: 4rem 2rem;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    .empty-state svg {
+      width: 48px;
+      height: 48px;
+      stroke: var(--text-secondary);
+      opacity: 0.3;
+      margin-bottom: 1rem;
+    }
+
+    /* Auto-refresh timer spinner */
+    .refresh-timer-wrapper {
+      position: relative;
+      width: 20px;
+      height: 20px;
+    }
+
+    .refresh-timer-svg {
+      width: 20px;
+      height: 20px;
+      transform: rotate(-90deg);
+    }
+
+    .refresh-timer-circle-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.05);
+      stroke-width: 2;
+    }
+
+    .refresh-timer-circle-fg {
+      fill: none;
+      stroke: var(--accent-color);
+      stroke-width: 2;
+      stroke-dasharray: 56.5; /* 2 * PI * r (r=9) */
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1s linear;
+    }
+
+    .pagination-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.01);
+    }
+
+    .pagination-info {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pagination-controls select {
+      width: auto;
+      min-width: 4.5rem;
+    }
+
+    .btn-action.btn-exclude {
+      margin-top: 0.35rem;
+      font-size: 0.72rem;
+      padding: 0.25rem 0.55rem;
+      color: var(--text-secondary);
+    }
+
+    .btn-action.btn-exclude:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      box-shadow: none;
+    }
+
+    .excluded-panel {
+      margin-top: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .excluded-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    .excluded-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+      padding: 0.35rem 0.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .excluded-item-label {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .excluded-item-sub {
+      color: var(--text-secondary);
+      font-size: 0.72rem;
+    }
+
+    .action-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      align-items: flex-start;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Hero Header -->
+    <header>
+      <div class="logo-area">
+        <h1>
+          <svg style="width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Morpho Scanner
+        </h1>
+        <p>Real-time client-side liquidation opportunity monitoring on Morpho Blue pools</p>
+      </div>
+      <div class="network-badge-list">
+        <span class="badge badge-chain-1">Ethereum</span>
+        <span class="badge badge-chain-8453">Base</span>
+        <span class="badge badge-chain-42161">Arbitrum</span>
+        <span class="badge badge-chain-10">Optimism</span>
+      </div>
+    </header>
+
+    <!-- Error Alert Area -->
+    <div id="status-alert" class="status-alert"></div>
+
+    <!-- Summary Stats Bar -->
+    <div class="stats-grid">
+      <div class="stat-card" id="card-scanned">
+        <div class="stat-label">Positions Scanned</div>
+        <div class="stat-value" id="stat-scanned-val">0</div>
+        <div class="stat-subtext">Active borrows on selected chains</div>
+      </div>
+      <div class="stat-card liquidatable" id="card-liquidatable">
+        <div class="stat-label">Liquidatable Options</div>
+        <div class="stat-value" style="color: var(--danger);" id="stat-liquidatable-val">0</div>
+        <div class="stat-subtext">Positions with Health Factor &lt; 1.0</div>
+      </div>
+      <div class="stat-card at-risk" id="card-at-risk">
+        <div class="stat-label">High Risk Positions</div>
+        <div class="stat-value" style="color: var(--warning);" id="stat-at-risk-val">0</div>
+        <div class="stat-subtext">Positions with 1.0 &le; Health Factor &lt; 1.1</div>
+      </div>
+      <div class="stat-card safe" id="card-volume">
+        <div class="stat-label">Total Borrows Traced</div>
+        <div class="stat-value" id="stat-volume-val">$0</div>
+        <div class="stat-subtext">Combined debt value in USD</div>
+      </div>
+    </div>
+
+    <!-- Interactive Filters Panel -->
+    <div class="filter-panel">
+      <div class="filter-row">
+        <!-- Chain Filter Selection -->
+        <div class="filter-group">
+          <span class="filter-label">Target Chains</span>
+          <div class="checkbox-group">
+            <div class="checkbox-btn">
+              <input type="checkbox" id="chain-1" value="1" checked>
+              <label for="chain-1" class="checkbox-label">
+                <span style="display:inline-block;width:8px;height:8px;background:#818cf8;border-radius:50%"></span>
+                Ethereum
+              </label>
+            </div>
+            <div class="checkbox-btn">
+              <input type="checkbox" id="chain-8453" value="8453" checked>
+              <label for="chain-8453" class="checkbox-label">
+                <span style="display:inline-block;width:8px;height:8px;background:#38bdf8;border-radius:50%"></span>
+                Base
+              </label>
+            </div>
+            <div class="checkbox-btn">
+              <input type="checkbox" id="chain-42161" value="42161" checked>
+              <label for="chain-42161" class="checkbox-label">
+                <span style="display:inline-block;width:8px;height:8px;background:#fb923c;border-radius:50%"></span>
+                Arbitrum
+              </label>
+            </div>
+            <div class="checkbox-btn">
+              <input type="checkbox" id="chain-10" value="10" checked>
+              <label for="chain-10" class="checkbox-label">
+                <span style="display:inline-block;width:8px;height:8px;background:#f87171;border-radius:50%"></span>
+                Optimism
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Search Input -->
+        <div class="filter-group">
+          <span class="filter-label">Search / Filter</span>
+          <input type="text" id="search-filter" class="input-control" placeholder="Search by User Address, Market ID, Collateral or Loan...">
+          <div class="checkbox-group" style="margin-top: 0.6rem;">
+            <div class="checkbox-btn">
+              <input type="checkbox" id="hide-no-price" checked>
+              <label for="hide-no-price" class="checkbox-label">Hide tokens without price</label>
+            </div>
+          </div>
+          <div class="excluded-panel">
+            <span class="filter-label">Excluded collateral (<span id="excluded-count">0</span>)</span>
+            <div class="excluded-list" id="excluded-list"></div>
+            <div style="margin-top: 0.5rem;">
+              <button type="button" class="btn-action btn-exclude" id="btn-unexclude-prompt" style="margin-top:0">Unexclude collateral…</button>
+            </div>
+          </div>
+          <div class="excluded-panel">
+            <span class="filter-label">Excluded loan / borrowed (<span id="excluded-loan-count">0</span>)</span>
+            <div class="excluded-list" id="excluded-loan-list"></div>
+            <div style="margin-top: 0.5rem;">
+              <button type="button" class="btn-action btn-exclude" id="btn-unexclude-loan-prompt" style="margin-top:0">Unexclude loan…</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="filter-row" style="margin-top: 0.25rem;">
+        <!-- Borrow Volume Filter -->
+        <div class="filter-group">
+          <span class="filter-label">Minimum Borrow Size</span>
+          <div class="btn-group" id="borrow-filter-group">
+            <button class="btn-toggle" data-min-borrow="0">All</button>
+            <button class="btn-toggle" data-min-borrow="10">&gt; $10</button>
+            <button class="btn-toggle active" data-min-borrow="100">&gt; $100</button>
+            <button class="btn-toggle" data-min-borrow="1000">&gt; $1,000</button>
+            <button class="btn-toggle" data-min-borrow="10000">&gt; $10,000</button>
+          </div>
+        </div>
+
+        <!-- Max Health Factor Filter -->
+        <div class="filter-group">
+          <span class="filter-label">Max Health Factor Threshold</span>
+          <div class="btn-group" id="health-filter-group">
+            <button class="btn-toggle" data-max-health="999">All</button>
+            <button class="btn-toggle active" data-max-health="1.0" style="color:#ef4444">&lt; 1.0 (Liquidatable)</button>
+            <button class="btn-toggle" data-max-health="1.1" style="color:#f59e0b">&lt; 1.1 (High Risk)</button>
+            <button class="btn-toggle" data-max-health="1.2">&lt; 1.2</button>
+          </div>
+        </div>
+
+        <!-- Action / Auto refresh controls -->
+        <div class="filter-group shrink" style="display:flex; flex-direction:row; align-items:center; gap: 0.75rem;">
+          <div class="refresh-timer-wrapper" id="timer-wrapper" style="display: none;">
+            <svg class="refresh-timer-svg">
+              <circle class="refresh-timer-circle-bg" cx="10" cy="10" r="9"></circle>
+              <circle class="refresh-timer-circle-fg" id="timer-circle" cx="10" cy="10" r="9"></circle>
+            </svg>
+          </div>
+          <div class="btn-group" id="refresh-interval-group" style="align-self:flex-end;">
+            <button class="btn-toggle active" data-interval="0">Manual</button>
+            <button class="btn-toggle" data-interval="30">30s</button>
+            <button class="btn-toggle" data-interval="60">1m</button>
+          </div>
+          <button class="btn-primary" id="btn-refresh" style="align-self:flex-end; height: 38px;">
+            <svg style="width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5;" viewBox="0 0 24 24" id="refresh-icon">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M21 20v-5h-.581m0 0a8.003 8.003 0 11-15.357-2" />
+            </svg>
+            Scan Now
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table of Top 100 opportunities -->
+    <div class="table-container" style="position: relative;">
+      <!-- Loading Overlay -->
+      <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loading-overlay-text">Querying Morpho GraphQL indexers...</div>
+      </div>
+
+      <div class="table-header">
+        <div class="table-title">Least Healthy Positions</div>
+        <div class="table-count" id="display-count">Showing 0 positions</div>
+      </div>
+
+      <div class="pagination-bar" id="pagination-bar">
+        <span class="pagination-info" id="pagination-info">Page 1 of 1</span>
+        <div class="pagination-controls">
+          <label class="filter-label" style="margin:0">Per page</label>
+          <select id="page-size-select" class="input-control">
+            <option value="8">8</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+          </select>
+          <button type="button" class="btn-action" id="btn-prev-page" disabled>Prev</button>
+          <button type="button" class="btn-action" id="btn-next-page" disabled>Next</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 5%">Rank</th>
+              <th style="width: 10%">Chain</th>
+              <th style="width: 15%">User Address</th>
+              <th style="width: 18%">Collateral supplied</th>
+              <th style="width: 18%">Loan borrowed</th>
+              <th style="width: 12%">Health Factor</th>
+              <th style="width: 12%">Opportunity</th>
+              <th style="width: 10%">Action</th>
+            </tr>
+          </thead>
+          <tbody id="positions-tbody">
+            <!-- Dynamically populated rows -->
+            <tr>
+              <td colspan="8" class="empty-state">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p>Click "Scan Now" to fetch positions from the Morpho API</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Detailed Position Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg style="width: 22px; height: 22px; fill: none; stroke: var(--accent-color); stroke-width: 2.5;" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Position Liquidation Inspector
+        </div>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-content" id="modal-content">
+        <!-- Dynamically populated modal content -->
+      </div>
+    </div>
+  </div>
+
+  <!-- core application scripts -->
+  <script>
+    // Constants
+    const GRAPHQL_ENDPOINT = 'https://api.morpho.org/graphql';
+    const CHAIN_NAMES = {
+      1: 'Ethereum',
+      8453: 'Base',
+      42161: 'Arbitrum',
+      10: 'Optimism'
+    };
+
+    const DEFILLAMA_CHAIN_SLUGS = {
+      1: 'ethereum',
+      8453: 'base',
+      42161: 'arbitrum',
+      10: 'optimism'
+    };
+
+    const MATCHA_CHAIN_SLUGS = {
+      1: 'ethereum',
+      8453: 'base',
+      42161: 'arbitrum',
+      10: 'optimism'
+    };
+
+    const EXPLORER_BASE_URLS = {
+      1: 'https://etherscan.io',
+      8453: 'https://basescan.org',
+      42161: 'https://arbiscan.io',
+      10: 'https://optimistic.etherscan.io'
+    };
+
+    const DEFILLAMA_PRICES_ENDPOINT = 'https://coins.llama.fi/prices/current/';
+    const MORPHO_BLUE_ADDRESS = '0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb';
+    const MORPHO_LIQUIDATION_DOCS_URL = 'https://docs.morpho.org/learn/concepts/liquidation/';
+    const PRICE_CACHE_TTL_MS = 60 * 1000;
+    const EXCLUDED_STORAGE_KEY = 'morpho-scanner-excluded-collateral-v1';
+    const EXCLUDED_LOAN_STORAGE_KEY = 'morpho-scanner-excluded-loan-v1';
+    
+    // Uniswap Subgraph Endpoints
+    const SUBGRAPH_ENDPOINTS = {
+      1: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
+      8453: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswapv3-base',
+      42161: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-arbitrum-one',
+      10: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-optimism'
+    };
+    
+    // Price deviation warning threshold (30% difference)
+    const PRICE_DEVIATION_THRESHOLD = 0.30;
+
+    function getFreshCachedValue(cache, key) {
+      const entry = cache[key];
+      if (!entry) return undefined;
+      if (Date.now() - entry.fetchedAt >= PRICE_CACHE_TTL_MS) return undefined;
+      return entry.value;
+    }
+
+    function setCachedValue(cache, key, value) {
+      cache[key] = {
+        value,
+        fetchedAt: Date.now()
+      };
+    }
+
+    async function fetchDefiLlamaPrices(tokens) {
+      const priceMap = {};
+      const supportedTokens = tokens
+        .map(token => {
+          const chainSlug = DEFILLAMA_CHAIN_SLUGS[token.chainId];
+          if (!chainSlug || !token.address) return null;
+
+          const address = token.address.toLowerCase();
+          return {
+            key: `${token.chainId}-${address}`,
+            coinId: `${chainSlug}:${address}`
+          };
+        })
+        .filter(Boolean);
+
+      const chunkSize = 50;
+
+      for (let i = 0; i < supportedTokens.length; i += chunkSize) {
+        const chunk = supportedTokens.slice(i, i + chunkSize);
+        chunk.forEach(token => {
+          priceMap[token.key] = 0;
+        });
+
+        try {
+          const response = await fetch(`${DEFILLAMA_PRICES_ENDPOINT}${chunk.map(token => token.coinId).join(',')}`);
+          if (!response.ok) continue;
+
+          const data = await response.json();
+          chunk.forEach(token => {
+            const priceEntry = data && data.coins ? data.coins[token.coinId] : null;
+            const price = priceEntry ? Number(priceEntry.price) : 0;
+            if (price > 0) {
+              priceMap[token.key] = price;
+            }
+          });
+        } catch (err) {
+          console.warn('Failed to fetch DefiLlama token prices:', err);
+        }
+      }
+
+      return priceMap;
+    }
+
+    // Uniswap Price Fetcher Function
+    async function fetchUniswapPrice(tokenAddress, chainId) {
+      try {
+        const endpoint = SUBGRAPH_ENDPOINTS[chainId];
+        const tokenAddr = tokenAddress.toLowerCase();
+        
+        if (!endpoint) return null;
+        
+        // Query Uniswap V3 subgraph for token price in USDC
+        const query = `
+          query GetTokenPrice($tokenId: String!) {
+            token(id: $tokenId) {
+              id
+              symbol
+              derivedUSD
+            }
+          }
+        `;
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            variables: { tokenId: tokenAddr }
+          })
+        });
+        
+        if (!response.ok) return null;
+        const data = await response.json();
+        
+        if (data.data && data.data.token && data.data.token.derivedUSD) {
+          return parseFloat(data.data.token.derivedUSD);
+        }
+        return null;
+      } catch (err) {
+        console.warn(`Failed to fetch Uniswap price for ${tokenAddress}:`, err);
+        return null;
+      }
+    }
+    
+    // Price Comparison Helper
+    function calculatePriceDeviation(apiPrice, dexPrice) {
+      if (!apiPrice || !dexPrice || apiPrice === 0) return null;
+      return Math.abs((apiPrice - dexPrice) / dexPrice);
+    }
+    
+    function isPriceWarning(deviation) {
+      return deviation !== null && deviation > PRICE_DEVIATION_THRESHOLD;
+    }
+
+    function formatAmountForUrl(amount, decimals = 18) {
+      if (!Number.isFinite(amount) || amount <= 0) return '0';
+      return amount.toFixed(Math.min(decimals, 8)).replace(/\.?0+$/, '');
+    }
+
+    function getMatchaTokenUrl(chainId, tokenAddress, sellAmount, decimals = 18) {
+      const chainSlug = MATCHA_CHAIN_SLUGS[chainId];
+      if (!chainSlug || !tokenAddress) return null;
+      const amount = formatAmountForUrl(sellAmount, decimals);
+      return `https://matcha.xyz/tokens/${chainSlug}/${tokenAddress}?sellChain=${chainId}&sellAddress=${tokenAddress}&sellAmount=${amount}`;
+    }
+
+    function getDebankProfileUrl(userAddress) {
+      if (!userAddress) return null;
+      return `https://debank.com/profile/${userAddress}`;
+    }
+
+    function getExplorerAddressUrl(chainId, address) {
+      const baseUrl = EXPLORER_BASE_URLS[chainId];
+      if (!baseUrl || !address) return null;
+      return `${baseUrl}/address/${address}`;
+    }
+
+    function getExplorerWriteContractUrl(chainId, address) {
+      const addressUrl = getExplorerAddressUrl(chainId, address);
+      if (!addressUrl) return null;
+      return `${addressUrl}#writeContract`;
+    }
+
+    function getExplorerTokenWriteUrl(chainId, tokenAddress) {
+      const baseUrl = EXPLORER_BASE_URLS[chainId];
+      if (!baseUrl || !tokenAddress) return null;
+      return `${baseUrl}/token/${tokenAddress}#writeContract`;
+    }
+
+    function renderCollateralLink(symbol, url) {
+      if (!url) return symbol || 'N/A';
+      return `<a class="asset-link" href="${url}" target="_blank" rel="noopener noreferrer">${symbol || 'N/A'}</a>`;
+    }
+
+    // State management
+    let positions = []; // All fetched positions
+    let minBorrowFilter = 100; // Min borrow in USD
+    let maxHealthFilter = 1.0; // Max health factor limit
+    let hideNoPriceFilter = true; // Hide tokens without external price
+    let autoRefreshInterval = 0; // In seconds
+    let refreshTimer = null;
+    let refreshProgressTimer = null;
+    let secondsRemaining = 0;
+    let defiLlamaPriceCache = {}; // Cache for external USD prices (key: chainId-tokenAddr)
+    let uniswapPriceCache = {}; // Cache for Uniswap prices (key: chainId-tokenAddr)
+    let currentPage = 1;
+    let pageSize = 100;
+    let excludedCollateral = [];
+    let excludedLoan = [];
+
+    // Elements
+    const btnRefresh = document.getElementById('btn-refresh');
+    const positionsTbody = document.getElementById('positions-tbody');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingOverlayText = document.getElementById('loading-overlay-text');
+    const statusAlert = document.getElementById('status-alert');
+    
+    // Stats cards value elements
+    const statScannedVal = document.getElementById('stat-scanned-val');
+    const statLiquidatableVal = document.getElementById('stat-liquidatable-val');
+    const statAtRiskVal = document.getElementById('stat-at-risk-val');
+    const statVolumeVal = document.getElementById('stat-volume-val');
+    const displayCount = document.getElementById('display-count');
+    
+    // Controls elements
+    const searchFilterInput = document.getElementById('search-filter');
+    const hideNoPriceCheckbox = document.getElementById('hide-no-price');
+    const borrowFilterGroup = document.getElementById('borrow-filter-group');
+    const healthFilterGroup = document.getElementById('health-filter-group');
+    const refreshIntervalGroup = document.getElementById('refresh-interval-group');
+    const timerWrapper = document.getElementById('timer-wrapper');
+    const timerCircle = document.getElementById('timer-circle');
+    
+    // Modal elements
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalClose = document.getElementById('modal-close');
+    const modalContent = document.getElementById('modal-content');
+    const paginationInfo = document.getElementById('pagination-info');
+    const pageSizeSelect = document.getElementById('page-size-select');
+    const btnPrevPage = document.getElementById('btn-prev-page');
+    const btnNextPage = document.getElementById('btn-next-page');
+    const excludedListEl = document.getElementById('excluded-list');
+    const excludedCountEl = document.getElementById('excluded-count');
+    const btnUnexcludePrompt = document.getElementById('btn-unexclude-prompt');
+    const excludedLoanListEl = document.getElementById('excluded-loan-list');
+    const excludedLoanCountEl = document.getElementById('excluded-loan-count');
+    const btnUnexcludeLoanPrompt = document.getElementById('btn-unexclude-loan-prompt');
+
+    function escapeHtmlAttr(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function loadExcludedCollateral() {
+      try {
+        const raw = localStorage.getItem(EXCLUDED_STORAGE_KEY);
+        excludedCollateral = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(excludedCollateral)) excludedCollateral = [];
+      } catch (err) {
+        excludedCollateral = [];
+      }
+    }
+
+    function saveExcludedCollateral() {
+      localStorage.setItem(EXCLUDED_STORAGE_KEY, JSON.stringify(excludedCollateral));
+    }
+
+    function isCollateralExcluded(cacheKey) {
+      if (!cacheKey) return false;
+      return excludedCollateral.some((e) => e.key === cacheKey);
+    }
+
+    function excludeCollateral(pos) {
+      if (!pos || !pos.cacheKey || isCollateralExcluded(pos.cacheKey)) return;
+      excludedCollateral.push({
+        key: pos.cacheKey,
+        chainId: pos.chainId,
+        address: pos.collateralAddress,
+        symbol: pos.collateralSymbol,
+        excludedAt: Date.now()
+      });
+      saveExcludedCollateral();
+      renderExcludedList();
+    }
+
+    function unexcludeCollateral(key) {
+      const before = excludedCollateral.length;
+      excludedCollateral = excludedCollateral.filter((e) => e.key !== key);
+      if (excludedCollateral.length !== before) {
+        saveExcludedCollateral();
+        renderExcludedList();
+        return true;
+      }
+      return false;
+    }
+
+    function renderExcludedList() {
+      excludedCountEl.textContent = excludedCollateral.length.toString();
+      if (excludedCollateral.length === 0) {
+        excludedListEl.innerHTML = '<div class="excluded-item"><span class="excluded-item-sub">No excluded tokens</span></div>';
+        return;
+      }
+      excludedListEl.innerHTML = excludedCollateral
+        .map((e) => {
+          const chainName = CHAIN_NAMES[e.chainId] || e.chainId;
+          return `
+            <div class="excluded-item">
+              <div>
+                <div class="excluded-item-label">${e.symbol || 'N/A'} · ${chainName}</div>
+                <div class="excluded-item-sub mono">${e.address ? formatAddress(e.address) : ''}</div>
+              </div>
+              <button type="button" class="btn-action btn-exclude" data-restore-key="${escapeHtmlAttr(e.key)}">Restore</button>
+            </div>
+          `;
+        })
+        .join('');
+      excludedListEl.querySelectorAll('[data-restore-key]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          unexcludeCollateral(btn.dataset.restoreKey);
+          currentPage = 1;
+          filterAndRender();
+        });
+      });
+    }
+
+    function loadExcludedLoan() {
+      try {
+        const raw = localStorage.getItem(EXCLUDED_LOAN_STORAGE_KEY);
+        excludedLoan = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(excludedLoan)) excludedLoan = [];
+      } catch (err) {
+        excludedLoan = [];
+      }
+    }
+
+    function saveExcludedLoan() {
+      localStorage.setItem(EXCLUDED_LOAN_STORAGE_KEY, JSON.stringify(excludedLoan));
+    }
+
+    function isLoanExcluded(loanCacheKey) {
+      if (!loanCacheKey) return false;
+      return excludedLoan.some((e) => e.key === loanCacheKey);
+    }
+
+    function excludeLoan(pos) {
+      if (!pos || !pos.loanCacheKey || isLoanExcluded(pos.loanCacheKey)) return;
+      excludedLoan.push({
+        key: pos.loanCacheKey,
+        chainId: pos.chainId,
+        address: pos.loanAddress,
+        symbol: pos.loanSymbol,
+        excludedAt: Date.now()
+      });
+      saveExcludedLoan();
+      renderExcludedLoanList();
+    }
+
+    function unexcludeLoan(key) {
+      const before = excludedLoan.length;
+      excludedLoan = excludedLoan.filter((e) => e.key !== key);
+      if (excludedLoan.length !== before) {
+        saveExcludedLoan();
+        renderExcludedLoanList();
+        return true;
+      }
+      return false;
+    }
+
+    function renderExcludedLoanList() {
+      excludedLoanCountEl.textContent = excludedLoan.length.toString();
+      if (excludedLoan.length === 0) {
+        excludedLoanListEl.innerHTML = '<div class="excluded-item"><span class="excluded-item-sub">No excluded loan tokens</span></div>';
+        return;
+      }
+      excludedLoanListEl.innerHTML = excludedLoan
+        .map((e) => {
+          const chainName = CHAIN_NAMES[e.chainId] || e.chainId;
+          return `
+            <div class="excluded-item">
+              <div>
+                <div class="excluded-item-label">${e.symbol || 'N/A'} · ${chainName}</div>
+                <div class="excluded-item-sub mono">${e.address ? formatAddress(e.address) : ''}</div>
+              </div>
+              <button type="button" class="btn-action btn-exclude" data-restore-loan-key="${escapeHtmlAttr(e.key)}">Restore</button>
+            </div>
+          `;
+        })
+        .join('');
+      excludedLoanListEl.querySelectorAll('[data-restore-loan-key]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          unexcludeLoan(btn.dataset.restoreLoanKey);
+          currentPage = 1;
+          filterAndRender();
+        });
+      });
+    }
+
+    function unexcludeLoanViaPrompt() {
+      if (excludedLoan.length === 0) {
+        alert('No excluded loan tokens.');
+        return;
+      }
+      const query = prompt('Enter loan symbol or address to unexclude:');
+      if (query == null || !query.trim()) return;
+      const q = query.trim().toLowerCase();
+      const matches = excludedLoan.filter(
+        (e) =>
+          (e.symbol && e.symbol.toLowerCase().includes(q)) ||
+          (e.address && e.address.toLowerCase().includes(q))
+      );
+      if (matches.length === 0) {
+        alert('No excluded loan token matched that query.');
+        return;
+      }
+      if (matches.length === 1) {
+        unexcludeLoan(matches[0].key);
+        currentPage = 1;
+        filterAndRender();
+        return;
+      }
+      const listText = matches
+        .map((m, i) => `${i + 1}. ${m.symbol} · ${CHAIN_NAMES[m.chainId] || m.chainId}`)
+        .join('\n');
+      const choice = prompt(`Multiple matches:\n${listText}\n\nEnter number to unexclude (1-${matches.length}):`);
+      if (choice == null || !choice.trim()) return;
+      const idx = parseInt(choice.trim(), 10) - 1;
+      if (idx >= 0 && idx < matches.length) {
+        unexcludeLoan(matches[idx].key);
+        currentPage = 1;
+        filterAndRender();
+      } else {
+        alert('Invalid selection.');
+      }
+    }
+
+    function unexcludeViaPrompt() {
+      if (excludedCollateral.length === 0) {
+        alert('No excluded collateral tokens.');
+        return;
+      }
+      const query = prompt('Enter collateral symbol or address to unexclude:');
+      if (query == null || !query.trim()) return;
+      const q = query.trim().toLowerCase();
+      const matches = excludedCollateral.filter(
+        (e) =>
+          (e.symbol && e.symbol.toLowerCase().includes(q)) ||
+          (e.address && e.address.toLowerCase().includes(q))
+      );
+      if (matches.length === 0) {
+        alert('No excluded token matched that query.');
+        return;
+      }
+      if (matches.length === 1) {
+        unexcludeCollateral(matches[0].key);
+        currentPage = 1;
+        filterAndRender();
+        return;
+      }
+      const listText = matches
+        .map((m, i) => `${i + 1}. ${m.symbol} · ${CHAIN_NAMES[m.chainId] || m.chainId}`)
+        .join('\n');
+      const choice = prompt(`Multiple matches:\n${listText}\n\nEnter number to unexclude (1-${matches.length}):`);
+      if (choice == null || !choice.trim()) return;
+      const idx = parseInt(choice.trim(), 10) - 1;
+      if (idx >= 0 && idx < matches.length) {
+        unexcludeCollateral(matches[idx].key);
+        currentPage = 1;
+        filterAndRender();
+      } else {
+        alert('Invalid selection.');
+      }
+    }
+
+    function getFilteredPositions() {
+      const selectedChains = getSelectedChains();
+      const searchQuery = searchFilterInput.value.toLowerCase().trim();
+
+      return positions
+        .filter((pos) => {
+          if (!selectedChains.includes(pos.chainId)) return false;
+          if (isCollateralExcluded(pos.cacheKey)) return false;
+          if (isLoanExcluded(pos.loanCacheKey)) return false;
+          if (hideNoPriceFilter && (!pos.collateralPriceUsd || pos.collateralPriceUsd <= 0)) return false;
+          if (pos.borrowUsd < minBorrowFilter) return false;
+          if (maxHealthFilter !== 999) {
+            if (maxHealthFilter === 1.0 && pos.healthFactor >= 1.0) return false;
+            if (maxHealthFilter === 1.1 && pos.healthFactor >= 1.1) return false;
+            if (maxHealthFilter === 1.2 && pos.healthFactor >= 1.2) return false;
+          }
+          if (searchQuery) {
+            const matchUser = pos.userAddress.toLowerCase().includes(searchQuery);
+            const matchMarket = pos.marketId.toLowerCase().includes(searchQuery);
+            const matchColl = pos.collateralSymbol.toLowerCase().includes(searchQuery);
+            const matchLoan = pos.loanSymbol.toLowerCase().includes(searchQuery);
+            if (!matchUser && !matchMarket && !matchColl && !matchLoan) return false;
+          }
+          return true;
+        })
+        .sort((a, b) => {
+          const hfA = a.healthFactor === Infinity ? Number.MAX_VALUE : a.healthFactor;
+          const hfB = b.healthFactor === Infinity ? Number.MAX_VALUE : b.healthFactor;
+          return hfB - hfA;
+        });
+    }
+
+    function getTotalPages(filteredCount) {
+      return Math.max(1, Math.ceil(filteredCount / pageSize));
+    }
+
+    function clampCurrentPage(filteredCount) {
+      const totalPages = getTotalPages(filteredCount);
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+    }
+
+    function updatePaginationUI(filteredCount) {
+      const totalPages = getTotalPages(filteredCount);
+      clampCurrentPage(filteredCount);
+      paginationInfo.textContent =
+        filteredCount === 0
+          ? 'Page 1 of 1 · 0 positions'
+          : `Page ${currentPage} of ${totalPages} · ${filteredCount.toLocaleString()} positions`;
+      btnPrevPage.disabled = currentPage <= 1;
+      btnNextPage.disabled = currentPage >= totalPages || filteredCount === 0;
+    }
+
+    window.excludeCollateralForPosition = function(positionKey) {
+      const pos = positions.find((p) => p.positionKey === positionKey);
+      if (!pos) return;
+      excludeCollateral(pos);
+      currentPage = 1;
+      filterAndRender();
+    };
+
+    window.excludeLoanForPosition = function(positionKey) {
+      const pos = positions.find((p) => p.positionKey === positionKey);
+      if (!pos) return;
+      excludeLoan(pos);
+      currentPage = 1;
+      filterAndRender();
+    };
+
+    // Helper functions
+    function showLoading(msg) {
+      loadingOverlayText.textContent = msg;
+      loadingOverlay.classList.add('active');
+      btnRefresh.disabled = true;
+      document.getElementById('refresh-icon').style.animation = 'spin 1s infinite linear';
+    }
+
+    function hideLoading() {
+      loadingOverlay.classList.remove('active');
+      btnRefresh.disabled = false;
+      document.getElementById('refresh-icon').style.animation = 'none';
+    }
+
+    function showAlert(msg) {
+      statusAlert.textContent = msg;
+      statusAlert.style.display = 'block';
+    }
+
+    function hideAlert() {
+      statusAlert.style.display = 'none';
+    }
+
+    function getSelectedChains() {
+      const chains = [];
+      [1, 8453, 42161, 10].forEach(id => {
+        if (document.getElementById(`chain-${id}`).checked) {
+          chains.push(id);
+        }
+      });
+      return chains;
+    }
+
+    // Direct GraphQL Fetching Logic
+    async function fetchMorphoPositions(chains) {
+      if (chains.length === 0) return [];
+      
+      const query = `
+        query GetPositions($chainIdIn: [Int!], $first: Int!, $skip: Int, $orderBy: MarketPositionOrderBy!, $orderDirection: OrderDirection!) {
+          marketPositions(
+            first: $first,
+            skip: $skip,
+            orderBy: $orderBy,
+            orderDirection: $orderDirection,
+            where: {
+              chainId_in: $chainIdIn,
+              borrowShares_gte: "1",
+              healthFactor_gte: 0.0001
+            }
+          ) {
+            items {
+              user {
+                address
+              }
+              market {
+                chain {
+                  id
+                }
+                marketId
+                lltv
+                oracleAddress
+                irmAddress
+                collateralAsset {
+                  address
+                  symbol
+                  decimals
+                  price {
+                    usd
+                  }
+                }
+                loanAsset {
+                  address
+                  symbol
+                  decimals
+                  price {
+                    usd
+                  }
+                }
+                state {
+                  price
+                }
+              }
+              healthFactor
+              state {
+                collateral
+                borrowAssets
+              }
+            }
+          }
+        }
+      `;
+
+      const runQuery = async (orderBy, orderDirection) => {
+        let items = [];
+        const batchSize = 500;
+        
+        for (let page = 0; page < 2; page++) {
+          const variables = {
+            chainIdIn: chains,
+            first: batchSize,
+            skip: page * batchSize,
+            orderBy: orderBy,
+            orderDirection: orderDirection
+          };
+
+          const response = await fetch(GRAPHQL_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query,
+              variables
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Morpho API returned HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const resJson = await response.json();
+          if (resJson.errors && resJson.errors.length > 0) {
+            throw new Error(`GraphQL Error: ${resJson.errors[0].message}`);
+          }
+
+          const pageItems = resJson.data.marketPositions.items || [];
+          items = items.concat(pageItems);
+          
+          if (pageItems.length < batchSize) {
+            break;
+          }
+        }
+        return items;
+      };
+
+      // Run both queries in parallel to cover both low-health and high-borrow targets
+      const [byHealth, byBorrow] = await Promise.all([
+        runQuery('HealthFactor', 'Asc'),
+        runQuery('BorrowShares', 'Desc')
+      ]);
+
+      // Combine and deduplicate based on user address and marketId
+      const seen = new Set();
+      const combined = [];
+      
+      [...byHealth, ...byBorrow].forEach(item => {
+        if (!item || !item.user || !item.market) return;
+        const key = `${item.user.address.toLowerCase()}-${item.market.marketId.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          combined.push(item);
+        }
+      });
+
+      return combined;
+    }
+
+    // Math & Parsing Logic
+    function getLIF(lltvRaw) {
+      const lltv = Number(lltvRaw) / 1e18;
+      return Math.min(1.15, 1 / (1 - 0.3 * (1 - lltv)));
+    }
+
+    function calculateHealthFactor(item) {
+      try {
+        if (!item || !item.market) return 0;
+        const state = item.state;
+        const market = item.market;
+        const marketState = market.state;
+        
+        const collateral = BigInt(state ? state.collateral : 0n);
+        const price = BigInt(marketState ? marketState.price : 0n);
+        const lltv = BigInt(market.lltv || 0n);
+        const borrowAssets = BigInt(state ? state.borrowAssets : 0n);
+
+        if (borrowAssets === 0n) return Infinity;
+
+        // Health Factor = (collateral * price * lltv) / (borrowAssets * 10^42)
+        const numerator = collateral * price * lltv;
+        const denominator = borrowAssets * 1000000000000000000000000000000000000000000n; // 10^42
+        
+        const numFloat = parseFloat(numerator.toString());
+        const denFloat = parseFloat(denominator.toString());
+        
+        return numFloat / denFloat;
+      } catch (err) {
+        // Fallback to API healthFactor if BigInt logic encounters any issues
+        return item.healthFactor || 0;
+      }
+    }
+
+    function calculateLiquidationPrice(item) {
+      try {
+        if (!item || !item.market) return 0;
+        const state = item.state;
+        const market = item.market;
+        
+        const collateral = Number(state ? state.collateral : 0);
+        const borrowAssets = Number(state ? state.borrowAssets : 0);
+        const lltv = Number(market.lltv || 0);
+        const dColl = (market.collateralAsset && market.collateralAsset.decimals) || 18;
+        const dLoan = (market.loanAsset && market.loanAsset.decimals) || 18;
+
+        if (collateral === 0 || lltv === 0) return 0;
+
+        // liquidationPrice = (borrowAssets / (collateral * lltv)) * 10^(18 + dColl - dLoan)
+        const powerVal = 18 + dColl - dLoan;
+        return (borrowAssets / (collateral * lltv)) * Math.pow(10, powerVal);
+      } catch (err) {
+        return 0;
+      }
+    }
+
+    function calculatePositionHealthFactor(position) {
+      if (!position) return 0;
+      if (!position.borrowUsd || position.borrowUsd === 0) return Infinity;
+      return (position.collateralUsd * position.lltv) / position.borrowUsd;
+    }
+
+    function updatePositionPriceDerivedMetrics(position) {
+      position.healthFactor = calculatePositionHealthFactor(position);
+      position.currentPriceLoan = position.loanPriceUsd > 0 ? (position.collateralPriceUsd / position.loanPriceUsd) : 0;
+      position.distanceToLiquidation = position.currentPriceLoan > 0
+        ? ((position.currentPriceLoan - position.liquidationPriceLoan) / position.currentPriceLoan) * 100
+        : 0;
+      return position;
+    }
+
+    function parsePositionData(items) {
+      return items.filter(item => item && item.market).map(item => {
+        const market = item.market;
+        const state = item.state;
+        const collateralAsset = market.collateralAsset;
+        const loanAsset = market.loanAsset;
+        const marketState = market.state;
+        
+        // Core decimals
+        const dColl = collateralAsset ? collateralAsset.decimals : 18;
+        const dLoan = loanAsset ? loanAsset.decimals : 18;
+        
+        const collateralAmount = Number(state ? state.collateral : 0) / Math.pow(10, dColl);
+        const borrowAmount = Number(state ? state.borrowAssets : 0) / Math.pow(10, dLoan);
+        
+        // Prices
+        const loanPriceUsd = (loanAsset && loanAsset.price) ? (loanAsset.price.usd || 1.0) : 1.0;
+        const oraclePrice = (marketState && marketState.price) ? Number(marketState.price) : 0;
+
+        let collPriceUsd = 0;
+        let collateralPriceSource = 'No external price';
+
+        // Calculations
+        const collateralUsd = collateralAmount * collPriceUsd;
+        const borrowUsd = borrowAmount * loanPriceUsd;
+        const healthFactor = calculateHealthFactor(item);
+        const lltvNum = Number(market.lltv || 0) / 1e18;
+        const lif = getLIF(market.lltv || 0);
+        
+        // Liquidation Price in Loan Asset units
+        const liquidationPriceLoan = calculateLiquidationPrice(item);
+        // Liquidation Price in USD
+        const liquidationPriceUsd = liquidationPriceLoan * loanPriceUsd;
+        
+        // Current Price of Collateral in Loan Asset units
+        let currentPriceLoan = 0;
+        if (oraclePrice > 0) {
+          currentPriceLoan = oraclePrice / Math.pow(10, 24 - dColl + dLoan);
+        } else if (loanPriceUsd > 0) {
+          currentPriceLoan = collPriceUsd / loanPriceUsd;
+        }
+
+        // Distance to Liquidation: negative means already liquidatable, positive means safety buffer
+        const distanceToLiquidation = currentPriceLoan > 0 
+          ? ((currentPriceLoan - liquidationPriceLoan) / currentPriceLoan) * 100 
+          : 0;
+
+        // Estimated profit for liquidators
+        const estProfitUsd = borrowUsd * (lif - 1);
+        
+        // Uniswap price data (to be populated async)
+        const cacheKey = collateralAsset && collateralAsset.address
+          ? `${market.chain.id}-${collateralAsset.address.toLowerCase()}`
+          : null;
+        const loanCacheKey = loanAsset && loanAsset.address
+          ? `${market.chain.id}-${loanAsset.address.toLowerCase()}`
+          : null;
+        const userAddress = item.user ? item.user.address : 'Unknown';
+        const marketId = market.marketId || 'Unknown';
+        const positionKey = `${userAddress}-${marketId}`.toLowerCase();
+
+        return {
+          userAddress,
+          chainId: market.chain ? market.chain.id : 1,
+          marketId,
+          positionKey,
+          collateralSymbol: collateralAsset ? collateralAsset.symbol : 'N/A',
+          collateralDecimals: dColl,
+          collateralAmount,
+          collateralPriceUsd: collPriceUsd,
+          collateralPriceSource,
+          collateralUsd,
+          collateralAddress: collateralAsset ? collateralAsset.address : null,
+          oracleAddress: market.oracleAddress || null,
+          irmAddress: market.irmAddress || null,
+          loanSymbol: loanAsset ? loanAsset.symbol : 'N/A',
+          loanAddress: loanAsset ? loanAsset.address : null,
+          loanDecimals: dLoan,
+          loanPriceUsd,
+          borrowAmount,
+          borrowUsd,
+          healthFactor,
+          lltv: lltvNum,
+          lif,
+          liquidationPriceLoan,
+          liquidationPriceUsd,
+          currentPriceLoan,
+          distanceToLiquidation,
+          estProfitUsd,
+          uniswapCollateralPrice: null, // Will be populated
+          collateralPriceDeviation: null, // Will be calculated
+          rawItem: item,
+          cacheKey,
+          loanCacheKey
+        };
+      });
+    }
+
+    // UI Rendering Logic
+    function formatAddress(addr) {
+      if (!addr) return '';
+      return addr.slice(0, 6) + '...' + addr.slice(-4);
+    }
+
+    function formatNumber(num, decimals = 2) {
+      if (num === null || isNaN(num)) return 'N/A';
+      if (num === Infinity) return '∞';
+      return num.toLocaleString(undefined, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+    }
+
+    function copyToClipboard(text, el) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalHTML = el.innerHTML;
+        el.innerHTML = '<span style="color:var(--success)">Copied!</span>';
+        setTimeout(() => {
+          el.innerHTML = originalHTML;
+        }, 1200);
+      });
+    }
+
+    function getHealthBadgeClass(hf) {
+      if (hf === Infinity) return 'health-safe';
+      if (hf < 1.0) return 'health-danger';
+      if (hf < 1.1) return 'health-warning';
+      return 'health-safe';
+    }
+
+    function getHealthLabel(hf) {
+      if (hf === Infinity) return 'Safe (No Borrow)';
+      if (hf < 1.0) return 'Liquidatable';
+      if (hf < 1.1) return 'High Risk';
+      return 'Healthy';
+    }
+
+    function updateStats(parsedData) {
+      statScannedVal.textContent = parsedData.length.toLocaleString();
+      
+      const liquidatable = parsedData.filter(p => p.healthFactor < 1.0).length;
+      statLiquidatableVal.textContent = liquidatable.toLocaleString();
+      
+      const atRisk = parsedData.filter(p => p.healthFactor >= 1.0 && p.healthFactor < 1.1).length;
+      statAtRiskVal.textContent = atRisk.toLocaleString();
+      
+      const totalVolume = parsedData.reduce((acc, p) => acc + (p.borrowUsd || 0), 0);
+      statVolumeVal.textContent = '$' + totalVolume.toLocaleString(undefined, {
+        maximumFractionDigits: 0
+      });
+    }
+
+    function renderTable(filtered) {
+      const scannedCount = positions.length;
+      updatePaginationUI(filtered.length);
+
+      if (filtered.length === 0) {
+        positionsTbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="empty-state">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p>No matching positions found with current filter settings</p>
+            </td>
+          </tr>
+        `;
+        displayCount.textContent = `Showing 0 filtered (${scannedCount.toLocaleString()} scanned)`;
+        return;
+      }
+
+      const start = (currentPage - 1) * pageSize;
+      const pageRows = filtered.slice(start, start + pageSize);
+      const end = start + pageRows.length;
+      displayCount.textContent = `Showing ${start + 1}–${end} of ${filtered.length.toLocaleString()} filtered (${scannedCount.toLocaleString()} scanned)`;
+
+      positionsTbody.innerHTML = pageRows.map((pos, index) => {
+        const rank = start + index + 1;
+        const isLiquidatable = pos.healthFactor < 1.0;
+        const rowStyle = isLiquidatable ? 'background: rgba(239, 68, 68, 0.02);' : '';
+        const opportunityText = pos.estProfitUsd > 0
+          ? `<span class="profit-val">+$${formatNumber(pos.estProfitUsd, 2)}</span>`
+          : `<span style="color:var(--text-secondary)">$${formatNumber(0, 2)}</span>`;
+        const collateralSymbolHtml = renderCollateralLink(
+          pos.collateralSymbol,
+          getMatchaTokenUrl(pos.chainId, pos.collateralAddress, pos.collateralAmount, pos.collateralDecimals)
+        );
+        const debankProfileUrl = getDebankProfileUrl(pos.userAddress);
+        const posKeyAttr = escapeHtmlAttr(pos.positionKey);
+
+        const priceWarning = isPriceWarning(pos.collateralPriceDeviation)
+          ? `<span style="color:var(--warning); font-weight:700; margin-left:0.5rem;" title="Collateral price deviated from Uniswap by ${formatNumber(pos.collateralPriceDeviation * 100, 1)}%">⚠️</span>`
+          : '';
+
+        return `
+          <tr style="${rowStyle}">
+            <td class="mono" style="font-weight:600; color:var(--text-secondary)">#${rank}</td>
+            <td><span class="badge badge-chain-${pos.chainId}">${CHAIN_NAMES[pos.chainId] || pos.chainId}</span></td>
+            <td>
+              <a class="address-copy" href="${debankProfileUrl}" target="_blank" rel="noopener noreferrer">
+                <span class="mono">${formatAddress(pos.userAddress)}</span>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6m4-3h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </td>
+            <td>
+              <div class="asset-info">
+                <span class="asset-val">${formatNumber(pos.collateralAmount, 4)} ${collateralSymbolHtml}${priceWarning}</span>
+                <span class="asset-sub">$${formatNumber(pos.collateralUsd, 2)} | ${pos.collateralPriceSource}</span>
+              </div>
+            </td>
+            <td>
+              <div class="asset-info">
+                <span class="asset-val">${formatNumber(pos.borrowAmount, 4)} ${pos.loanSymbol}</span>
+                <span class="asset-sub">$${formatNumber(pos.borrowUsd, 2)}</span>
+              </div>
+            </td>
+            <td>
+              <span class="health-badge ${getHealthBadgeClass(pos.healthFactor)}">
+                ${isLiquidatable ? '⚠️ ' : ''}${formatNumber(pos.healthFactor, 4)}
+              </span>
+            </td>
+            <td>${opportunityText}</td>
+            <td>
+              <div class="action-cell">
+                <button class="btn-action" onclick="inspectPosition('${posKeyAttr}')">Inspect</button>
+                <button class="btn-action btn-exclude" onclick="excludeCollateralForPosition('${posKeyAttr}')">Exclude collateral</button>
+                <button class="btn-action btn-exclude" onclick="excludeLoanForPosition('${posKeyAttr}')">Exclude loan</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterAndRender(resetPage = true) {
+      if (resetPage) currentPage = 1;
+      const filtered = getFilteredPositions();
+      renderTable(filtered);
+    }
+
+    function goToPage(page) {
+      const filtered = getFilteredPositions();
+      const totalPages = getTotalPages(filtered.length);
+      currentPage = Math.min(Math.max(1, page), totalPages);
+      renderTable(filtered);
+    }
+
+    // Single Position Detailed Inspector Modal
+    window.inspectPosition = function(positionKey) {
+      const pos = positions.find((p) => p.positionKey === positionKey);
+      if (!pos) return;
+
+      const morphoWriteUrl = getExplorerWriteContractUrl(pos.chainId, MORPHO_BLUE_ADDRESS);
+      const morphoAddressUrl = getExplorerAddressUrl(pos.chainId, MORPHO_BLUE_ADDRESS);
+      const loanApproveUrl = getExplorerTokenWriteUrl(pos.chainId, pos.loanAddress);
+      const loanTokenUrl = getExplorerAddressUrl(pos.chainId, pos.loanAddress);
+      const collateralTokenUrl = getExplorerAddressUrl(pos.chainId, pos.collateralAddress);
+      const oracleUrl = getExplorerAddressUrl(pos.chainId, pos.oracleAddress);
+      const irmUrl = getExplorerAddressUrl(pos.chainId, pos.irmAddress);
+      const matchaSwapUrl = getMatchaTokenUrl(pos.chainId, pos.collateralAddress, pos.collateralAmount, pos.collateralDecimals);
+      const borrowerProfileUrl = getDebankProfileUrl(pos.userAddress);
+
+      // Price deviation warning
+      const priceWarningBanner = isPriceWarning(pos.collateralPriceDeviation) ? `
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--warning); font-weight: 700; margin-bottom: 0.5rem;">
+            ⚠️ Price Deviation Alert
+          </div>
+          <div style="color: var(--text-secondary); font-size: 0.85rem;">
+            Collateral price differs by <span style="color: var(--warning); font-weight: 700;">${formatNumber(pos.collateralPriceDeviation * 100, 1)}%</span> between ${pos.collateralPriceSource} and Uniswap V3
+          </div>
+          ${pos.uniswapCollateralPrice ? `<div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.5rem;">
+            ${pos.collateralPriceSource}: $${formatNumber(pos.collateralPriceUsd, 4)} | Uniswap Price: $${formatNumber(pos.uniswapCollateralPrice, 4)}
+          </div>` : ''}
+        </div>
+      ` : '';
+      
+      const executionMockCode = `// Morpho Blue Liquidation Parameters
+const MorphoBlueAddress = "${MORPHO_BLUE_ADDRESS}";
+const marketParams = {
+  loanToken: "${pos.loanAddress || '0x0000000000000000000000000000000000000000'}",
+  collateralToken: "${pos.collateralAddress || '0x0000000000000000000000000000000000000000'}",
+  oracle: "${pos.oracleAddress || '0x0000000000000000000000000000000000000000'}",
+  irm: "${pos.irmAddress || '0x0000000000000000000000000000000000000000'}",
+  lltv: "${pos.rawItem.market.lltv || '0'}"
+};
+
+// Liquidation execution parameters
+const userToLiquidate = "${pos.userAddress}";
+const repayAmountRaw = "${pos.rawItem.state ? pos.rawItem.state.borrowAssets : '0'}";
+const minCollateralToSeize = "${pos.rawItem.state ? pos.rawItem.state.collateral : '0'}";
+
+// Call contract function:
+// morpho.liquidate(marketParams, userToLiquidate, repayAmountRaw, minCollateralToSeize, "0x")`;
+
+      modalContent.innerHTML = `
+        <div>
+          <div class="modal-section-title">Liquidation Smart Contract Guide</div>
+          <div class="info-card" style="margin-bottom: 1rem;">
+            <div class="info-card-subvalue">1. Hold the loan token you want to repay: ${loanTokenUrl ? `<a class="asset-link" href="${loanTokenUrl}" target="_blank" rel="noopener noreferrer">${pos.loanSymbol}</a>` : pos.loanSymbol}</div>
+            <div class="info-card-subvalue">2. Approve Morpho to spend that loan token: ${loanApproveUrl ? `<a class="asset-link" href="${loanApproveUrl}" target="_blank" rel="noopener noreferrer">open token write/approve</a>` : 'approval link unavailable'}</div>
+            <div class="info-card-subvalue">3. Open the Morpho Blue write contract: ${morphoWriteUrl ? `<a class="asset-link" href="${morphoWriteUrl}" target="_blank" rel="noopener noreferrer">write contract</a>` : 'write contract link unavailable'}${morphoAddressUrl ? ` | <a class="asset-link" href="${morphoAddressUrl}" target="_blank" rel="noopener noreferrer">${MORPHO_BLUE_ADDRESS}</a>` : ''}</div>
+            <div class="info-card-subvalue">4. Call <span class="mono">liquidate</span> with the tuple and borrower below. If collateral is seized, unwind it here: ${matchaSwapUrl ? `<a class="asset-link" href="${matchaSwapUrl}" target="_blank" rel="noopener noreferrer">open Matcha</a>` : 'swap link unavailable'}</div>
+            <div class="info-card-subvalue" style="margin-top:0.75rem;">Tuple inputs: loan ${loanTokenUrl ? `<a class="asset-link" href="${loanTokenUrl}" target="_blank" rel="noopener noreferrer">${pos.loanAddress}</a>` : pos.loanAddress || 'N/A'} | collateral ${collateralTokenUrl ? `<a class="asset-link" href="${collateralTokenUrl}" target="_blank" rel="noopener noreferrer">${pos.collateralAddress}</a>` : pos.collateralAddress || 'N/A'} | oracle ${oracleUrl ? `<a class="asset-link" href="${oracleUrl}" target="_blank" rel="noopener noreferrer">${pos.oracleAddress}</a>` : pos.oracleAddress || 'N/A'} | irm ${irmUrl ? `<a class="asset-link" href="${irmUrl}" target="_blank" rel="noopener noreferrer">${pos.irmAddress}</a>` : pos.irmAddress || 'N/A'} | lltv ${pos.rawItem.market.lltv || '0'}</div>
+            <div class="info-card-subvalue">Borrower ${borrowerProfileUrl ? `<a class="asset-link" href="${borrowerProfileUrl}" target="_blank" rel="noopener noreferrer">${pos.userAddress}</a>` : pos.userAddress} | repay raw ${pos.rawItem.state ? pos.rawItem.state.borrowAssets : '0'} | min collateral raw ${pos.rawItem.state ? pos.rawItem.state.collateral : '0'}</div>
+            <div class="info-card-subvalue">Docs: <a class="asset-link" href="${MORPHO_LIQUIDATION_DOCS_URL}" target="_blank" rel="noopener noreferrer">Morpho liquidation guide</a></div>
+          </div>
+          <div class="execution-guide">${executionMockCode}</div>
+        </div>
+      `;
+
+      modalOverlay.classList.add('active');
+    };
+
+    // Scan trigger function
+    async function performScan() {
+      hideAlert();
+      const selectedChains = getSelectedChains();
+      if (selectedChains.length === 0) {
+        showAlert('Please select at least one target chain to scan.');
+        return;
+      }
+
+      showLoading(`Scanning Morpho positions on ${selectedChains.map(id => CHAIN_NAMES[id]).join(', ')}...`);
+      
+      try {
+        const rawItems = await fetchMorphoPositions(selectedChains);
+        positions = parsePositionData(rawItems);
+        
+        // Fetch external collateral prices for unique collateral tokens across all positions
+        const uniqueTokens = new Map();
+        positions.forEach(pos => {
+          if (pos.collateralAddress) {
+            const key = `${pos.chainId}-${pos.collateralAddress.toLowerCase()}`;
+            uniqueTokens.set(key, { chainId: pos.chainId, address: pos.collateralAddress });
+          }
+        });
+
+        const uniqueTokenList = Array.from(uniqueTokens.values());
+        const defiLlamaPriceMap = {};
+        const uniswapPriceMap = {};
+        const tokensNeedingDefiLlamaFetch = [];
+        const tokensNeedingUniswapFetch = [];
+
+        uniqueTokenList.forEach(token => {
+          const key = `${token.chainId}-${token.address.toLowerCase()}`;
+          const cachedDefiLlamaPrice = getFreshCachedValue(defiLlamaPriceCache, key);
+          if (cachedDefiLlamaPrice === undefined) {
+            tokensNeedingDefiLlamaFetch.push(token);
+          } else {
+            defiLlamaPriceMap[key] = cachedDefiLlamaPrice;
+          }
+        });
+
+        Array.from(uniqueTokens.entries()).forEach(([key, token]) => {
+          const cachedUniswapPrice = getFreshCachedValue(uniswapPriceCache, key);
+          if (cachedUniswapPrice === undefined) {
+            tokensNeedingUniswapFetch.push({ key, token });
+          } else {
+            uniswapPriceMap[key] = cachedUniswapPrice;
+          }
+        });
+
+        // Update loading message
+        loadingOverlayText.textContent = `Refreshing stale collateral prices only (${tokensNeedingDefiLlamaFetch.length} DefiLlama, ${tokensNeedingUniswapFetch.length} Uniswap; cache TTL 60s)...`;
+
+        // Fetch only stale or uncached prices
+        const [freshDefiLlamaPriceMap, freshUniswapResults] = await Promise.all([
+          tokensNeedingDefiLlamaFetch.length > 0 ? fetchDefiLlamaPrices(tokensNeedingDefiLlamaFetch) : Promise.resolve({}),
+          tokensNeedingUniswapFetch.length > 0
+            ? Promise.all(tokensNeedingUniswapFetch.map(({ key, token }) =>
+                fetchUniswapPrice(token.address, token.chainId)
+                  .then(price => ({ key, price }))
+                  .catch(() => ({ key, price: null }))
+              ))
+            : Promise.resolve([])
+        ]);
+
+        tokensNeedingDefiLlamaFetch.forEach(token => {
+          const key = `${token.chainId}-${token.address.toLowerCase()}`;
+          const price = freshDefiLlamaPriceMap[key] ?? 0;
+          setCachedValue(defiLlamaPriceCache, key, price);
+          defiLlamaPriceMap[key] = price;
+        });
+
+        freshUniswapResults.forEach(({ key, price }) => {
+          setCachedValue(uniswapPriceCache, key, price);
+          uniswapPriceMap[key] = price;
+        });
+
+        // Update positions with external prices and Uniswap deviations
+        positions = positions.map(pos => {
+          const cacheKey = pos.cacheKey;
+          const defiLlamaPrice = defiLlamaPriceMap[cacheKey];
+          const uniswapPrice = uniswapPriceMap[cacheKey];
+
+          if (defiLlamaPrice) {
+            pos.collateralPriceUsd = defiLlamaPrice;
+            pos.collateralPriceSource = 'DefiLlama';
+            pos.collateralUsd = pos.collateralAmount * defiLlamaPrice;
+          }
+          
+          if (uniswapPrice) {
+            pos.uniswapCollateralPrice = uniswapPrice;
+            pos.collateralPriceDeviation = calculatePriceDeviation(pos.collateralPriceUsd, uniswapPrice);
+          }
+
+          return updatePositionPriceDerivedMetrics(pos);
+        });
+        
+        // Sort positions by health factor in descending order
+        positions.sort((a, b) => b.healthFactor - a.healthFactor );
+
+        // Update UI Stats
+        updateStats(positions);
+
+        // Render current list
+        filterAndRender();
+      } catch (err) {
+        showAlert(`Scanning Failed: ${err.message}. Please try again.`);
+        console.error(err);
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // Auto Refresh Timer Mechanism
+    function resetAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      if (refreshProgressTimer) clearInterval(refreshProgressTimer);
+      timerWrapper.style.display = 'none';
+
+      if (autoRefreshInterval === 0) return;
+
+      secondsRemaining = autoRefreshInterval;
+      timerWrapper.style.display = 'block';
+      
+      // Initial circle state
+      timerCircle.style.strokeDashoffset = '0';
+      
+      refreshTimer = setInterval(() => {
+        performScan();
+        secondsRemaining = autoRefreshInterval;
+      }, autoRefreshInterval * 1000);
+
+      refreshProgressTimer = setInterval(() => {
+        secondsRemaining--;
+        if (secondsRemaining < 0) secondsRemaining = autoRefreshInterval;
+        
+        // Update SVG circle animation
+        const pct = (secondsRemaining / autoRefreshInterval);
+        const circumference = 2 * Math.PI * 9; // 56.54
+        timerCircle.style.strokeDashoffset = (circumference * (1 - pct)).toString();
+      }, 1000);
+    }
+
+    // Event listeners
+    btnRefresh.addEventListener('click', () => {
+      performScan();
+      resetAutoRefresh(); // Reset the timer on manual refresh
+    });
+
+    // Checkboxes change listeners
+    [1, 8453, 42161, 10].forEach(id => {
+      document.getElementById(`chain-${id}`).addEventListener('change', () => {
+        performScan();
+        resetAutoRefresh();
+      });
+    });
+
+    // Search filter input listener
+    searchFilterInput.addEventListener('input', () => filterAndRender(true));
+    hideNoPriceCheckbox.addEventListener('change', () => {
+      hideNoPriceFilter = hideNoPriceCheckbox.checked;
+      filterAndRender(true);
+    });
+
+    pageSizeSelect.addEventListener('change', () => {
+      pageSize = Number(pageSizeSelect.value) || 100;
+      currentPage = 1;
+      filterAndRender(false);
+    });
+
+    btnPrevPage.addEventListener('click', () => goToPage(currentPage - 1));
+    btnNextPage.addEventListener('click', () => goToPage(currentPage + 1));
+    btnUnexcludePrompt.addEventListener('click', unexcludeViaPrompt);
+    btnUnexcludeLoanPrompt.addEventListener('click', unexcludeLoanViaPrompt);
+
+    // Min borrow filter group buttons
+    borrowFilterGroup.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('btn-toggle')) return;
+      
+      // Toggle active states
+      borrowFilterGroup.querySelectorAll('.btn-toggle').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      
+      minBorrowFilter = Number(e.target.dataset.minBorrow);
+      filterAndRender(true);
+    });
+
+    // Max health filter group buttons
+    healthFilterGroup.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('btn-toggle')) return;
+      
+      // Toggle active states
+      healthFilterGroup.querySelectorAll('.btn-toggle').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      
+      maxHealthFilter = Number(e.target.dataset.maxHealth);
+      filterAndRender(true);
+    });
+
+    // Refresh interval group buttons
+    refreshIntervalGroup.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('btn-toggle')) return;
+
+      refreshIntervalGroup.querySelectorAll('.btn-toggle').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+
+      autoRefreshInterval = Number(e.target.dataset.interval);
+      resetAutoRefresh();
+    });
+
+    // Modal close listeners
+    modalClose.addEventListener('click', () => {
+      modalOverlay.classList.remove('active');
+    });
+
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) {
+        modalOverlay.classList.remove('active');
+      }
+    });
+
+    // Initial load
+    loadExcludedCollateral();
+    loadExcludedLoan();
+    renderExcludedList();
+    renderExcludedLoanList();
+    window.addEventListener('load', () => {
+      performScan();
+    });
+  </script>
+</body>
+</html>

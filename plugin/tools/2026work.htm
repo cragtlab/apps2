@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>2026WORK HTML</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body{
+    font-family:Segoe UI;
+    margin:20px;
+}
+
+button{
+    padding:8px 15px;
+    margin:5px;
+}
+
+table{
+    border-collapse:collapse;
+    width:100%;
+}
+
+td,th{
+    border:1px solid #ccc;
+    padding:4px;
+}
+
+#log{
+    border:1px solid #ccc;
+    height:180px;
+    overflow:auto;
+    padding:10px;
+    background:#f7f7f7;
+}
+
+.loaded{
+    color:green;
+}
+
+.notloaded{
+    color:red;
+}
+
+input{
+    padding:8px;
+    width:400px;
+}
+
+.summary{
+    margin-top:15px;
+}
+</style>
+</head>
+<body>
+
+<h1>2026WORK HTML</h1>
+
+<button id="pickFolder">Select Folder</button>
+<label style="margin-left:10px;"><input type="checkbox" id="asyncLoad" checked> Async Load</label>
+<span id="timerDisplay" style="margin-left:20px; font-weight:bold;"></span>
+<button id="exportCombined" style="margin-left:20px;">Export Combined</button>
+
+<br><br>
+
+
+<div class="summary">
+<table id="summaryTable">
+<thead>
+<tr>
+<th>Report</th>
+<th>Status</th>
+<th>Rows</th>
+<th>File</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<br>
+
+<div id="log"></div>
+
+<br>
+
+<div id="dashboard" style="margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; background: #fff; display:none;">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h3 style="margin:0;">Officer Dashboard</h3>
+        <label style="font-size:0.9em;"><input type="checkbox" id="showAllOfficers"> Show officers with only completed items</label>
+    </div>
+    <div id="dashboardContent" style="margin-top:10px;"></div>
+</div>
+
+<br>
+
+<h2>Search Results</h2>
+<input id="searchBox" placeholder="Search all loaded reports">
+<select id="officerFilter">
+    <option value="">All Officers</option>
+</select>
+<select id="statusFilter">
+    <option value="">All Statuses</option>
+</select>
+
+<div style="max-height:500px;overflow:auto;">
+<table id="results">
+<thead></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<script>
+
+//// Officer & Status
+const officerIndex = {};
+const statusIndex = {};
+const dashboardIndex = {};
+const officerAliasMap = {
+    "chee jay sian": "jay sian",
+    "jansson tee zhong hui": "jansson tee"
+};
+function normalizeOfficer(raw) {
+    if (!raw) return null;
+    let name = raw.trim().replaceAll("@gra.gov.sg","").replaceAll("_"," ").toLowerCase();
+    if (officerAliasMap[name]) return officerAliasMap[name];
+    return name;
+}
+function findOfficerColumn(headerRow) {
+    const targets = [
+        "assigned eo",
+        "assigned inspectors",
+        "assigned inspector"
+    ];
+
+    for (let i = 0; i < headerRow.length; i++) {
+        const h = String(headerRow[i]).toLowerCase().trim();
+
+        if (targets.includes(h)) {
+            return i;
+        }
+    }
+    return -1;
+}
+function indexData(reportName, rows) {
+    if (!rows || rows.length === 0) return;
+
+    const header = rows[0];
+    const officerCol = findOfficerColumn(header);
+    const statusCol = findStatusColumn(header);
+
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+
+        const rawOfficer = officerCol !== -1 ? row[officerCol] : null;
+        let officer = normalizeOfficer(rawOfficer);
+        if (!officer) officer = "no officer";
+
+        const status = statusCol !== -1 ? (row[statusCol] || "").toString().trim() : null;
+
+        if (officer) {
+            if (!officerIndex[officer]) officerIndex[officer] = [];
+            officerIndex[officer].push({ report: reportName, row });
+
+            if (status) {
+                if (!dashboardIndex[officer]) dashboardIndex[officer] = {};
+                if (!dashboardIndex[officer][status]) dashboardIndex[officer][status] = 0;
+                dashboardIndex[officer][status]++;
+            }
+        }
+
+        if (status) {
+            if (!statusIndex[status]) statusIndex[status] = [];
+            statusIndex[status].push({ report: reportName, row });
+        }
+    }
+    return -1;
+}
+function isStatusCompleted(status) {
+    if (!status) return false;
+    const s = status.toLowerCase();
+    return s.includes("closed") ||
+           s.includes("completed") ||
+           s.includes("rejected") ||
+           s.includes("withdraw");
+}
+function findStatusColumn(headerRow) {
+    for (let i = 0; i < headerRow.length; i++) {
+        const h = String(headerRow[i]).toLowerCase().trim();
+        if (h === "status") {
+            return i;
+        }
+    }
+    return -1;
+}
+function formatExcelDate(val) {
+    if (typeof val !== 'number') return val;
+    // 1899-12-30 is the Excel epoch
+    const d = new Date(1899, 11, 30);
+    d.setDate(d.getDate() + val);
+
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+
+    return `${day}-${month}-${year}`;
+}
+function refreshOfficerDropdown() {
+    const sel = document.getElementById("officerFilter");
+    const current = sel.value;
+
+    sel.innerHTML = `<option value="">All Officers</option>`;
+
+    const officers = Object.keys(officerIndex).sort();
+
+    for (const o of officers) {
+        const opt = document.createElement("option");
+        opt.value = o;
+        opt.textContent = `${o} (${officerIndex[o].length})`;
+        sel.appendChild(opt);
+    }
+    sel.value = current;
+}
+function filterByDashboard(officer, status) {
+    document.getElementById("officerFilter").value = officer;
+    document.getElementById("statusFilter").value = status;
+    applyFilters();
+}
+function refreshDashboard() {
+    const dash = document.getElementById("dashboard");
+    const content = document.getElementById("dashboardContent");
+    const showAll = document.getElementById("showAllOfficers").checked;
+
+    content.innerHTML = "";
+
+    const officers = Object.keys(dashboardIndex).sort();
+
+    if (officers.length === 0) {
+        dash.style.display = "none";
+        return;
+    }
+
+    dash.style.display = "block";
+
+    for (const o of officers) {
+        const statuses = Object.keys(dashboardIndex[o]).sort();
+
+        if (!showAll) {
+            const onlyCompleted = statuses.every(s => isStatusCompleted(s));
+            if (onlyCompleted) continue;
+        }
+
+        const row = document.createElement("div");
+        row.style.marginBottom = "5px";
+        row.innerHTML = `<strong>${o}</strong> `;
+
+        for (const s of statuses) {
+            const count = dashboardIndex[o][s];
+            const span = document.createElement("span");
+            span.style.marginRight = "10px";
+            span.style.cursor = "pointer";
+            span.style.color = isStatusCompleted(s) ? "grey" : "blue";
+            span.style.textDecoration = "underline";
+            span.textContent = `${s} (${count})`;
+            span.onclick = () => filterByDashboard(o, s);
+            row.appendChild(span);
+        }
+        content.appendChild(row);
+    }
+}
+document.getElementById("showAllOfficers").onchange = refreshDashboard;
+function refreshStatusDropdown() {
+    const sel = document.getElementById("statusFilter");
+    const current = sel.value;
+
+    sel.innerHTML = `<option value="">All Statuses</option>`;
+
+    const statuses = Object.keys(statusIndex).sort();
+
+    for (const s of statuses) {
+        const opt = document.createElement("option");
+        opt.value = s;
+        opt.textContent = `${s} (${statusIndex[s].length})`;
+        sel.appendChild(opt);
+    }
+    sel.value = current;
+}
+//////
+let folderHandle=null;
+
+const reports={
+
+    LJA_KPI_Report:null,
+    GEGM_KPI_Report:null,
+    EGM_KPI_Report:null,
+    SDA_KPI_Report:null,
+    "TA Report_":null
+};
+
+const loadedData={};
+
+function log(msg)
+{
+    const div=document.getElementById("log");
+    div.innerHTML+=msg+"<br>";
+    div.scrollTop=div.scrollHeight;
+}
+
+document.getElementById("pickFolder").onclick=async()=>
+{
+    folderHandle=await window.showDirectoryPicker();
+    log("Folder selected.");
+    loadReports();
+};
+
+function extractNumber(filename)
+{
+    const m=filename.match(/\((\d+)\)/);
+
+    if(m)
+        return parseInt(m[1]);
+
+    return 0;
+}
+
+function parseTAFile(filename)
+{
+    const m=filename.match(/TA Report_(\d{8})(?: \((\d+)\))?/i);
+
+    if(!m)
+        return null;
+
+    return {
+        date:m[1],
+        copy:parseInt(m[2]||1)
+    };
+}
+
+async function findLatestFiles()
+{
+    const found=[];
+
+    for await(const [name,handle] of folderHandle.entries())
+    {
+        if(handle.kind!=="file")
+            continue;
+
+        found.push({
+            name,
+            handle
+        });
+    }
+
+    for(const reportName in reports)
+    {
+        reports[reportName]=null;
+    }
+
+    for(const file of found)
+    {
+        const n=file.name;
+
+        if(n.startsWith("TA Report_"))
+        {
+            if(!reports["TA Report_"])
+            {
+                reports["TA Report_"]=file;
+            }
+            else
+            {
+                const a=parseTAFile(reports["TA Report_"].name);
+                const b=parseTAFile(file.name);
+
+                if(b)
+                {
+                    if(
+                        b.date>a.date ||
+                        (b.date===a.date && b.copy>a.copy)
+                    )
+                    {
+                        reports["TA Report_"]=file;
+                    }
+                }
+            }
+
+            continue;
+        }
+
+        for(const base of [
+            "LJA_KPI_Report",
+            "GEGM_KPI_Report",
+            "EGM_KPI_Report",
+            "SDA_KPI_Report"
+        ])
+        {
+            if(!n.startsWith(base))
+                continue;
+
+            if(!reports[base])
+            {
+                reports[base]=file;
+            }
+            else
+            {
+                const oldNum=
+                    extractNumber(reports[base].name);
+
+                const newNum=
+                    extractNumber(n);
+
+                if(newNum>oldNum)
+                {
+                    reports[base]=file;
+                }
+            }
+        }
+    }
+}
+
+async function loadExcelFile(fileHandle)
+{
+    const file=await fileHandle.getFile();
+
+    const buffer=await file.arrayBuffer();
+
+    const workbook=XLSX.read(buffer);
+
+    const sheet=
+        workbook.Sheets[
+            workbook.SheetNames[0]
+        ];
+
+    return XLSX.utils.sheet_to_json(
+        sheet,
+        {
+            header:1,
+            defval:""
+        }
+    );
+}
+
+async function loadReports(){
+    if(!folderHandle)
+    {
+        alert("Select folder first.");
+        return;
+    }
+
+    const startTime = performance.now();
+    document.getElementById("timerDisplay").textContent = "Loading...";
+
+    // Clear indices
+    for (const key in officerIndex) delete officerIndex[key];
+    for (const key in statusIndex) delete statusIndex[key];
+    for (const key in dashboardIndex) delete dashboardIndex[key];
+
+    await findLatestFiles();
+
+    const tbody=
+        document.querySelector("#summaryTable tbody");
+
+    tbody.innerHTML="";
+
+    const useAsync = document.getElementById("asyncLoad").checked;
+    const loadResults = [];
+
+    if (useAsync) {
+        const promises = [];
+        for (const reportName in reports) {
+            const report = reports[reportName];
+            if (report) {
+                promises.push((async () => {
+                    log("Loading " + report.name + " (async)");
+                    const data = await loadExcelFile(report.handle);
+                    return { reportName, data, report };
+                })());
+            }
+        }
+        loadResults.push(...(await Promise.all(promises)));
+    } else {
+        for (const reportName in reports) {
+            const report = reports[reportName];
+            if (report) {
+                log("Loading " + report.name + " (one-by-one)");
+                const data = await loadExcelFile(report.handle);
+                loadResults.push({ reportName, data, report });
+            }
+        }
+    }
+
+    for (const reportName in reports) {
+        const tr = document.createElement("tr");
+        const loaded = loadResults.find(r => r.reportName === reportName);
+
+        if (loaded) {
+            let { data, report } = loaded;
+
+            if (reportName === "TA Report_" && data.length > 0) {
+                const header = data[0].map(h => String(h).toLowerCase().trim());
+                const dateCols = ["submission date", "date of incident", "closed date", "kpi date"];
+                const targetIndices = dateCols.map(c => header.indexOf(c)).filter(idx => idx !== -1);
+
+                for (let i = 1; i < data.length; i++) {
+                    targetIndices.forEach(idx => {
+                        data[i][idx] = formatExcelDate(data[i][idx]);
+                    });
+                }
+            }
+
+            loadedData[reportName] = data;
+            // NEW: build indices
+            indexData(reportName, data);
+            tr.innerHTML = `
+                <td>${reportName}</td>
+                <td class='loaded'>Loaded</td>
+                <td>${Math.max(0, data.length - 1)}</td>
+                <td>${report.name}</td>
+            `;
+        } else {
+            tr.innerHTML = `
+                <td>${reportName}</td>
+                <td class='notloaded'>Missing</td>
+                <td>0</td>
+                <td></td>
+            `;
+        }
+        tbody.appendChild(tr);
+    }
+refreshOfficerDropdown();
+refreshStatusDropdown();
+refreshDashboard();
+    const duration = ((performance.now() - startTime) / 1000).toFixed(2);
+    document.getElementById("timerDisplay").textContent = `Loaded in ${duration}s`;
+    log(`Finished loading in ${duration}s.`);
+};
+
+function applyFilters() {
+    const term = document.getElementById("searchBox").value.toLowerCase();
+    const officer = document.getElementById("officerFilter").value;
+    const status = document.getElementById("statusFilter").value;
+
+    const results = [];
+
+    for (const reportName in loadedData) {
+        const rows = loadedData[reportName];
+        if (!rows || rows.length === 0) continue;
+
+        const header = rows[0];
+        const officerCol = findOfficerColumn(header);
+        const statusCol = findStatusColumn(header);
+
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+
+            // Filter by officer
+            if (officer) {
+                let rowOfficer = normalizeOfficer(row[officerCol]);
+                if (!rowOfficer) rowOfficer = "no officer";
+                if (rowOfficer !== officer) continue;
+            }
+
+            // Filter by status
+            if (status) {
+                const rowStatus = (row[statusCol] || "").toString().trim();
+                if (rowStatus !== status) continue;
+            }
+
+            // Filter by search term
+            if (term) {
+                const text = JSON.stringify(row).toLowerCase();
+                if (!text.includes(term)) continue;
+            }
+
+            results.push({
+                report: reportName,
+                row
+            });
+
+            if (results.length > 500) break;
+        }
+        if (results.length > 500) break;
+    }
+
+    renderResults(results);
+
+    if (results.length > 0) {
+        document.getElementById("results").scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+document.getElementById("searchBox").oninput = applyFilters;
+document.getElementById("officerFilter").onchange = applyFilters;
+document.getElementById("statusFilter").onchange = applyFilters;
+
+function renderResults(rows)
+{
+    const head=
+        document.querySelector("#results thead");
+
+    const body=
+        document.querySelector("#results tbody");
+
+    head.innerHTML="";
+    body.innerHTML="";
+
+    if(rows.length===0)
+        return;
+
+    let maxCols=0;
+
+    rows.forEach(r=>{
+        maxCols=Math.max(
+            maxCols,
+            r.row.length
+        );
+    });
+
+    let html="<tr><th>Report</th>";
+
+    for(let i=0;i<maxCols;i++)
+    {
+        html+=`<th>${i+1}</th>`;
+    }
+
+    html+="</tr>";
+
+    head.innerHTML=html;
+
+    for(const r of rows)
+    {
+        const tr=document.createElement("tr");
+
+        let rowHtml=
+            `<td>${r.report}</td>`;
+
+        for(let i=0;i<maxCols;i++)
+        {
+            rowHtml+=`
+            <td>${r.row[i]||""}</td>`;
+        }
+
+        tr.innerHTML=rowHtml;
+
+        body.appendChild(tr);
+    }
+}
+
+document.getElementById("exportCombined").onclick=()=>
+{
+    const combined=[];
+
+    for(const reportName in loadedData)
+    {
+        const rows=loadedData[reportName];
+
+        if(rows.length===0)
+            continue;
+
+        combined.push([
+            reportName
+        ]);
+
+        rows.forEach(r=>
+            combined.push(r)
+        );
+
+        combined.push([]);
+    }
+
+    const wb=
+        XLSX.utils.book_new();
+
+    const ws=
+        XLSX.utils.aoa_to_sheet(
+            combined
+        );
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        ws,
+        "Combined"
+    );
+
+    XLSX.writeFile(
+        wb,
+        "CombinedReports.xlsx"
+    );
+};
+
+</script>
+
+</body>
+</html>
