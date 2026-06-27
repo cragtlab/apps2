@@ -30,6 +30,8 @@
     .item h3 { margin: 0 0 5px 0; font-size: 1rem; }
     .item h3 a { text-decoration: none; color: #007bff; }
     .item .meta { font-size: 12px; color: #666; display: flex; justify-content: space-between; }
+    .item .feed-tag { cursor: pointer; color: #007bff; }
+    .item .feed-tag:hover { text-decoration: underline; }
     .item .desc { font-size: 14px; color: #333; margin-top: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .item .actions { margin-top: 10px; display: flex; gap: 10px; }
 
@@ -56,9 +58,13 @@
         </div>
 
         <div id="manageFeeds" class="hidden" style="background: #fafafa; padding: 10px; border-radius: 4px; border: 1px solid #eee; margin-bottom: 10px;">
-            <div class="row">
+            <div class="row" style="margin-bottom: 5px;">
                 <input type="url" id="newFeedUrl" placeholder="Add RSS or Page URL">
                 <button onclick="addFeed()">Add</button>
+            </div>
+            <div class="row" style="justify-content: flex-end; gap: 10px; margin-bottom: 5px;">
+                <button class="secondary" style="padding: 4px 8px; font-size: 11px;" onclick="exportToClipboard()">Copy TSV</button>
+                <button class="secondary" style="padding: 4px 8px; font-size: 11px;" onclick="importFromClipboard()">Paste TSV</button>
             </div>
             <div id="feedsContainer" class="feed-list"></div>
         </div>
@@ -88,6 +94,7 @@
     let readItems = new Set();
     let allItems = [];
     let filterFeed = null;
+    let seenLinks = new Set();
 
     function init() {
         const storedFeeds = JSON.parse(localStorage.getItem(STORAGE_KEY_FEEDS) || '[]');
@@ -220,6 +227,7 @@
 
         setStatus('Refreshing...');
         allItems = [];
+        seenLinks.clear();
         renderItems();
 
         const priorityFeeds = feeds.slice(0, 2);
@@ -311,6 +319,8 @@
     function parseScraped(links, feedUrl) {
         let count = 0;
         links.forEach(l => {
+            if (seenLinks.has(l.link)) return;
+            seenLinks.add(l.link);
             count++;
             allItems.push({
                 id: l.link,
@@ -331,9 +341,11 @@
 
         const items = xml.querySelectorAll('item');
         items.forEach(item => {
+            const link = item.querySelector('link')?.textContent || '';
+            if (seenLinks.has(link)) return;
+            seenLinks.add(link);
             count++;
             const title = item.querySelector('title')?.textContent || 'No Title';
-            const link = item.querySelector('link')?.textContent || '';
             const pubDate = item.querySelector('pubDate, dc\\:date')?.textContent;
             const date = pubDate ? new Date(pubDate) : new Date(0);
             const description = item.querySelector('description')?.textContent || '';
@@ -344,9 +356,11 @@
 
         const entries = xml.querySelectorAll('entry');
         entries.forEach(entry => {
+            const link = entry.querySelector('link')?.getAttribute('href') || '';
+            if (seenLinks.has(link)) return;
+            seenLinks.add(link);
             count++;
             const title = entry.querySelector('title')?.textContent || 'No Title';
-            const link = entry.querySelector('link')?.getAttribute('href') || '';
             const updated = entry.querySelector('updated, published')?.textContent;
             const date = updated ? new Date(updated) : new Date(0);
             const content = entry.querySelector('summary, content')?.textContent || '';
@@ -403,7 +417,9 @@
             const metaDiv = document.createElement('div');
             metaDiv.className = 'meta';
             const feedSpan = document.createElement('span');
+            feedSpan.className = 'feed-tag';
             feedSpan.textContent = item.feedTitle;
+            feedSpan.onclick = () => setFilterFeed(item.feedUrl);
             const dateSpan = document.createElement('span');
             dateSpan.textContent = item.date.getTime() > 0 ? `${item.date.toLocaleDateString()} ${item.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : '';
             metaDiv.appendChild(feedSpan);
@@ -465,6 +481,54 @@
 
     function setStatus(msg) {
         document.getElementById('status').textContent = msg;
+    }
+
+    async function exportToClipboard() {
+        const rows = [['URL', 'Items', 'Last Fetch']];
+        feeds.forEach(f => {
+            rows.push([f.url, f.itemCount || 0, f.lastFetch || '']);
+        });
+        const tsv = rows.map(r => r.join('\t')).join('\n');
+        try {
+            await navigator.clipboard.writeText(tsv);
+            setStatus('Feeds copied to clipboard');
+        } catch (e) {
+            alert('Failed to copy: ' + e.message);
+        }
+    }
+
+    async function importFromClipboard() {
+        try {
+            const text = await navigator.clipboard.readText();
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) return;
+
+            const header = lines[0].split('\t');
+            const urlIdx = header.indexOf('URL');
+            if (urlIdx === -1) {
+                alert('Invalid TSV: Missing "URL" column');
+                return;
+            }
+
+            const imported = [];
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split('\t');
+                const url = cols[urlIdx]?.trim();
+                if (url && !feeds.some(f => f.url === url)) {
+                    imported.push({ url, itemCount: 0, lastFetch: null });
+                }
+            }
+
+            if (imported.length > 0) {
+                feeds.push(...imported);
+                saveFeeds();
+                renderFeeds();
+                setStatus(`Imported ${imported.length} feeds`);
+                refreshAll();
+            }
+        } catch (e) {
+            alert('Failed to read clipboard: ' + e.message);
+        }
     }
 
     init();
