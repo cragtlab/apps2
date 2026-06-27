@@ -88,6 +88,7 @@
     let readItems = new Set();
     let allItems = [];
     let filterFeed = null;
+    let seenLinks = new Set();
 
     function init() {
         const storedFeeds = JSON.parse(localStorage.getItem(STORAGE_KEY_FEEDS) || '[]');
@@ -220,6 +221,7 @@
 
         setStatus('Refreshing...');
         allItems = [];
+        seenLinks.clear();
         renderItems();
 
         const priorityFeeds = feeds.slice(0, 2);
@@ -311,6 +313,8 @@
     function parseScraped(links, feedUrl) {
         let count = 0;
         links.forEach(l => {
+            if (seenLinks.has(l.link)) return;
+            seenLinks.add(l.link);
             count++;
             allItems.push({
                 id: l.link,
@@ -331,9 +335,11 @@
 
         const items = xml.querySelectorAll('item');
         items.forEach(item => {
+            const link = item.querySelector('link')?.textContent || '';
+            if (seenLinks.has(link)) return;
+            seenLinks.add(link);
             count++;
             const title = item.querySelector('title')?.textContent || 'No Title';
-            const link = item.querySelector('link')?.textContent || '';
             const pubDate = item.querySelector('pubDate, dc\\:date')?.textContent;
             const date = pubDate ? new Date(pubDate) : new Date(0);
             const description = item.querySelector('description')?.textContent || '';
@@ -344,9 +350,11 @@
 
         const entries = xml.querySelectorAll('entry');
         entries.forEach(entry => {
+            const link = entry.querySelector('link')?.getAttribute('href') || '';
+            if (seenLinks.has(link)) return;
+            seenLinks.add(link);
             count++;
             const title = entry.querySelector('title')?.textContent || 'No Title';
-            const link = entry.querySelector('link')?.getAttribute('href') || '';
             const updated = entry.querySelector('updated, published')?.textContent;
             const date = updated ? new Date(updated) : new Date(0);
             const content = entry.querySelector('summary, content')?.textContent || '';
