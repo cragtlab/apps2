@@ -19,7 +19,9 @@
     button.icon-btn:hover { opacity: 1; background: #eee; }
     .feed-list { margin: 10px 0; max-height: 200px; overflow-y: auto; }
     .feed-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13px; border-bottom: 1px dashed #eee; }
-    .feed-info { display: flex; flex-direction: column; flex: 1; min-width: 0; margin-right: 10px; }
+    .feed-info { display: flex; flex-direction: column; flex: 1; min-width: 0; margin-right: 10px; cursor: pointer; }
+    .feed-info:hover { opacity: 0.7; }
+    .feed-item.active { background: #e7f3ff; }
     .feed-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
     .feed-meta { font-size: 11px; color: #666; }
     .items { display: flex; flex-direction: column; gap: 15px; }
@@ -31,7 +33,6 @@
     .item .desc { font-size: 14px; color: #333; margin-top: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .item .actions { margin-top: 10px; display: flex; gap: 10px; }
 
-    /* Minimal View Styles */
     .minimal .item { padding: 5px 10px; border: none; border-bottom: 1px solid #f0f0f0; border-radius: 0; }
     .minimal .item h3 { font-size: 0.9rem; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .minimal .item .meta, .minimal .item .desc, .minimal .item .actions { display: none; }
@@ -86,6 +87,7 @@
     let settings = { workerUrl: DEFAULT_WORKER_URL, showRead: true, isMinimal: true };
     let readItems = new Set();
     let allItems = [];
+    let filterFeed = null;
 
     function init() {
         const storedFeeds = JSON.parse(localStorage.getItem(STORAGE_KEY_FEEDS) || '[]');
@@ -154,6 +156,7 @@
 
     function removeFeed(url) {
         feeds = feeds.filter(f => f.url !== url);
+        if (filterFeed === url) filterFeed = null;
         saveFeeds();
         renderFeeds();
         refreshAll();
@@ -163,15 +166,26 @@
         localStorage.setItem(STORAGE_KEY_FEEDS, JSON.stringify(feeds));
     }
 
+    function setFilterFeed(url) {
+        if (filterFeed === url) {
+            filterFeed = null;
+        } else {
+            filterFeed = url;
+        }
+        renderFeeds();
+        renderItems();
+    }
+
     function renderFeeds() {
         const container = document.getElementById('feedsContainer');
         container.innerHTML = '';
         feeds.forEach(f => {
             const div = document.createElement('div');
-            div.className = 'feed-item';
+            div.className = `feed-item ${filterFeed === f.url ? 'active' : ''}`;
 
             const info = document.createElement('div');
             info.className = 'feed-info';
+            info.onclick = () => setFilterFeed(f.url);
 
             const urlSpan = document.createElement('span');
             urlSpan.className = 'feed-url';
@@ -189,7 +203,7 @@
             btn.className = 'danger';
             btn.style.cssText = 'padding: 2px 6px; font-size: 10px;';
             btn.textContent = 'Remove';
-            btn.onclick = () => removeFeed(f.url);
+            btn.onclick = (e) => { e.stopPropagation(); removeFeed(f.url); };
 
             div.appendChild(info);
             div.appendChild(btn);
@@ -304,7 +318,8 @@
                 link: l.link,
                 date: new Date(),
                 description: '',
-                feedTitle: feedUrl
+                feedTitle: feedUrl,
+                feedUrl: feedUrl
             });
         });
         return count;
@@ -324,7 +339,7 @@
             const description = item.querySelector('description')?.textContent || '';
             const id = item.querySelector('guid')?.textContent || link || (title + date.getTime());
 
-            allItems.push({ id, title, link, date, description, feedTitle });
+            allItems.push({ id, title, link, date, description, feedTitle, feedUrl });
         });
 
         const entries = xml.querySelectorAll('entry');
@@ -337,7 +352,7 @@
             const content = entry.querySelector('summary, content')?.textContent || '';
             const id = entry.querySelector('id')?.textContent || link || (title + date.getTime());
 
-            allItems.push({ id, title, link, date, description: content, feedTitle });
+            allItems.push({ id, title, link, date, description: content, feedTitle, feedUrl });
         });
         return count;
     }
@@ -345,6 +360,11 @@
     function getFilteredItems() {
         const q = document.getElementById('searchInput').value.toLowerCase();
         let filtered = settings.showRead ? allItems : allItems.filter(i => !readItems.has(i.id));
+
+        if (filterFeed) {
+            filtered = filtered.filter(i => i.feedUrl === filterFeed);
+        }
+
         if (q) {
             filtered = filtered.filter(i =>
                 i.title.toLowerCase().includes(q) ||
@@ -360,6 +380,13 @@
         const filtered = getFilteredItems();
 
         container.innerHTML = '';
+        if (filterFeed) {
+            const indicator = document.createElement('div');
+            indicator.style.cssText = 'padding: 5px; font-size: 12px; color: #007bff; border-bottom: 1px solid #eee; margin-bottom: 10px; display: flex; justify-content: space-between;';
+            indicator.innerHTML = `<span>Filtered by: ${filterFeed}</span><span style="cursor:pointer;" onclick="setFilterFeed(null)">Clear</span>`;
+            container.appendChild(indicator);
+        }
+
         filtered.forEach(item => {
             const isRead = readItems.has(item.id);
             const itemDiv = document.createElement('div');
