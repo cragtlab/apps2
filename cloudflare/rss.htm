@@ -30,6 +30,8 @@
     .item h3 { margin: 0 0 5px 0; font-size: 1rem; }
     .item h3 a { text-decoration: none; color: #007bff; }
     .item .meta { font-size: 12px; color: #666; display: flex; justify-content: space-between; }
+    .item .feed-tag { cursor: pointer; color: #007bff; }
+    .item .feed-tag:hover { text-decoration: underline; }
     .item .desc { font-size: 14px; color: #333; margin-top: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .item .actions { margin-top: 10px; display: flex; gap: 10px; }
 
@@ -411,7 +413,9 @@
             const metaDiv = document.createElement('div');
             metaDiv.className = 'meta';
             const feedSpan = document.createElement('span');
+            feedSpan.className = 'feed-tag';
             feedSpan.textContent = item.feedTitle;
+            feedSpan.onclick = () => setFilterFeed(item.feedUrl);
             const dateSpan = document.createElement('span');
             dateSpan.textContent = item.date.getTime() > 0 ? `${item.date.toLocaleDateString()} ${item.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : '';
             metaDiv.appendChild(feedSpan);
