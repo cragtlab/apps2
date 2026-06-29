@@ -55,8 +55,9 @@ const progressiveHitsPlugin = {
 
         .prog-hits-plugin .empty { padding: 24px; text-align: center; color: #475569; font-size: 0.85rem; }
         .prog-hits-plugin .loading-overlay {
-          background: rgba(15, 23, 42, 0.6);
-          padding: 20px; text-align: center; border-radius: 10px; margin-bottom: 20px;
+          background: rgba(30, 41, 59, 0.8);
+          padding: 30px; text-align: center; border-radius: 10px; margin-bottom: 20px;
+          border: 1px solid #334155;
         }
       </style>
       <div class="prog-hits-plugin">
@@ -168,14 +169,17 @@ const progressiveHitsPlugin = {
   processHits: function(grambs, grarws) {
     const records = [];
 
-    const processSet = (data, casino) => {
-      if (!data) return;
-      for (const sheetName in data) {
-        const rows = data[sheetName];
+    const processSet = (input, casino) => {
+      if (!input) return;
+      // Handle both object-wrapped (multi-sheet) and flat array data
+      const dataSets = (typeof input === 'object' && !Array.isArray(input)) ? input : { "Default": input };
+
+      for (const sheetName in dataSets) {
+        const rows = dataSets[sheetName];
         if (!rows || rows.length < 2 || !Array.isArray(rows[0])) continue;
 
         const headers = rows[0].map(c => String(c||'').trim().toLowerCase());
-        const col = k => headers.findIndex(h => h.includes(k.toLowerCase()));
+        const col = k => headers.indexOf(k.toLowerCase()); // Exact match to avoid collisions
 
         const iLink = col('link name'),
               iLoc = col('location'),
@@ -186,7 +190,26 @@ const progressiveHitsPlugin = {
               iMonth = col('source month'),
               iDay = col('source day');
 
-        if (iLink === -1 || iAmt === -1) continue;
+        if (iLink === -1 || iAmt === -1) {
+           // Fallback to .includes if exact match fails for essential columns
+           const iLinkInc = headers.findIndex(h => h.includes('link name'));
+           const iAmtInc = headers.findIndex(h => h.includes('amount'));
+           if (iLinkInc === -1 || iAmtInc === -1) continue;
+        }
+
+        const getIdx = (k) => {
+           const exact = col(k);
+           return exact !== -1 ? exact : headers.findIndex(h => h.includes(k.toLowerCase()));
+        };
+
+        const idxLink = getIdx('link name'),
+              idxLoc = getIdx('location'),
+              idxSerial = getIdx('serial'),
+              idxAsset = getIdx('asset'),
+              idxTime = getIdx('time'),
+              idxAmt = getIdx('amount'),
+              idxMonth = getIdx('source month'),
+              idxDay = getIdx('source day');
 
         for (let r = 1; r < rows.length; r++) {
           const row = rows[r];
@@ -196,13 +219,13 @@ const progressiveHitsPlugin = {
 
           records.push({
             casino: casino,
-            month: iMonth !== -1 ? String(row[iMonth]) : "Unknown",
-            day: iDay !== -1 ? parseInt(row[iDay]) : 0,
+            month: idxMonth !== -1 ? String(row[idxMonth]) : "Unknown",
+            day: idxDay !== -1 ? parseInt(row[idxDay]) : 0,
             linkName,
-            location: iLoc !== -1 ? String(row[iLoc]||'').trim() : "",
-            serial: iSerial !== -1 ? String(row[iSerial]||'').trim() : "",
-            asset: iAsset !== -1 ? String(row[iAsset]||'').trim() : "",
-            time: iTime !== -1 ? String(row[iTime]||'').trim() : "",
+            location: idxLoc !== -1 ? String(row[idxLoc]||'').trim() : "",
+            serial: idxSerial !== -1 ? String(row[idxSerial]||'').trim() : "",
+            asset: idxAsset !== -1 ? String(row[idxAsset]||'').trim() : "",
+            time: idxTime !== -1 ? String(row[idxTime]||'').trim() : "",
             amount
           });
         }

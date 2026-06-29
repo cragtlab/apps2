@@ -161,45 +161,45 @@
         }
 
         if (type.endsWith("PR")) {
-          // Progressive: load all months and combine
-          // For GRAMBSPR/GRARWSPR, we merge sheets 1 to day cumulatively
-          const targetKey = type.replace("PR", ""); // e.g. "GRAMBS"
+          const targetKey = type.replace("PR", "");
           let combinedResult = {};
           let masterRows = [];
+          let masterHeader = null;
 
           for (const f of info.files) {
              const allSheets = await loadExcelFile(f.handle, type);
              const month = f.date.substring(0, 6);
              const day = parseInt(f.date.substring(6, 8));
 
-             let rowsForThisFile = [];
              for (let d = 1; d <= day; d++) {
                 const sheetName = d.toString();
                 if (allSheets[sheetName]) {
                    const sheetData = allSheets[sheetName];
-                   // Read from 3rd row (index 2) as header
                    if (sheetData.length < 3) continue;
-                   const rawHeader = sheetData[2];
-                   const linkNameIdx = rawHeader.findIndex(c => String(c||'').trim().toLowerCase() === "link name");
 
-                   if (rowsForThisFile.length === 0) {
-                      const header = [...rawHeader, "Source Month", "Source Day"];
-                      rowsForThisFile.push(header);
+                   const rawHeader = sheetData[2];
+                   if (!masterHeader) {
+                      masterHeader = [...rawHeader, "Source Month", "Source Day"];
+                      masterRows.push(masterHeader);
                    }
+
+                   const linkNameIdx = rawHeader.findIndex(c => String(c||'').trim().toLowerCase() === "link name");
 
                    for (let i = 3; i < sheetData.length; i++) {
                       const row = sheetData[i];
-                      // Ignore if link name is empty
                       if (linkNameIdx !== -1 && !String(row[linkNameIdx]||'').trim()) continue;
-                      rowsForThisFile.push([...row, month, d]);
+
+                      // Normalize row length to match masterHeader
+                      const normalizedRow = new Array(masterHeader.length - 2).fill("");
+                      for (let j = 0; j < Math.min(row.length, masterHeader.length - 2); j++) {
+                         normalizedRow[j] = row[j];
+                      }
+                      normalizedRow.push(month, d);
+                      masterRows.push(normalizedRow);
                    }
                 }
-             }
-
-             if (masterRows.length === 0) {
-                masterRows = rowsForThisFile;
-             } else {
-                masterRows = masterRows.concat(rowsForThisFile.slice(1));
+                // Yield to UI
+                await new Promise(r => setTimeout(r, 0));
              }
           }
           combinedResult[targetKey] = masterRows;
