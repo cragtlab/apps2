@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Golden Claw Machine</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        :root {
+            --machine-color: #ff4081;
+            --glass-color: rgba(255, 255, 255, 0.2);
+            --accent-color: #ffd700;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #222;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        #machine-top {
+            width: 100%;
+            height: 60px;
+            background: var(--machine-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        #strength-meter {
+            width: 150px;
+            height: 20px;
+            background: #444;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid white;
+            position: relative;
+        }
+
+        #strength-fill {
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00);
+            transition: width 0.3s ease;
+        }
+
+        #score-container {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            flex-grow: 1;
+            background: linear-gradient(to bottom, #333, #111);
+            overflow: hidden;
+        }
+
+        #controls {
+            width: 100%;
+            padding: 20px 0;
+            background: var(--machine-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            z-index: 10;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        #drop-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #ff0000;
+            border: 5px solid #800000;
+            box-shadow: 0 6px 0 #800000, 0 10px 20px rgba(0,0,0,0.5);
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #drop-button:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #800000;
+        }
+
+        #collection-btn {
+            position: absolute;
+            top: 70px;
+            right: 10px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid white;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 11;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .btn-large {
+            background: var(--accent-color);
+            color: black;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        #win-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 110;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-color);
+        }
+
+        .golden-ball-win {
+            font-size: 5rem;
+            margin-bottom: 20px;
+        }
+
+        #debug {
+            position: absolute;
+            top: 0;
+            left: 0;
+            font-size: 10px;
+            pointer-events: none;
+            color: #666;
+        }
+
+        #collection-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 120;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #collection-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            overflow-y: auto;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .collection-item {
+            background: #333;
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .collection-item img {
+            width: 50px;
+            height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="machine-top">
+            <div style="display:flex; flex-direction:column; align-items:center;">
+                <div id="score-container">Collected: <span id="score-val">0</span></div>
+                <div id="strength-meter">
+                    <div id="strength-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <!-- Canvas will be inserted here -->
+        </div>
+
+        <div id="controls">
+            <button id="drop-button">DROP</button>
+        </div>
+
+        <button id="collection-btn">🎒 My Toys</button>
+        <div id="debug"></div>
+    </div>
+
+    <div id="overlay">
+        <h1>Golden Claw</h1>
+        <p>Tilt phone to move claw.<br>Tap RED button to drop!</p>
+        <button class="btn-large" id="start-btn">START GAME</button>
+    </div>
+
+    <div id="win-screen">
+        <div class="golden-ball-win">🟡</div>
+        <h1>YOU FOUND IT!</h1>
+        <p>The Golden Ball is yours!</p>
+        <button class="btn-large" id="restart-btn">PLAY AGAIN</button>
+    </div>
+
+    <div id="collection-modal">
+        <h1>My Collection</h1>
+        <div id="collection-grid"></div>
+        <button class="btn-large" id="close-collection">CLOSE</button>
+    </div>
+
+    <script>
+        const { Engine, Render, Runner, Bodies, Composite, Constraint, Mouse, MouseConstraint, Events, Body } = Matter;
+
+        let engine, render, runner;
+        let claw, clawArm, leftClaw, rightClaw;
+        let prizes = [];
+        let isDropping = false;
+        let strength = 1; // 0.5, 0.7, 1.0
+        let targetX = 0;
+        let currentX = 0;
+        let tilt = 0;
+        const width = window.innerWidth;
+        const height = window.innerHeight - 150; // Adjusted for controls
+
+        const EMOJIS = ['🧸', '🐰', '🐼', '🐱', '🐶', '🦊', '🦁', '🐯', '🐸', '🦄', '🦖'];
+        const GOLDEN_BALL = '🟡';
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('overlay').style.display = 'none';
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                            initGame();
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+                initGame();
+            }
+        });
+
+        function handleOrientation(event) {
+            // gamma is left/right tilt in degrees [-90, 90]
+            tilt = event.gamma || 0;
+        }
+
+        function initGame() {
+            updateScore();
+            engine = Engine.create();
+            render = Render.create({
+                element: document.getElementById('canvas-container'),
+                engine: engine,
+                options: {
+                    width: width,
+                    height: height,
+                    wireframes: false,
+                    background: 'transparent'
+                }
+            });
+
+            // Walls
+            const wallOptions = { isStatic: true, render: { fillStyle: '#333' } };
+            const leftWall = Bodies.rectangle(10, height / 2, 20, height, wallOptions);
+            const rightWall = Bodies.rectangle(width - 10, height / 2, 20, height, wallOptions);
+            const ground = Bodies.rectangle(width / 2, height - 10, width, 20, wallOptions);
+            
+            // Chute
+            const chuteWall = Bodies.rectangle(80, height - 60, 10, 120, wallOptions);
+            const chuteFloor = Bodies.rectangle(40, height - 5, 80, 10, { isStatic: true, render: { fillStyle: '#111' } });
+
+            Composite.add(engine.world, [leftWall, rightWall, ground, chuteWall, chuteFloor]);
+
+            spawnPrizes();
+            createClaw();
+
+            Render.run(render);
+            runner = Runner.create();
+            Runner.run(runner, engine);
+
+            Events.on(engine, 'beforeUpdate', updateClawPosition);
+            
+            // Randomize strength for start
+            randomizeStrength();
+        }
+
+        function spawnPrizes() {
+            const prizeCount = 25;
+            const rows = 5;
+            const cols = 5;
+            const startX = 120;
+            const startY = height - 150;
+            const spacing = (width - 150) / cols;
+
+            for (let i = 0; i < prizeCount; i++) {
+                const isGolden = i === prizeCount - 1;
+                const emoji = isGolden ? GOLDEN_BALL : EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+                const x = startX + (i % cols) * spacing + (Math.random() * 20 - 10);
+                const y = startY - Math.floor(i / cols) * 40;
+                
+                const prize = Bodies.circle(x, y, 20, {
+                    restitution: 0.3,
+                    friction: 0.8,
+                    density: isGolden ? 0.002 : (0.001 + Math.random() * 0.002), // Golden and some others are heavier
+                    render: {
+                        sprite: {
+                            texture: createEmojiTexture(emoji, isGolden),
+                            xScale: 1,
+                            yScale: 1
+                        }
+                    },
+                    label: isGolden ? 'golden' : 'softy'
+                });
+                prizes.push(prize);
+                Composite.add(engine.world, prize);
+            }
+        }
+
+        function createEmojiTexture(emoji, isGolden) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            if (isGolden) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "gold";
+            }
+            ctx.font = '40px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(emoji, 32, 32);
+            return canvas.toDataURL();
+        }
+
+        function createClaw() {
+            currentX = width / 2;
+            const clawGroup = Body.nextGroup(true);
+
+            // The carriage that moves L/R
+            claw = Bodies.rectangle(currentX, 40, 100, 40, { 
+                isStatic: true, 
+                collisionFilter: { group: clawGroup },
+                render: { fillStyle: '#ffd700', strokeStyle: '#b8860b', lineWidth: 2 } 
+            });
+
+            // The claw head that moves down
+            clawArm = Bodies.rectangle(currentX, 100, 30, 30, {
+                collisionFilter: { group: clawGroup },
+                render: { fillStyle: '#ffd700', strokeStyle: '#b8860b', lineWidth: 2 },
+                isStatic: false,
+                density: 0.1
+            });
+
+            // Constraint to keep arm attached to carriage (vertical movement)
+            clawConstraint = Constraint.create({
+                bodyA: claw,
+                pointB: { x: 0, y: -15 },
+                bodyB: clawArm,
+                pointA: { x: 0, y: 20 },
+                stiffness: 1,
+                length: 0,
+                render: { visible: true, strokeStyle: '#ccc', lineWidth: 8 }
+            });
+
+            // Claw Fingers
+            const fingerOptions = {
+                collisionFilter: { group: clawGroup },
+                render: { fillStyle: '#777' },
+                friction: 1,
+                restitution: 0
+            };
+
+            leftClaw = Bodies.rectangle(currentX - 25, 90, 15, 50, { ...fingerOptions, angle: -Math.PI / 4, render: { fillStyle: '#ffd700' } });
+            rightClaw = Bodies.rectangle(currentX + 25, 90, 15, 50, { ...fingerOptions, angle: Math.PI / 4, render: { fillStyle: '#ffd700' } });
+
+            leftPivot = Constraint.create({
+                bodyA: clawArm,
+                pointA: { x: -8, y: 20 },
+                bodyB: leftClaw,
+                pointB: { x: 0, y: -25 },
+                stiffness: 1,
+                length: 0,
+                render: { visible: false }
+            });
+
+            rightPivot = Constraint.create({
+                bodyA: clawArm,
+                pointA: { x: 8, y: 20 },
+                bodyB: rightClaw,
+                pointB: { x: 0, y: -25 },
+                stiffness: 1,
+                length: 0,
+                render: { visible: false }
+            });
+
+            // Grip constraints (to close/open)
+            gripSpring = Constraint.create({
+                bodyA: leftClaw,
+                bodyB: rightClaw,
+                pointA: { x: 0, y: 20 },
+                pointB: { x: 0, y: 20 },
+                stiffness: 0.05,
+                length: 70,
+                render: { visible: false }
+            });
+
+            Composite.add(engine.world, [claw, clawArm, leftClaw, rightClaw, clawConstraint, leftPivot, rightPivot, gripSpring]);
+        }
+
+        function updateClawPosition() {
+            if (!isDropping) {
+                // Update X based on tilt
+                const sensitivity = 2.5;
+                currentX += tilt * 0.15 * sensitivity;
+                
+                // Bounds
+                if (currentX < 60) currentX = 60;
+                if (currentX > width - 60) currentX = width - 60;
+
+                Body.setPosition(claw, { x: currentX, y: 40 });
+            } else {
+                // If dropping, we might want to shake if strength is low
+                if (strength < 0.5 && Math.random() > 0.8) {
+                    Body.translate(claw, { x: Math.random() * 6 - 3, y: 0 });
+                }
+            }
+            
+            // Sync currentX with the carriage position
+            const actualX = claw.position.x;
+
+            // Move the rest of the parts to follow the carriage's X
+            const dx = actualX - clawArm.position.x;
+            if (Math.abs(dx) > 0.01) {
+                Body.translate(clawArm, { x: dx, y: 0 });
+                Body.translate(leftClaw, { x: dx, y: 0 });
+                Body.translate(rightClaw, { x: dx, y: 0 });
+            }
+        }
+
+        function randomizeStrength() {
+            const levels = [0.3, 0.6, 1.0];
+            strength = levels[Math.floor(Math.random() * levels.length)];
+            const fill = document.getElementById('strength-fill');
+            fill.style.width = (strength * 100) + '%';
+            
+            // Visual feedback
+            if (strength < 0.5) {
+                fill.style.background = '#ff0000';
+            } else if (strength < 1.0) {
+                fill.style.background = '#ffff00';
+            } else {
+                fill.style.background = '#00ff00';
+            }
+        }
+
+        document.getElementById('drop-button').addEventListener('touchstart', dropClaw);
+        document.getElementById('drop-button').addEventListener('click', dropClaw);
+
+        async function dropClaw() {
+            if (isDropping) return;
+            isDropping = true;
+            
+            if (navigator.vibrate) navigator.vibrate(50);
+
+            // 1. Drop Down
+            let targetY = height - 100;
+            while (clawConstraint.length < targetY - 100) {
+                clawConstraint.length += 5;
+                await new Promise(r => requestAnimationFrame(r));
+            }
+
+            // 2. Close Claw
+            gripSpring.stiffness = strength * 0.1;
+            gripSpring.length = 10;
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            
+            await new Promise(r => setTimeout(r, 500));
+
+            // 3. Lift Up
+            const willFail = Math.random() < 0.3; // 30% failure chance
+            const failAt = willFail ? (Math.random() * 0.5 + 0.2) : 1.1; // Fail between 20% and 70% height
+            
+            const startLen = clawConstraint.length;
+            while (clawConstraint.length > 0) {
+                clawConstraint.length -= 3;
+                
+                // Check for accidental drop
+                const progress = 1 - (clawConstraint.length / startLen);
+                if (progress > failAt) {
+                    gripSpring.stiffness = 0.01; // Weakened
+                    gripSpring.length = 60;
+                    if (navigator.vibrate) navigator.vibrate(200);
+                }
+
+                await new Promise(r => requestAnimationFrame(r));
+            }
+
+            // 4. Move to Chute
+            const startX = currentX;
+            const chuteX = 40;
+            const steps = 60;
+            for (let i = 0; i <= steps; i++) {
+                currentX = startX + (chuteX - startX) * (i / steps);
+                Body.setPosition(claw, { x: currentX, y: 50 });
+                await new Promise(r => requestAnimationFrame(r));
+            }
+
+            // 5. Open Claw
+            gripSpring.stiffness = 0.05;
+            gripSpring.length = 60;
+            await new Promise(r => setTimeout(r, 800));
+
+            // 6. Return to center and Reset
+            for (let i = 0; i <= steps; i++) {
+                currentX = chuteX + (width / 2 - chuteX) * (i / steps);
+                Body.setPosition(claw, { x: currentX, y: 50 });
+                await new Promise(r => requestAnimationFrame(r));
+            }
+
+            isDropping = false;
+            randomizeStrength();
+            checkPrizes();
+        }
+
+        function checkPrizes() {
+            // Check if any prize is in the chute (x < 80 and y > height - 100)
+            for (let i = prizes.length - 1; i >= 0; i--) {
+                const prize = prizes[i];
+                if (prize.position.x < 85 && prize.position.y > height - 100) {
+                    handleCapture(prize, i);
+                }
+            }
+        }
+
+        function handleCapture(prize, index) {
+            const isGolden = prize.label === 'golden';
+            const texture = prize.render.sprite.texture;
+            
+            // Remove from world
+            Composite.remove(engine.world, prize);
+            prizes.splice(index, 1);
+
+            if (isGolden) {
+                showWin();
+            } else {
+                addToCollection(texture);
+                updateScore();
+            }
+        }
+
+        function updateScore() {
+            let collection = JSON.parse(localStorage.getItem('claw_collection') || '[]');
+            document.getElementById('score-val').textContent = collection.length;
+        }
+
+        function addToCollection(texture) {
+            let collection = JSON.parse(localStorage.getItem('claw_collection') || '[]');
+            collection.push(texture);
+            localStorage.setItem('claw_collection', JSON.stringify(collection));
+        }
+
+        document.getElementById('collection-btn').addEventListener('click', () => {
+            const modal = document.getElementById('collection-modal');
+            const grid = document.getElementById('collection-grid');
+            grid.innerHTML = '';
+            
+            let collection = JSON.parse(localStorage.getItem('claw_collection') || '[]');
+            collection.forEach(texture => {
+                const item = document.createElement('div');
+                item.className = 'collection-item';
+                const img = document.createElement('img');
+                img.src = texture;
+                item.appendChild(img);
+                grid.appendChild(item);
+            });
+            
+            modal.style.display = 'flex';
+        });
+
+        document.getElementById('close-collection').addEventListener('click', () => {
+            document.getElementById('collection-modal').style.display = 'none';
+        });
+
+        function showWin() {
+            document.getElementById('win-screen').style.display = 'flex';
+        }
+
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            location.reload();
+        });
+    </script>
+</body>
+</html>
