@@ -71,10 +71,16 @@ const progressiveHitsPlugin = {
           <div class="cards" id="hits-summaryCards"></div>
 
           <div class="filter-bar">
-            <label for="hits-dayFilter">Filter by Day:</label>
-            <select id="hits-dayFilter"><option value="all">All Days</option></select>
-            <label for="hits-monthFilter" style="margin-left:10px">Filter by Month:</label>
+            <label for="hits-casinoFilter">Casino:</label>
+            <select id="hits-casinoFilter">
+              <option value="all">All Casinos</option>
+              <option value="MBS">MBS</option>
+              <option value="RWS">RWS</option>
+            </select>
+            <label for="hits-monthFilter" style="margin-left:10px">Month:</label>
             <select id="hits-monthFilter"><option value="all">All Months</option></select>
+            <label for="hits-dayFilter" style="margin-left:10px">Day:</label>
+            <select id="hits-dayFilter"><option value="all">All Days</option></select>
           </div>
 
           <div class="box">
@@ -108,7 +114,7 @@ const progressiveHitsPlugin = {
             <div class="box-title">📋 All Win Records</div>
             <div style="max-height: 400px; overflow-y: auto;">
               <table id="hits-allTable">
-                <thead><tr><th>Month</th><th>Day</th><th>Link Name</th><th>Location</th><th>Serial</th><th>Asset</th><th>Time</th><th>Amount</th></tr></thead>
+                <thead><tr><th>Casino</th><th>Month</th><th>Day</th><th>Link Name</th><th>Location</th><th>Serial</th><th>Asset</th><th>Time</th><th>Amount</th></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -162,8 +168,7 @@ const progressiveHitsPlugin = {
   processHits: function(grambs, grarws) {
     const records = [];
 
-    // We try to find "Link Name" or similar in any of the merged sheets
-    const processSet = (data) => {
+    const processSet = (data, casino) => {
       if (!data) return;
       for (const sheetName in data) {
         const rows = data[sheetName];
@@ -190,6 +195,7 @@ const progressiveHitsPlugin = {
           if (!linkName || amount === null) continue;
 
           records.push({
+            casino: casino,
             month: iMonth !== -1 ? String(row[iMonth]) : "Unknown",
             day: iDay !== -1 ? parseInt(row[iDay]) : 0,
             linkName,
@@ -203,8 +209,8 @@ const progressiveHitsPlugin = {
       }
     };
 
-    processSet(grambs);
-    processSet(grarws);
+    processSet(grambs, "MBS");
+    processSet(grarws, "RWS");
 
     return records;
   },
@@ -221,6 +227,7 @@ const progressiveHitsPlugin = {
   buildFilters: function() {
     const daySel = this.container.querySelector('#hits-dayFilter');
     const monthSel = this.container.querySelector('#hits-monthFilter');
+    const casinoSel = this.container.querySelector('#hits-casinoFilter');
 
     const days = [...new Set(this.allRecords.map(r=>r.day))].sort((a,b)=>a-b);
     daySel.innerHTML = '<option value="all">All Days</option>' + days.map(d => `<option value="${d}">Day ${d}</option>`).join('');
@@ -231,13 +238,18 @@ const progressiveHitsPlugin = {
     const handler = () => this.render();
     daySel.onchange = handler;
     monthSel.onchange = handler;
+    casinoSel.onchange = handler;
   },
 
   render: function() {
     const dayVal = this.container.querySelector('#hits-dayFilter').value;
     const monthVal = this.container.querySelector('#hits-monthFilter').value;
+    const casinoVal = this.container.querySelector('#hits-casinoFilter').value;
 
     let filtered = this.allRecords;
+    if (casinoVal !== 'all') {
+      filtered = filtered.filter(r => r.casino === casinoVal);
+    }
     if (dayVal !== 'all') {
       const d = parseInt(dayVal);
       filtered = filtered.filter(r => r.day === d);
@@ -246,15 +258,15 @@ const progressiveHitsPlugin = {
       filtered = filtered.filter(r => r.month === monthVal);
     }
 
-    this.renderCards(filtered, dayVal, monthVal);
+    this.renderCards(filtered, dayVal, monthVal, casinoVal);
     this.renderTopLinks(filtered);
     this.renderTopLoc(filtered);
     this.renderTopHits(filtered);
-    this.renderTrend(dayVal, monthVal);
+    this.renderTrend(dayVal, monthVal, casinoVal);
     this.renderAll(filtered);
   },
 
-  renderCards: function(recs, dFilter, mFilter) {
+  renderCards: function(recs, dFilter, mFilter, cFilter) {
     const total = recs.reduce((s,r)=>s+r.amount,0);
     const count = recs.length;
     const avg   = count ? total/count : 0;
@@ -262,7 +274,10 @@ const progressiveHitsPlugin = {
     const days  = new Set(recs.map(r=>r.month + '-' + r.day)).size;
     const links = new Set(recs.map(r=>r.linkName)).size;
 
-    const context = (dFilter === 'all' && mFilter === 'all') ? 'All periods' : `${mFilter==='all'?'':mFilter} ${dFilter==='all'?'':'Day '+dFilter}`;
+    let context = cFilter === 'all' ? 'All Casinos' : cFilter;
+    if (mFilter !== 'all' || dFilter !== 'all') {
+       context += ` (${mFilter==='all'?'':mFilter}${mFilter!=='all'&&dFilter!=='all'?' ':''}${dFilter==='all'?'':'Day '+dFilter})`;
+    }
 
     this.container.querySelector('#hits-summaryCards').innerHTML = `
       ${this.card('Total Payout', this.fmt(total), context)}
@@ -316,13 +331,11 @@ const progressiveHitsPlugin = {
     ).join('') || '<tr><td colspan="4" class="empty">No data</td></tr>';
   },
 
-  renderTrend: function(dayFilter, monthFilter) {
+  renderTrend: function(dayFilter, monthFilter, casinoFilter) {
     const map = {};
-    // If a month is selected, we show daily trend for that month.
-    // If no month is selected, we show daily trend across all months (averaged or summed?)
-    // Let's sum per day across all months if no month is selected.
 
     let baseRecs = this.allRecords;
+    if (casinoFilter !== 'all') baseRecs = baseRecs.filter(r => r.casino === casinoFilter);
     if (monthFilter !== 'all') baseRecs = baseRecs.filter(r => r.month === monthFilter);
 
     baseRecs.forEach(r => {
@@ -354,8 +367,8 @@ const progressiveHitsPlugin = {
     });
     // Limit to first 200 for performance
     tbody.innerHTML = sorted.slice(0, 200).map(r =>
-      `<tr><td>${r.month}</td><td>${r.day}</td><td>${r.linkName}</td><td>${r.location}</td><td>${r.serial}</td><td>${r.asset}</td><td>${r.time}</td><td class="green">${this.fmt(r.amount)}</td></tr>`
-    ).join('') + (sorted.length > 200 ? `<tr><td colspan="8" class="empty">Showing first 200 of ${sorted.length} records...</td></tr>` : "");
+      `<tr><td>${r.casino}</td><td>${r.month}</td><td>${r.day}</td><td>${r.linkName}</td><td>${r.location}</td><td>${r.serial}</td><td>${r.asset}</td><td>${r.time}</td><td class="green">${this.fmt(r.amount)}</td></tr>`
+    ).join('') + (sorted.length > 200 ? `<tr><td colspan="9" class="empty">Showing first 200 of ${sorted.length} records...</td></tr>` : "");
   }
 };
 
