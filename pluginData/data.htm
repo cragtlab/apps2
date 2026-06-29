@@ -167,18 +167,21 @@
                 const sheetName = d.toString();
                 if (allSheets[sheetName]) {
                    const sheetData = allSheets[sheetName];
+                   // Read from 3rd row (index 2) as header
+                   if (sheetData.length < 3) continue;
+                   const rawHeader = sheetData[2];
+                   const linkNameIdx = rawHeader.findIndex(c => String(c||'').trim().toLowerCase() === "link name");
+
                    if (rowsForThisFile.length === 0) {
-                      // First sheet of first file or just first sheet of this file
-                      const header = [...sheetData[0], "Source Month", "Source Day"];
+                      const header = [...rawHeader, "Source Month", "Source Day"];
                       rowsForThisFile.push(header);
-                      for (let i=1; i < sheetData.length; i++) {
-                         rowsForThisFile.push([...sheetData[i], month, d]);
-                      }
-                   } else {
-                      // Append without header
-                      for (let i=1; i < sheetData.length; i++) {
-                         rowsForThisFile.push([...sheetData[i], month, d]);
-                      }
+                   }
+
+                   for (let i = 3; i < sheetData.length; i++) {
+                      const row = sheetData[i];
+                      // Ignore if link name is empty
+                      if (linkNameIdx !== -1 && !String(row[linkNameIdx]||'').trim()) continue;
+                      rowsForThisFile.push([...row, month, d]);
                    }
                 }
              }

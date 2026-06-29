@@ -1,4 +1,5 @@
 
+(function() {
 const progressiveHitsPlugin = {
   container: null,
   isLoaded: false,
@@ -359,3 +360,4 @@ const progressiveHitsPlugin = {
 };
 
 progressiveHitsPlugin.init();
+})();
