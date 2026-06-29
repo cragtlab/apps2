@@ -125,6 +125,16 @@
       return "Just now";
     }
 
+    async function downloadFile(handle, filename) {
+       const file = await handle.getFile();
+       const url = URL.createObjectURL(file);
+       const a = document.createElement("a");
+       a.href = url;
+       a.download = filename;
+       a.click();
+       setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
     const PluginAPI = {
       add: function(title, handlers) {
         if (handlers) pluginHandlers[title] = handlers;
@@ -425,12 +435,23 @@
         tr.innerHTML = `
           <td>${type}</td>
           <td class="${file ? 'status-found' : 'status-missing'}">${file ? 'Found' : 'Missing'}</td>
-          <td>${file ? file.name : '-'}</td>
+          <td>${file ? `<a href="#" class="file-download" data-type="${type}">${file.name}</a>` : '-'}</td>
           <td>${rowDisplay}</td>
           <td>${file ? file.lastModifiedDisplay : '-'}</td>
         `;
         tbody.appendChild(tr);
       }
+
+      document.querySelectorAll(".file-download").forEach(link => {
+        link.onclick = (e) => {
+          e.preventDefault();
+          const type = e.target.getAttribute("data-type");
+          const file = foundFiles[type];
+          if (file && file.handle) {
+             downloadFile(file.handle, file.name.includes('months') ? file.files[file.files.length-1].name : file.name);
+          }
+        };
+      });
     }
 
     document.getElementById("loadBtn").onclick = async () => {
