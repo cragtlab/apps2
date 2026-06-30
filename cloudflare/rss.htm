@@ -73,7 +73,7 @@
             <button class="icon-btn" onclick="refreshAll()" title="Refresh All" aria-label="Refresh All">🔄</button>
             <button class="icon-btn" onclick="toggleManageFeeds()" title="Manage Feeds" aria-label="Manage Feeds">📋</button>
             <button class="icon-btn" onclick="toggleRead()" title="Show/Hide Read" aria-label="Show/Hide Read">👁️</button>
-            <button class="icon-btn" onclick="toggleMinimal()" title="Toggle Minimal View" aria-label="Toggle Minimal View">🗂️</button>
+            <button class="icon-btn" onclick="toggleMinimal()" title="Toggle Minimal View" aria-label="Toggle Minimal View">🗒️</button>
             <button class="icon-btn" onclick="markAllRead()" title="Mark All as Read" aria-label="Mark All as Read">✔️</button>
             <input type="search" id="searchInput" placeholder="Search..." oninput="renderItems()" style="max-width: 150px;">
         </div>
@@ -200,8 +200,13 @@
 
             const meta = document.createElement('div');
             meta.className = 'feed-meta';
+
+            const feedItems = allItems.filter(i => i.feedUrl === f.url);
+            const total = feedItems.length;
+            const unread = feedItems.filter(i => !readItems.has(i.id)).length;
+
             const fetchStr = f.lastFetch ? new Date(f.lastFetch).toLocaleTimeString() : 'Never';
-            meta.textContent = `${f.itemCount || 0} items | Last: ${fetchStr}`;
+            meta.textContent = `${unread}/${total} unread | Last: ${fetchStr}`;
 
             info.appendChild(urlSpan);
             info.appendChild(meta);
@@ -314,6 +319,7 @@
     function sortAndRender() {
         allItems.sort((a, b) => b.date - a.date);
         renderItems();
+        renderFeeds();
     }
 
     function parseScraped(links, feedUrl) {
@@ -456,6 +462,7 @@
         readItems.add(id);
         saveRead();
         renderItems();
+        renderFeeds();
     }
 
     function toggleItemRead(id) {
@@ -466,6 +473,7 @@
         }
         saveRead();
         renderItems();
+        renderFeeds();
     }
 
     function markAllRead() {
@@ -473,6 +481,7 @@
         visible.forEach(item => readItems.add(item.id));
         saveRead();
         renderItems();
+        renderFeeds();
     }
 
     function saveRead() {
