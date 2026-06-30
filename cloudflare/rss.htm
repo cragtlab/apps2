@@ -245,6 +245,8 @@
         }
 
         await Promise.all([...priorityPromises, backgroundPromise]);
+
+        pruneReadItems();
         setStatus(`Updated at ${new Date().toLocaleTimeString()}`);
     }
 
@@ -459,6 +461,8 @@
     }
 
     function markRead(id) {
+        // Move to end of insertion order
+        readItems.delete(id);
         readItems.add(id);
         saveRead();
         renderItems();
@@ -478,10 +482,23 @@
 
     function markAllRead() {
         const visible = getFilteredItems();
-        visible.forEach(item => readItems.add(item.id));
+        visible.forEach(item => {
+            readItems.delete(item.id);
+            readItems.add(item.id);
+        });
         saveRead();
         renderItems();
         renderFeeds();
+    }
+
+    function pruneReadItems() {
+        const limit = Math.max(1000, allItems.length * 2);
+        if (readItems.size > limit) {
+            const arr = Array.from(readItems);
+            const toRemove = arr.slice(0, readItems.size - limit);
+            toRemove.forEach(id => readItems.delete(id));
+            saveRead();
+        }
     }
 
     function saveRead() {
