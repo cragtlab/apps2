@@ -8,7 +8,18 @@
 
 <style>
 body { font-family:sans-serif; padding:0px; background:#f5f5f5; }
-.container { margin:auto; background:white; padding:5px; border-radius:10px; }
+.container { margin:auto; background:white; padding:5px; border-radius:10px; padding-bottom: 320px; }
+
+#controls-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 5px;
+    border-top: 1px solid #ddd;
+    z-index: 1000;
+}
 
 button { padding:8px 12px; margin:3px; cursor:pointer;border-radius:2px; }
 .btn-danger { background:#ff4d4d; color:white; }
@@ -17,7 +28,7 @@ button { padding:8px 12px; margin:3px; cursor:pointer;border-radius:2px; }
 #linkFreqContainer { display:none; gap:10px; margin-bottom:10px; }
 #frequencyInput { width:60px; }
 #btn-update-url {    background:#007bff; color:white;border:none; }
-textarea { width:100%; height:80px; }
+textarea { width:100%; height:100px; }
 
 table { width:100%; border-collapse:collapse; margin-top:10px; }
 td, th { font-size: smaller; border:1px solid #ddd; padding:6px; }
@@ -36,42 +47,6 @@ small  {
 
 <body>
 <div class="container">
-<b>Stumble Links - (open tab group in mobile)</b>
-
-<!-- DISPLAY -->
-<div id="linkFreqContainer">
-    <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
-    <a id="linkDisplay" target="_blank" style="flex:1;"></a>
-</div>
-
-<div id="titleEditorContainer" style="display:none;">
-    <textarea id="titleTextarea" placeholder="enter remarks"></textarea>
-</div>
-
-<div id="buttonContainer" style="display:none;">
-    <button id="btn-start" class="btn-add" onclick="startLinks()" style="display:none;">Start</button>
-    <button class="btn-snooze" onclick="snoozeCurrentLink()">Snooze</button>
-    <button class="btn-danger" onclick="deleteCurrentLink()">Delete</button>
-    <button id="btn-update-url" onclick="updateCurrentURL()">Update URL only</button>
-</div>
-
-<!-- CONTROLS -->
- <hr>
- <small>To import from <a href="https://docs.google.com/spreadsheets/d/1U3TgM15sxkdGKnavT-LUGEFkLZGBOKKvTcOZ6EDPCB0/edit#gid=0">Google Sheets</a>, click top left empty to select all then hold to copy</small>
-<div>
-    <button onclick="exportToClipboard()">Copy</button>
-    <button onclick="importFromClipboard()">Paste</button>
-    <button class="btn-add" onclick="addFromClipboard()">Add</button>
-    <button onclick="window.open('https://testlisting.pages.dev/reflect.htm', '_blank')">R</button>
-    <button onclick="window.open('https://testlisting.pages.dev/10x.htm', '_blank')">10x</button>
-    <input type="search"
-    id="searchInput"
-    placeholder="search..."
-    oninput="updateLinksList()"
-    style="padding:8px;width:140px;"
->
-</div>
-
 <!-- TABLE -->
 <table>
 <thead>
@@ -83,7 +58,44 @@ small  {
 </thead>
 <tbody id="linksTableBody"></tbody>
 </table>
+</div>
 
+<div id="controls-container">
+    <b>Stumble Links - (open tab group in mobile)</b>
+
+    <!-- DISPLAY -->
+    <div id="linkFreqContainer">
+        <input id="frequencyInput" placeholder="e.g. 2, W, M, Y">
+        <a id="linkDisplay" target="_blank" style="flex:1;"></a>
+    </div>
+
+    <div id="titleEditorContainer" style="display:none;">
+        <textarea id="titleTextarea" placeholder="enter remarks"></textarea>
+    </div>
+
+    <div id="buttonContainer" style="display:none;">
+        <button id="btn-start" class="btn-add" onclick="startLinks()" style="display:none;">Start</button>
+        <button class="btn-snooze" onclick="snoozeCurrentLink()">Snooze</button>
+        <button class="btn-danger" onclick="deleteCurrentLink()">Delete</button>
+        <button id="btn-update-url" onclick="updateCurrentURL()">Update URL only</button>
+    </div>
+
+    <!-- CONTROLS -->
+    <hr>
+    <small>To import from <a href="https://docs.google.com/spreadsheets/d/1U3TgM15sxkdGKnavT-LUGEFkLZGBOKKvTcOZ6EDPCB0/edit#gid=0">Google Sheets</a>, click top left empty to select all then hold to copy</small>
+    <div>
+        <button onclick="exportToClipboard()">Copy</button>
+        <button onclick="importFromClipboard()">Paste</button>
+        <button class="btn-add" onclick="addFromClipboard()">Add</button>
+        <button onclick="window.open('https://testlisting.pages.dev/reflect.htm', '_blank')">R</button>
+        <button onclick="window.open('https://testlisting.pages.dev/10x.htm', '_blank')">10x</button>
+        <input type="search"
+            id="searchInput"
+            placeholder="search..."
+            oninput="updateLinksList()"
+            style="padding:8px;width:140px;"
+        >
+    </div>
 </div>
 
 <script>
