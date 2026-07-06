@@ -3,12 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-size='80' fill='orange' font-family='sans-serif' font-weight='bold'%3ES%3C/text%3E%3C/svg%3E">
-<title>Stumble Links</title>
+<title>Stumble Links 1 (bottom)</title>
 
 
 <style>
 body { font-family:sans-serif; padding:0px; background:#f5f5f5; }
-.container { margin:auto; background:white; padding:5px; border-radius:10px; }
+.container { margin:auto; background:white; padding:5px; border-radius:10px; padding-bottom: 320px; }
+
+#controls-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    padding: 5px;
+    border-top: 1px solid #ddd;
+    z-index: 1000;
+}
 
 button { padding:8px 12px; margin:3px; cursor:pointer;border-radius:2px; }
 .btn-danger { background:#ff4d4d; color:white; }
