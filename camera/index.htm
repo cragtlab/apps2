@@ -1,51 +1,505 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Snapshot & QR Scanner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f172a'/%3E%3Ccircle cx='50' cy='50' r='30' stroke='%233b82f6' stroke-width='8' fill='none'/%3E%3Ccircle cx='50' cy='50' r='14' fill='%233b82f6'/%3E%3Ccircle cx='70' cy='30' r='6' fill='%2310b981'/%3E%3C/svg%3E">
   <style>
-    body { font-family: sans-serif; padding: 5px; margin: 0; }
-    video { width: 100%; max-width: 500px; border: 1px solid #ccc; background: #000; }
-    canvas { max-width: 100%; border: 1px solid #ccc; }
-    #overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
-    #container { position: relative; display: inline-block; width: 100%; max-width: 500px; }
-    .snapshots { margin-top: 20px; }
-    .snapshot { margin: 10px 0; border: 1px solid #ccc; padding: 5px; background: #fff; }
-    button { margin: 5px; font-size: 1.2em; padding: 12px 20px; cursor: pointer; }
-    #controls { margin-top: 10px; }
-    .analysis-status { font-weight: bold; color: #555; display: block; margin: 5px 0; }
-    .snapshot-data { font-size: 0.9em; color: #333; margin-top: 5px; background: #f9f9f9; padding: 5px; border-radius: 4px; }
-    .processing { color: #888; font-style: italic; }
-    #debugConsole { width: 100%; height: 150px; margin-top: 20px; font-family: monospace; font-size: 12px; background: #eee; border: 1px solid #aaa; }
-    .row { display: flex; flex-wrap: wrap; }
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-card: #334155;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --success: #10b981;
+      --success-hover: #059669;
+      --warning: #f59e0b;
+      --border: #475569;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      padding: 12px;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    /* Container for the page contents to cap on wider screens but stay mobile-friendly */
+    .app-container {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Header area */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-logo {
+      display: block;
+    }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin: 0;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    /* Live Status indicator */
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      background: var(--bg-secondary);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+    .status-indicator p {
+      margin: 0;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse 1.5s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+      70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+      }
+      100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    /* Video & Overlay Viewport */
+    #container {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+      max-width: 500px;
+      background: #000;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 2px solid var(--border);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+    video {
+      width: 100%;
+      display: block;
+      border-radius: inherit;
+    }
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* Quick Stats & Info overlays */
+    .viewport-overlays {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge.warning {
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+    .badge:empty {
+      display: none;
+    }
+
+    /* Actions Panel */
+    .controls-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease-in-out;
+    }
+    .btn:active {
+      transform: scale(0.97);
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      grid-column: span 2;
+      font-size: 1.1rem;
+      padding: 14px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+    .btn-primary:disabled {
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-card);
+    }
+
+    /* Debug Details Panel */
+    details.debug-details {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .debug-summary {
+      padding: 10px 14px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      list-style: none;
+    }
+    .debug-summary::-webkit-details-marker {
+      display: none;
+    }
+    details[open] .summary-icon {
+      transform: rotate(180deg);
+    }
+    .summary-icon {
+      transition: transform 0.2s ease;
+    }
+    .debug-content {
+      border-top: 1px solid var(--border);
+      padding: 6px;
+    }
+    #debugConsole {
+      width: 100%;
+      height: 120px;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      resize: none;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    /* Captured Items List */
+    .snapshots-section {
+      margin-top: 8px;
+    }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin: 0 0 12px;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--bg-secondary);
+      padding-bottom: 6px;
+    }
+    .snapshots {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Snapshot Cards */
+    .snapshot-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .snapshot-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .snapshot-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .snapshot-badge {
+      font-size: 0.7rem;
+      font-weight: 750;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      letter-spacing: 0.05em;
+    }
+    .qr-badge {
+      background: var(--success);
+      color: #fff;
+    }
+    .crowd-badge {
+      background: var(--accent);
+      color: #fff;
+    }
+    .snapshot-time {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    .btn-delete {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .btn-delete:hover, .btn-delete:active {
+      color: var(--danger);
+    }
+    .snapshot-body {
+      display: flex;
+      gap: 12px;
+    }
+    .snapshot-preview {
+      flex-shrink: 0;
+      width: 90px;
+      height: auto;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: #000;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+    }
+    .snapshot-preview canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .snapshot-details {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      min-width: 0;
+    }
+    .snapshot-data {
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .snapshot-data strong {
+      color: var(--text-primary);
+    }
+    .snapshot-data a {
+      color: #60a5fa;
+      text-decoration: underline;
+      font-weight: 600;
+    }
+    .snapshot-data a:hover, .snapshot-data a:active {
+      color: var(--accent);
+    }
+    .snapshot-data.processing {
+      color: var(--text-secondary);
+      font-style: italic;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .snapshot-data.processing::before {
+      content: '';
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--text-secondary);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .snapshot-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+    }
+    .btn-action-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-action-download:hover, .btn-action-download:active {
+      background: var(--border);
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 </head>
 <body>
-  <h1>Snapshot & QR Scanner</h1>
-  <div id="container">
-    <video id="video" autoplay muted playsinline></video>
-    <canvas id="overlay"></canvas>
-  </div>
-  <p id="log">Initializing...</p>
-  <p id="counters"></p>
-  <div id="controls">
-    <div class="row">
-      <button id="snapBtn">📸 Take Snapshot</button>
-      <button id="clearSnapshotsBtn">Clear</button>
-    </div>
-    <div class="row">
-      <button id="toggleQRBtn">QR: On</button>
-      <button id="pauseBtn">Pause</button>
-    </div>
-    <span id="analysisStatus" class="analysis-status">Loading ML Models...</span>
-  </div>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-left">
+        <svg class="header-logo" viewBox="0 0 100 100" width="28" height="28">
+          <circle cx="50" cy="50" r="40" stroke="#3b82f6" stroke-width="6" fill="none" />
+          <circle cx="50" cy="50" r="14" fill="#3b82f6" />
+          <circle cx="70" cy="30" r="6" fill="#10b981" />
+        </svg>
+        <h1>Snap & Scan</h1>
+      </div>
+      <div class="status-indicator">
+        <span class="pulse-dot"></span>
+        <p id="log">Initializing...</p>
+      </div>
+    </header>
 
-  <textarea id="debugConsole" readonly placeholder="Debug logs will appear here..."></textarea>
+    <main class="app-main" style="display: flex; flex-direction: column; gap: 16px;">
+      <!-- Camera Viewport -->
+      <div>
+        <div id="container">
+          <video id="video" autoplay muted playsinline></video>
+          <canvas id="overlay"></canvas>
+        </div>
 
-  <div class="snapshots" id="snapshots"></div>
+        <!-- Live indicators -->
+        <div class="viewport-overlays">
+          <div id="counters" class="badge">QR Codes: 0</div>
+          <div id="analysisStatus" class="badge warning">Loading ML Models...</div>
+        </div>
+      </div>
+
+      <!-- Controls Panel -->
+      <div class="controls-panel">
+        <div class="button-grid">
+          <button id="snapBtn" class="btn btn-primary" disabled>
+            <span class="btn-icon">📸</span>
+            <span class="btn-text">Take Snapshot</span>
+          </button>
+          <button id="clearSnapshotsBtn" class="btn btn-secondary">
+            <span class="btn-icon">🧹</span>
+            <span class="btn-text">Clear All</span>
+          </button>
+          <button id="toggleQRBtn" class="btn btn-secondary">
+            <span id="toggleQRIcon" class="btn-icon">🔍</span>
+            <span id="toggleQRText" class="btn-text">QR: On</span>
+          </button>
+          <button id="pauseBtn" class="btn btn-secondary">
+            <span id="pauseIcon" class="btn-icon">⏸️</span>
+            <span id="pauseText" class="btn-text">Pause</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Collapsible Debug Console -->
+      <details open class="debug-details">
+        <summary class="debug-summary">
+          <span class="summary-text">Debug & System Logs</span>
+          <span class="summary-icon">▼</span>
+        </summary>
+        <div class="debug-content">
+          <textarea id="debugConsole" readonly placeholder="Debug logs will appear here..."></textarea>
+        </div>
+      </details>
+
+      <!-- Snapshots list -->
+      <section class="snapshots-section">
+        <h2 class="section-title">Captured Items</h2>
+        <div class="snapshots" id="snapshots"></div>
+      </section>
+    </main>
+  </div>
 
   <script>
     const video = document.getElementById('video');
@@ -177,17 +631,32 @@
           });
 
           resultContainer.innerHTML = `
-            <strong>Crowd Analysis</strong><br>
-            People (Bodies): ${people.length}<br>
-            Faces Detected: ${faces.length}<br>
-            Demographics: ${maleCount} Male, ${femaleCount} Female
+            <div style="font-weight: 700; margin-bottom: 6px; color: var(--text-primary);">Crowd Analysis</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span class="badge" style="background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: #93c5fd; padding: 4px 8px;">👥 People: ${people.length}</span>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: #6ee7b7; padding: 4px 8px;">👤 Faces: ${faces.length}</span>
+              <span class="badge" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.3); color: #fcd34d; padding: 4px 8px;">♂️ ${maleCount}M / ♀️ ${femaleCount}F</span>
+            </div>
           `;
           resultContainer.classList.remove('processing');
 
-          const displayCanvas = resultContainer.parentElement.querySelector('canvas');
+          const displayCanvas = resultContainer.closest('.snapshot-card').querySelector('.snapshot-preview canvas');
           if (displayCanvas) {
             displayCanvas.getContext('2d').drawImage(canvas, 0, 0, displayCanvas.width, displayCanvas.height);
           }
+
+          // Add a download button to the crowd snapshot after analysis
+          const downloadBtn = document.createElement('a');
+          downloadBtn.className = 'btn-action-download';
+          downloadBtn.innerHTML = '📥 Download';
+          downloadBtn.href = canvas.toDataURL('image/png');
+          downloadBtn.download = `Crowd-Analysis-${Date.now()}.png`;
+          const actionsContainer = resultContainer.closest('.snapshot-card').querySelector('.snapshot-actions');
+          if (actionsContainer) {
+            actionsContainer.innerHTML = '';
+            actionsContainer.appendChild(downloadBtn);
+          }
+
           debugLog(`Analysis complete: Found ${people.length} people.`);
         }
       } catch (err) {
@@ -222,20 +691,41 @@
         snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
 
         const container = document.createElement('div');
-        container.className = 'snapshot';
-        const timestamp = new Date().toLocaleString();
+        container.className = 'snapshot-card';
+        container.setAttribute('data-type', 'crowd');
+        const timestamp = new Date().toLocaleTimeString();
 
-        const infoHtml = `<div class="snapshot-data processing">Queued for analysis...</div>`;
-        container.innerHTML = `<strong>Snapshot</strong><br>${timestamp}<br>${infoHtml}`;
+        container.innerHTML = `
+          <div class="snapshot-header">
+            <div class="snapshot-title-group">
+              <span class="snapshot-badge crowd-badge">Snapshot</span>
+              <span class="snapshot-time">${timestamp}</span>
+            </div>
+            <button class="btn-delete" title="Delete snapshot">✕</button>
+          </div>
+          <div class="snapshot-body">
+            <div class="snapshot-preview"></div>
+            <div class="snapshot-details">
+              <div class="snapshot-data processing">Queued for analysis...</div>
+              <div class="snapshot-actions"></div>
+            </div>
+          </div>
+        `;
 
         const displayCanvas = document.createElement('canvas');
         displayCanvas.width = snapCanvas.width / 2;
         displayCanvas.height = snapCanvas.height / 2;
         displayCanvas.getContext('2d').drawImage(snapCanvas, 0, 0, displayCanvas.width, displayCanvas.height);
 
-        container.appendChild(displayCanvas);
-        snapshotsContainer.prepend(container);
+        container.querySelector('.snapshot-preview').appendChild(displayCanvas);
 
+        // Add delete listener
+        container.querySelector('.btn-delete').addEventListener('click', () => {
+          container.remove();
+          debugLog('Snapshot deleted');
+        });
+
+        snapshotsContainer.prepend(container);
         debugLog('Snapshot captured and added to list');
 
         addToQueue({
@@ -256,14 +746,20 @@
     pauseBtn.addEventListener('click', () => {
       scanning = !scanning;
       debugLog(`Pause clicked. scanning=${scanning}`);
-      pauseBtn.textContent = scanning ? 'Pause' : 'Resume';
+      const pauseText = document.getElementById('pauseText');
+      const pauseIcon = document.getElementById('pauseIcon');
+      if (pauseText) pauseText.textContent = scanning ? 'Pause' : 'Resume';
+      if (pauseIcon) pauseIcon.textContent = scanning ? '⏸️' : '▶️';
       if (scanning && !isDetectLoopRunning) detectLoop();
     });
 
     toggleQRBtn.addEventListener('click', () => {
       detectQRs = !detectQRs;
       debugLog(`Toggle QR clicked. detectQRs=${detectQRs}`);
-      toggleQRBtn.textContent = `QR: ${detectQRs ? 'On' : 'Off'}`;
+      const toggleQRText = document.getElementById('toggleQRText');
+      const toggleQRIcon = document.getElementById('toggleQRIcon');
+      if (toggleQRText) toggleQRText.textContent = `QR: ${detectQRs ? 'On' : 'Off'}`;
+      if (toggleQRIcon) toggleQRIcon.textContent = detectQRs ? '🔍' : '🚫';
     });
 
     clearSnapshotsBtn.addEventListener('click', () => {
@@ -305,19 +801,48 @@
       context.drawImage(video, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height);
 
       const container = document.createElement('div');
-      container.className = 'snapshot';
-      const timestamp = new Date().toLocaleString();
-      container.innerHTML = `<strong>${label}</strong><br>${timestamp}<br>`;
+      container.className = 'snapshot-card';
+      container.setAttribute('data-type', 'qr');
 
+      const timestamp = new Date().toLocaleTimeString();
+
+      container.innerHTML = `
+        <div class="snapshot-header">
+          <div class="snapshot-title-group">
+            <span class="snapshot-badge qr-badge">QR Code</span>
+            <span class="snapshot-time">${timestamp}</span>
+          </div>
+          <button class="btn-delete" title="Delete snapshot">✕</button>
+        </div>
+        <div class="snapshot-body">
+          <div class="snapshot-preview"></div>
+          <div class="snapshot-details">
+            <div class="snapshot-data">
+              ${label}
+            </div>
+            <div class="snapshot-actions">
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Append canvas
+      container.querySelector('.snapshot-preview').appendChild(canvas);
+
+      // Download button
       const downloadBtn = document.createElement('a');
-      downloadBtn.textContent = 'Download';
+      downloadBtn.className = 'btn-action-download';
+      downloadBtn.innerHTML = '📥 Download';
       downloadBtn.href = canvas.toDataURL('image/png');
       downloadBtn.download = `${label.replace(/<[^>]*>/g, '')}-${Date.now()}.png`;
-      downloadBtn.style.display = 'block';
-      downloadBtn.style.marginTop = '5px';
+      container.querySelector('.snapshot-actions').appendChild(downloadBtn);
 
-      container.appendChild(canvas);
-      container.appendChild(downloadBtn);
+      // Add delete listener
+      container.querySelector('.btn-delete').addEventListener('click', () => {
+        container.remove();
+        debugLog('Snapshot deleted');
+      });
+
       snapshotsContainer.prepend(container);
       debugLog(`QR captured: ${label.replace(/<[^>]*>/g, '')}`);
     }
@@ -345,11 +870,12 @@
             const barcodes = await barcodeDetector.detect(video);
             barcodes.forEach(code => {
               const { x, y, width, height } = code.boundingBox;
-              ctx.strokeStyle = 'green';
-              ctx.lineWidth = 2;
+              ctx.strokeStyle = '#10b981'; // match success brand color
+              ctx.lineWidth = 3;
               ctx.strokeRect(x, y, width, height);
-              ctx.fillStyle = 'green';
-              ctx.fillText(code.rawValue, x, y - 10);
+              ctx.fillStyle = '#10b981';
+              ctx.font = 'bold 14px var(--font-sans)';
+              ctx.fillText('QR Detected', x, y - 10);
 
               if (!seenQRCodes.has(code.rawValue)) {
                 seenQRCodes.add(code.rawValue);
