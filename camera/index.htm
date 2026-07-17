@@ -174,18 +174,24 @@
       flex-direction: column;
       gap: 8px;
     }
-    .button-grid {
+    .button-grid-main {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: 1fr;
       gap: 8px;
+    }
+    .button-grid-secondary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
     }
     .btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 12px;
-      font-size: 0.95rem;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 4px;
+      font-size: 0.8rem;
       font-weight: 700;
       border-radius: var(--radius-md);
       border: none;
@@ -199,9 +205,10 @@
     .btn-primary {
       background: var(--accent);
       color: #fff;
-      grid-column: span 2;
       font-size: 1.1rem;
       padding: 14px;
+      flex-direction: row;
+      gap: 8px;
     }
     .btn-primary:hover:not(:disabled) {
       background: var(--accent-hover);
@@ -462,11 +469,13 @@
 
       <!-- Controls Panel -->
       <div class="controls-panel">
-        <div class="button-grid">
+        <div class="button-grid-main">
           <button id="snapBtn" class="btn btn-primary" disabled>
             <span class="btn-icon">📸</span>
             <span class="btn-text">Take Snapshot</span>
           </button>
+        </div>
+        <div class="button-grid-secondary">
           <button id="clearSnapshotsBtn" class="btn btn-secondary">
             <span class="btn-icon">🧹</span>
             <span class="btn-text">Clear All</span>
