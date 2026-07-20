@@ -32,10 +32,11 @@
         #${tabId} .ops-table { width: 100%; border-collapse: collapse; font-size: 0.9em; table-layout: fixed; }
         #${tabId} .ops-table th, #${tabId} .ops-table td { border: 1px solid #ddd; padding: 5px; text-align: left; overflow: hidden; }
         #${tabId} .ops-table th { background: #f4f4f4; position: sticky; top: 0; z-index: 10; }
-        #${tabId} .ops-table input, #${tabId} .ops-table textarea { width: 100%; border: 1px solid transparent; background: transparent; box-sizing: border-box; }
-        #${tabId} .ops-table input:focus, #${tabId} .ops-table textarea:focus { background: white; border-color: #007BFF; outline: none; }
+        #${tabId} .ops-table input, #${tabId} .ops-table textarea, #${tabId} .remarks-input { width: 100%; border: 1px solid transparent; background: transparent; box-sizing: border-box; }
+        #${tabId} .ops-table input:focus, #${tabId} .ops-table textarea:focus, #${tabId} .remarks-input:focus { background: white; border-color: #007BFF; outline: none; }
+        #${tabId} .remarks-input { min-height: 20px; word-break: break-word; white-space: pre-wrap; font-family: inherit; font-size: inherit; }
         #${tabId} .ops-table .done-row { background-color: #f9f9f9; color: #888; }
-        #${tabId} .ops-table .done-row input, #${tabId} .ops-table .done-row textarea { color: #888; }
+        #${tabId} .ops-table .done-row input, #${tabId} .ops-table .done-row textarea, #${tabId} .ops-table .done-row .remarks-input { color: #888; }
         #${tabId} .ops-table .done-row .task-name-input { text-decoration: line-through; }
 
         #${tabId} .officer-view-container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
@@ -446,14 +447,6 @@
             const datePicker = document.createElement('input');
             datePicker.type = 'date';
             datePicker.value = task.date || '';
-            datePicker.style.fontSize = '0.85em';
-            datePicker.style.border = '1px solid #ccc';
-            datePicker.style.borderRadius = '4px';
-            datePicker.style.padding = '2px 4px';
-            datePicker.style.cursor = 'pointer';
-            datePicker.style.width = '115px';
-            datePicker.style.boxSizing = 'border-box';
-            datePicker.style.background = '#fff';
 
             datePicker.onchange = () => {
                 task.date = datePicker.value;
@@ -498,16 +491,15 @@
             offInp.placeholder = 'Officers';
             offInp.onchange = () => { task.officers = offInp.value; saveData(); };
 
-            const remInp = document.createElement('textarea');
+            const remInp = document.createElement('div');
+            remInp.contentEditable = "true";
             remInp.className = 'remarks-input';
-            remInp.rows = 3;
-            remInp.value = task.remarks || '';
-            remInp.placeholder = 'Remarks';
+            remInp.textContent = task.remarks || '';
             if (task.remarks && task.remarks.trim()) {
                 remInp.title = task.remarks;
             }
-            remInp.onchange = () => {
-                task.remarks = remInp.value;
+            remInp.onblur = () => {
+                task.remarks = remInp.textContent;
                 if (task.remarks && task.remarks.trim()) {
                     remInp.title = task.remarks;
                     if (remInp.parentElement) {
