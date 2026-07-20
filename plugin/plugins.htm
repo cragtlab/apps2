@@ -79,6 +79,8 @@
 <body>
   <div id="tabBar">
     <font color=white>Alt-L: Load, Alt-R: Refresh</font><br/>
+    <font color=white>Alt-P: Pass mode</font><br/>
+    <div id="passIndicator" style="color: yellow; margin: 5px 0; font-weight: bold; min-height: 20px; font-size: 14px;"></div>
     <button id="loadBtn" class="controlBtn">Load Plugins</button>
     <button id="refreshBtn" class="controlBtn">Refresh Plugins</button>
     <font color=white>Press Alt-1 to go 1st</font><br/>
@@ -90,6 +92,51 @@
   <script>
     let globalRootHandle = null;
     let toolsFiles = [];
+    let isPassActive = false;
+    let passBuffer = "";
+    let lastCopiedText = "";
+    const passData = [
+      { color: "green", label: "MBS", value: "123456" },
+      { color: "green", label: "RWS", value: "111111" },
+      { color: "green", label: "Ops", value: "123456" }
+    ];
+
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(err => {
+          fallbackCopyText(text);
+        });
+      } else {
+        fallbackCopyText(text);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {
+        console.error('Fallback copy failed', err);
+      }
+      document.body.removeChild(textArea);
+    }
+
+    function updatePassUI() {
+      const indicator = document.getElementById("passIndicator");
+      if (isPassActive) {
+        indicator.textContent = `Pass for [${passBuffer}]`;
+        indicator.style.color = "lightgreen";
+      } else {
+        indicator.textContent = lastCopiedText ? `Copied: ${lastCopiedText}` : "";
+        indicator.style.color = "yellow";
+      }
+    }
 
     const PluginAPI = {
       add: function(title) {
@@ -235,8 +282,66 @@ async function ensureWritePermission(handle) {
   return false;
 }
 document.addEventListener("keydown", (e) => {
+  // If pass mode is active, intercept standard keys (letters) for matching
+  if (isPassActive) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      isPassActive = false;
+      passBuffer = "";
+      updatePassUI();
+      return;
+    }
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      if (passBuffer.length > 0) {
+        passBuffer = passBuffer.slice(0, -1);
+        updatePassUI();
+      }
+      return;
+    }
+    // Check if a single character was typed (ignore modifiers or special keys like Tab, Enter, etc.)
+    if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      e.preventDefault();
+      passBuffer += e.key;
+      updatePassUI();
+
+      // Find candidates that match the prefix case-insensitively
+      const candidates = passData.filter(item =>
+        item.label.toLowerCase().startsWith(passBuffer.toLowerCase())
+      );
+
+      if (candidates.length === 1) {
+        // Exactly one unique match found!
+        const matched = candidates[0];
+        copyText(matched.value);
+        lastCopiedText = matched.label;
+        isPassActive = false;
+        passBuffer = "";
+        updatePassUI();
+      } else if (candidates.length === 0) {
+        // No match found - reset buffer or do nothing?
+        // Typically, we reset or stay. Let's keep it but maybe flash or just reset.
+        // We'll reset the buffer to empty to allow starting fresh if user typed a non-matching key.
+        passBuffer = "";
+        updatePassUI();
+      }
+      return;
+    }
+  }
+
   if (!e.altKey) return;
 
+  if (e.code === 'KeyP') {
+    e.preventDefault();
+    isPassActive = true;
+    passBuffer = "";
+    // If we have an active input, blur it so keyboard input goes to document keydown
+    if (document.activeElement) {
+      document.activeElement.blur();
+    }
+    updatePassUI();
+    return;
+  }
   if (e.code === 'KeyL') {
     e.preventDefault();
     document.getElementById('loadBtn').click();
