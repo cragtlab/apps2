@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Data Plugin Manager</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='#28a745' rx='20'/><text x='50%' y='70%' font-family='sans-serif' font-weight='bold' font-size='70' fill='white' text-anchor='middle'>D</text></svg>">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; }
+    #tabBar {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      background: #444;
+      padding: 5px;
+      width: 180px;
+      min-width: 180px;
+    }
+    .tabButton {
+      background: #666; color: white; padding: 10px 16px; margin-bottom: 5px;
+      border: none; cursor: pointer; text-align: left;
+      border-radius: 4px;
+    }
+    .tabButton.active { background: #28a745; }
+    #contentArea {
+      flex-grow: 1;
+      overflow: auto;
+      background: #f9f9f9;
+    }
+    #contentArea > div { display: none; padding: 20px; }
+    #contentArea > div.active { display: block; }
+    .controlBtn {
+      background: #888;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      margin-bottom: 10px;
+      cursor: pointer;
+      text-align: left;
+      border-radius: 4px;
+    }
+    .controlBtn:hover { background: #999; }
+
+    /* Catalogue Table Styles */
+    table.catalogue-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+    table.catalogue-table th, table.catalogue-table td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+    table.catalogue-table th { background: #eee; }
+    .status-found { color: green; font-weight: bold; }
+    .status-missing { color: red; }
+  </style>
+</head>
+<body>
+  <div id="tabBar">
+    <div style="color:white; margin-bottom: 10px; font-size: 0.8em;">Alt-L: Load, Alt-R: Refresh</div>
+    <button id="loadBtn" class="controlBtn">📂 Load Data Folder</button>
+    <button id="refreshBtn" class="controlBtn">🔄 Refresh Plugins</button>
+    <div id="pluginTabs"></div>
+  </div>
+  <div id="contentArea">
+    <div id="tab_Catalogue" class="active">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h1>Data Catalogue</h1>
+          <button id="exportAllBtn" class="controlBtn" style="background: #007bff;">📥 Export All to Excel</button>
+        </div>
+      <table class="catalogue-table">
+        <thead>
+          <tr>
+            <th>Report Type</th>
+            <th>Status</th>
+            <th>Latest File Found</th>
+            <th>Rows Loaded</th>
+          </tr>
+        </thead>
+        <tbody id="catalogueBody">
+          <!-- Populated dynamically -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let globalRootHandle = null;
+    let dataJSFolderHandle = null;
+    let pluginScripts = {}; // name -> { text, evaluated, div }
+    let pluginHandlers = {}; // name -> { onActivated }
+    let dataCache = {}; // type -> rows[]
+
+    const reportTypes = [
+      "LJA_KPI_Report",
+      "GEGM_KPI_Report",
+      "EGM_KPI_Report",
+      "SDA_KPI_Report",
+      "TA Report_",
+      "GRAMBS",
+      "GRARWS",
+      "GRAMBSPR",
+      "GRARWSPR"
+    ];
+    let foundFiles = {}; // type -> { name, handle, files: [] } (files used for progressive)
+
+    function formatTimeAgo(date) {
+      if (!date) return "-";
+      const seconds = Math.floor((new Date() - date) / 1000);
+      let interval = seconds / 31536000;
+      if (interval > 1) return Math.floor(interval) + " years ago";
+      interval = seconds / 2592000;
+      if (interval > 1) return Math.floor(interval) + " months ago";
+      interval = seconds / 86400;
+      if (interval > 1) {
+         const days = Math.floor(interval);
+         return days === 1 ? "Yesterday" : days + " days ago";
+      }
+      interval = seconds / 3600;
+      if (interval > 1) return Math.floor(interval) + " hours ago";
+      interval = seconds / 60;
+      if (interval > 1) return Math.floor(interval) + " minutes ago";
+      return "Just now";
+    }
+
+    async function downloadFile(handle, filename) {
+       const file = await handle.getFile();
+       const url = URL.createObjectURL(file);
+       const a = document.createElement("a");
+       a.href = url;
+       a.download = filename;
+       a.click();
+       setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    const PluginAPI = {
+      add: function(title, handlers) {
+        if (handlers) pluginHandlers[title] = handlers;
+        // Find existing div if any (pre-created by tab loader)
+        const tabId = "tab_" + title.replace(/\s+/g, "_");
+        let div = document.getElementById(tabId);
+        if (!div) {
+          div = document.createElement("div");
+          div.id = tabId;
+          document.getElementById("contentArea").appendChild(div);
+        }
+        // Ensure it is visible if it is the current tab
+        if (tabId === currentActiveTabId) {
+          div.classList.add("active");
+        }
+        return div;
+      },
+      pullData: async function(type) {
+        if (dataCache[type]) return dataCache[type];
+
+        const info = foundFiles[type];
+        if (!info) {
+          throw new Error(`Report type "${type}" not found in the selected folder.`);
+        }
+
+        if (type.endsWith("PR")) {
+          const targetKey = type.replace("PR", "");
+          let combinedResult = {};
+          let masterRows = [];
+          let masterHeader = null;
+
+          for (const f of info.files) {
+             const allSheets = await loadExcelFile(f.handle, type);
+             const month = f.date.substring(0, 6);
+             const day = parseInt(f.date.substring(6, 8));
+
+             for (let d = 1; d <= day; d++) {
+                const sheetName = d.toString();
+                if (allSheets[sheetName]) {
+                   const sheetData = allSheets[sheetName];
+                   if (sheetData.length < 3) continue;
+
+                   const rawHeader = sheetData[2];
+                   if (!masterHeader) {
+                      masterHeader = [...rawHeader, "Source Month", "Source Day"];
+                      masterRows.push(masterHeader);
+                   }
+
+                   const linkNameIdx = rawHeader.findIndex(c => String(c||'').trim().toLowerCase() === "link name");
+
+                   for (let i = 3; i < sheetData.length; i++) {
+                      const row = sheetData[i];
+                      if (linkNameIdx !== -1 && !String(row[linkNameIdx]||'').trim()) continue;
+
+                      // Normalize row length to match masterHeader
+                      const normalizedRow = new Array(masterHeader.length - 2).fill("");
+                      for (let j = 0; j < Math.min(row.length, masterHeader.length - 2); j++) {
+                         normalizedRow[j] = row[j];
+                      }
+                      normalizedRow.push(month, d);
+                      masterRows.push(normalizedRow);
+                   }
+                }
+                // Yield to UI
+                await new Promise(r => setTimeout(r, 0));
+             }
+          }
+          combinedResult[targetKey] = masterRows;
+          dataCache[type] = combinedResult;
+        } else {
+          const data = await loadExcelFile(info.handle, type);
+          dataCache[type] = data;
+        }
+
+        updateCatalogueUI();
+        return dataCache[type];
+      }
+    };
+
+    let currentActiveTabId = "tab_Catalogue";
+    function showTab(id) {
+      currentActiveTabId = id;
+      document.querySelectorAll(".tabButton").forEach(btn => {
+        btn.classList.remove("active");
+        if (btn.getAttribute("data-tab-id") === id) btn.classList.add("active");
+      });
+
+      document.querySelectorAll("#contentArea > div").forEach(div => div.classList.remove("active"));
+
+      // On-demand load
+      // Find the name in pluginScripts that maps to this tabId
+      const pluginName = Object.keys(pluginScripts).find(name => ("tab_" + name.replace(/\s+/g, "_")) === id);
+      if (pluginScripts[pluginName] && !pluginScripts[pluginName].evaluated) {
+        console.log(`Loading plugin on demand: ${pluginName}`);
+        try {
+          eval(pluginScripts[pluginName].text);
+          pluginScripts[pluginName].evaluated = true;
+        } catch (err) {
+          console.error(`Failed to evaluate plugin ${pluginName}:`, err);
+          // Only show error if the div was already there
+          const errDiv = document.getElementById(id);
+          if (errDiv) errDiv.innerHTML = `<div style="color:red">Error loading plugin: ${err.message}</div>`;
+        }
+      }
+
+      const targetDiv = document.getElementById(id);
+      if (targetDiv) {
+        targetDiv.classList.add("active");
+        // Trigger activation handler
+        if (pluginName && pluginHandlers[pluginName] && pluginHandlers[pluginName].onActivated) {
+          pluginHandlers[pluginName].onActivated();
+        }
+      }
+    }
+
+    async function scanDataJS() {
+      try {
+        dataJSFolderHandle = await globalRootHandle.getDirectoryHandle("dataJS");
+        const tabsContainer = document.getElementById("pluginTabs");
+
+        // Clear existing plugin tabs (except Catalogue)
+        tabsContainer.innerHTML = "";
+
+        // Catalogue tab button
+        const catBtn = document.createElement("button");
+        catBtn.className = "tabButton active";
+        catBtn.innerText = "Catalogue";
+        catBtn.setAttribute("data-tab-id", "tab_Catalogue");
+        catBtn.onclick = () => showTab("tab_Catalogue");
+        tabsContainer.appendChild(catBtn);
+
+        for await (const entry of dataJSFolderHandle.values()) {
+          if (entry.kind === 'file' && entry.name.endsWith('.txt')) {
+            const name = entry.name.replace('.txt', '');
+            const file = await entry.getFile();
+            const text = await file.text();
+
+            pluginScripts[name] = { text, evaluated: false };
+
+            const tabId = "tab_" + name.replace(/\s+/g, "_");
+            const btn = document.createElement("button");
+            btn.className = "tabButton";
+            btn.innerText = name;
+            btn.setAttribute("data-tab-id", tabId);
+            btn.onclick = () => showTab(tabId);
+            tabsContainer.appendChild(btn);
+
+            // Pre-create div
+            const div = document.createElement("div");
+            div.id = tabId;
+            document.getElementById("contentArea").appendChild(div);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to scan dataJS:", err);
+      }
+    }
+
+    async function scanDataFiles() {
+      foundFiles = {};
+      const found = [];
+      for await (const [name, handle] of globalRootHandle.entries()) {
+        if (handle.kind === "file") found.push({ name, handle });
+      }
+
+      for (const type of reportTypes) {
+        if (type.endsWith("PR")) {
+          // Progressive logic: latest file per month
+          const monthMap = {}; // YYYYMM -> latest file info
+          for (const file of found) {
+            const regex = new RegExp(type + "(\\d{8})", "i");
+            const m = file.name.match(regex);
+            if (m) {
+              const dateStr = m[1];
+              const month = dateStr.substring(0, 6);
+              if (!monthMap[month] || dateStr > monthMap[month].date) {
+                monthMap[month] = { ...file, date: dateStr };
+              }
+            }
+          }
+          const sortedMonths = Object.keys(monthMap).sort();
+          if (sortedMonths.length > 0) {
+            const files = sortedMonths.map(m => monthMap[m]);
+            const latest = files[files.length - 1];
+            const fileInfo = await latest.handle.getFile();
+            foundFiles[type] = {
+              name: `${files.length} months (${latest.name})`,
+              handle: latest.handle, // primarily for catalogue link if we had one, but we use .files
+              files: files,
+              lastModified: fileInfo.lastModified,
+              lastModifiedDisplay: formatTimeAgo(fileInfo.lastModified)
+            };
+          }
+        } else {
+          let latest = null;
+          for (const file of found) {
+            if (type === "TA Report_") {
+              if (file.name.toLowerCase().startsWith("ta report_")) {
+                if (!latest) {
+                  latest = file;
+                } else {
+                  const a = parseTAFile(latest.name);
+                  const b = parseTAFile(file.name);
+                  if (b && (!a || b.date > a.date || (b.date === a.date && b.copy > a.copy))) {
+                    latest = file;
+                  }
+                }
+              }
+            } else if (type === "GRAMBS" || type === "GRARWS") {
+              const regex = new RegExp(type + "(\\d{8})", "i");
+              const m = file.name.match(regex);
+              if (m) {
+                const date = m[1];
+                if (!latest || date > latest.date) {
+                  latest = { ...file, date };
+                }
+              }
+            } else {
+              if (file.name.toLowerCase().startsWith(type.toLowerCase())) {
+                if (!latest) {
+                  latest = file;
+                } else {
+                  const oldNum = extractNumber(latest.name);
+                  const newNum = extractNumber(file.name);
+                  if (newNum > oldNum) latest = file;
+                }
+              }
+            }
+          }
+          if (latest) {
+            const fileInfo = await latest.handle.getFile();
+            foundFiles[type] = {
+              name: latest.name,
+              handle: latest.handle,
+              lastModified: fileInfo.lastModified,
+              lastModifiedDisplay: formatTimeAgo(fileInfo.lastModified)
+            };
+          }
+        }
+      }
+      updateCatalogueUI();
+    }
+
+    function extractNumber(filename) {
+      const m = filename.match(/\((\d+)\)/);
+      return m ? parseInt(m[1]) : 0;
+    }
+
+    function parseTAFile(filename) {
+      const m = filename.match(/TA Report_(\d{8})(?: \((\d+)\))?/i);
+      if (!m) return null;
+      return { date: m[1], copy: parseInt(m[2] || 1) };
+    }
+
+    async function loadExcelFile(fileHandle, type) {
+      const file = await fileHandle.getFile();
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer);
+
+      if (type.startsWith("GRAMBS") || type.startsWith("GRARWS")) {
+        const result = {};
+        workbook.SheetNames.forEach(name => {
+          result[name] = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
+        });
+        return result;
+      }
+
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    }
+
+    function updateCatalogueUI() {
+      const tbody = document.getElementById("catalogueBody");
+      tbody.innerHTML = "";
+
+      // Update header if not already done
+      const thead = document.querySelector(".catalogue-table thead tr");
+      if (thead.cells.length === 4) {
+         const th = document.createElement("th");
+         th.textContent = "Last Modified";
+         thead.appendChild(th);
+      }
+
+      for (const type of reportTypes) {
+        const tr = document.createElement("tr");
+        const file = foundFiles[type];
+        let rowDisplay = "N/A";
+        if (dataCache[type]) {
+           if (Array.isArray(dataCache[type])) {
+              rowDisplay = dataCache[type].length - 1;
+           } else {
+              rowDisplay = "Multi-sheet";
+           }
+        } else if (file) {
+           rowDisplay = 'Click plugin to load';
+        }
+
+        tr.innerHTML = `
+          <td>${type}</td>
+          <td class="${file ? 'status-found' : 'status-missing'}">${file ? 'Found' : 'Missing'}</td>
+          <td>${file ? `<a href="#" class="file-download" data-type="${type}">${file.name}</a>` : '-'}</td>
+          <td>${rowDisplay}</td>
+          <td>${file ? file.lastModifiedDisplay : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      document.querySelectorAll(".file-download").forEach(link => {
+        link.onclick = (e) => {
+          e.preventDefault();
+          const type = e.target.getAttribute("data-type");
+          const file = foundFiles[type];
+          if (file && file.handle) {
+             downloadFile(file.handle, file.name.includes('months') ? file.files[file.files.length-1].name : file.name);
+          }
+        };
+      });
+    }
+
+    document.getElementById("loadBtn").onclick = async () => {
+      try {
+        globalRootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        await scanDataFiles();
+        await scanDataJS();
+      } catch (err) {
+        console.error('Loading failed:', err);
+        alert(err);
+      }
+    };
+
+      document.getElementById("exportAllBtn").onclick = async () => {
+        if (!globalRootHandle) {
+          alert("Please load a folder first.");
+          return;
+        }
+
+        const btn = document.getElementById("exportAllBtn");
+        const originalText = btn.innerText;
+        btn.disabled = true;
+
+        try {
+          const wb = XLSX.utils.book_new();
+          for (const type of reportTypes) {
+            if (foundFiles[type]) {
+              btn.innerText = `Loading ${type}...`;
+              const data = await PluginAPI.pullData(type);
+
+              if (typeof data === 'object' && !Array.isArray(data)) {
+                 // Multi-sheet (GRAMBS/GRARWS)
+                 for (const sheetName in data) {
+                    const ws = XLSX.utils.aoa_to_sheet(data[sheetName]);
+                    // Sheet name must be unique and <= 31 chars
+                    let finalSheetName = `${type}_${sheetName}`.substring(0, 31);
+                    XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
+                 }
+              } else {
+                 const ws = XLSX.utils.aoa_to_sheet(data);
+                 XLSX.utils.book_append_sheet(wb, ws, type.substring(0, 31));
+              }
+            }
+          }
+          btn.innerText = "Generating File...";
+          XLSX.writeFile(wb, `Data_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
+        } catch (err) {
+          console.error("Export failed:", err);
+          alert("Export failed: " + err.message);
+        } finally {
+          btn.innerText = originalText;
+          btn.disabled = false;
+        }
+      };
+
+    document.getElementById("refreshBtn").onclick = async () => {
+      if (!globalRootHandle) {
+        alert("Please load a folder first.");
+        return;
+      }
+      // Reset plugins but keep catalogue if possible, or just re-scan everything
+      document.querySelectorAll("#contentArea > div:not(#tab_Catalogue)").forEach(div => div.remove());
+      dataCache = {};
+      pluginScripts = {};
+      pluginHandlers = {};
+      await scanDataFiles();
+      await scanDataJS();
+      showTab("tab_Catalogue");
+    };
+
+    document.addEventListener("keydown", (e) => {
+      if (!e.altKey) return;
+      if (e.code === 'KeyL') {
+        e.preventDefault();
+        document.getElementById('loadBtn').click();
+      }
+      if (e.code === 'KeyR') {
+        e.preventDefault();
+        document.getElementById('refreshBtn').click();
+      }
+    });
+
+  </script>
+</body>
+</html>

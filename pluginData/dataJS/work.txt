@@ -1,0 +1,298 @@
+(async function() {
+    const title = "work";
+
+    let isLoaded = false;
+    const reportsToLoad = ["LJA_KPI_Report", "GEGM_KPI_Report", "EGM_KPI_Report", "SDA_KPI_Report", "TA Report_"];
+    const loadedData = {};
+    const officerIndex = {};
+    const statusIndex = {};
+    const dashboardIndex = {};
+
+    const container = PluginAPI.add(title, {
+        onActivated: () => {
+            if (!isLoaded) loadAll();
+        }
+    });
+
+    // Scoped styles for the plugin
+    const style = document.createElement('style');
+    style.textContent = `
+        .work-plugin { font-family: Segoe UI; padding: 20px; }
+        .work-plugin button { padding: 8px 15px; margin: 5px; cursor: pointer; }
+        .work-plugin table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        .work-plugin td, .work-plugin th { border: 1px solid #ccc; padding: 4px; text-align: left; }
+        .work-plugin #log { border: 1px solid #ccc; height: 100px; overflow: auto; padding: 10px; background: #f7f7f7; margin-bottom: 10px; }
+        .work-plugin input, .work-plugin select { padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; }
+        .work-plugin .dashboard { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .work-plugin .officer-row { margin-bottom: 8px; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px; }
+        .work-plugin .status-pill { margin-right: 10px; cursor: pointer; text-decoration: underline; font-size: 0.9em; }
+    `;
+    document.head.appendChild(style);
+
+    container.className = "work-plugin";
+    container.innerHTML = `
+        <h1>2026 Work Dashboard</h1>
+        <div id="log">Loading reports...</div>
+        <span id="timerDisplay" style="font-weight:bold;"></span>
+
+        <div id="dashboard" class="dashboard" style="display:none;">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+                <h3 style="margin:0;">Officer Dashboard</h3>
+                <label style="font-size:0.9em;"><input type="checkbox" id="showAllOfficers"> Show officers with only completed items</label>
+            </div>
+            <div id="dashboardContent" style="margin-top:10px;"></div>
+        </div>
+
+        <h2>Search & Filters</h2>
+        <input id="searchBox" placeholder="Search all loaded reports..." style="width: 300px;">
+        <select id="officerFilter"><option value="">All Officers</option></select>
+        <select id="statusFilter"><option value="">All Statuses</option></select>
+
+        <div style="max-height:600px; overflow:auto; margin-top:10px;">
+            <table id="resultsTable">
+                <thead id="resultsHead"></thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+    `;
+
+    function log(msg) {
+        const div = container.querySelector("#log");
+        if (!div) return;
+        div.innerHTML += `<div>${msg}</div>`;
+        div.scrollTop = div.scrollHeight;
+    }
+
+    const officerAliasMap = {
+        "chee jay sian": "jay sian",
+        "jansson tee zhong hui": "jansson tee"
+    };
+
+    function normalizeOfficer(raw) {
+        if (!raw) return null;
+        let name = raw.trim().replaceAll("@gra.gov.sg","").replaceAll("_"," ").toLowerCase();
+        return officerAliasMap[name] || name;
+    }
+
+    function isStatusCompleted(status) {
+        if (!status) return false;
+        const s = status.toLowerCase();
+        return s.includes("closed") || s.includes("completed") || s.includes("rejected") || s.includes("withdraw");
+    }
+
+    function findOfficerColumn(headerRow) {
+        const targets = ["assigned eo", "assigned inspectors", "assigned inspector"];
+        return headerRow.findIndex(h => targets.includes(String(h).toLowerCase().trim()));
+    }
+
+    function findStatusColumn(headerRow) {
+        return headerRow.findIndex(h => String(h).toLowerCase().trim() === "status");
+    }
+
+    function formatExcelDate(val) {
+        if (typeof val !== 'number') return val;
+        const d = new Date(1899, 11, 30);
+        d.setDate(d.getDate() + val);
+        const day = String(d.getDate()).padStart(2, '0');
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${day}-${months[d.getMonth()]}-${d.getFullYear()}`;
+    }
+
+    function indexData(reportName, rows) {
+        if (!rows || rows.length === 0) return;
+        const header = rows[0];
+        const officerCol = findOfficerColumn(header);
+        const statusCol = findStatusColumn(header);
+
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            let officer = normalizeOfficer(officerCol !== -1 ? row[officerCol] : null) || "no officer";
+            const status = statusCol !== -1 ? (row[statusCol] || "").toString().trim() : null;
+
+            if (!officerIndex[officer]) officerIndex[officer] = [];
+            officerIndex[officer].push({ report: reportName, row });
+
+            if (status) {
+                if (!statusIndex[status]) statusIndex[status] = [];
+                statusIndex[status].push({ report: reportName, row });
+
+                if (!dashboardIndex[officer]) dashboardIndex[officer] = {};
+                dashboardIndex[officer][status] = (dashboardIndex[officer][status] || 0) + 1;
+            }
+        }
+    }
+
+    async function loadAll() {
+        if (isLoaded) return;
+        const startTime = performance.now();
+        const timerDisplay = container.querySelector("#timerDisplay");
+        if (timerDisplay) timerDisplay.textContent = "Loading...";
+        const logDiv = container.querySelector("#log");
+        if (logDiv) logDiv.innerHTML = "";
+
+        for (const type of reportsToLoad) {
+            try {
+                log(`Pulling ${type}...`);
+                const data = await PluginAPI.pullData(type);
+
+                // Specific TA Report date formatting
+                if (type === "TA Report_" && data.length > 0) {
+                    const header = data[0].map(h => String(h).toLowerCase().trim());
+                    const dateCols = ["submission date", "date of incident", "closed date", "kpi date"];
+                    const targetIndices = dateCols.map(c => header.indexOf(c)).filter(idx => idx !== -1);
+                    for (let i = 1; i < data.length; i++) {
+                        targetIndices.forEach(idx => { data[i][idx] = formatExcelDate(data[i][idx]); });
+                    }
+                }
+
+                loadedData[type] = data;
+                indexData(type, data);
+                log(`✅ ${type} loaded (${data.length - 1} rows)`);
+            } catch (err) {
+                log(`❌ Error loading ${type}: ${err.message}`);
+            }
+        }
+
+        refreshUI();
+        isLoaded = true;
+        const duration = ((performance.now() - startTime) / 1000).toFixed(2);
+        if (timerDisplay) timerDisplay.textContent = `Finished in ${duration}s`;
+    }
+
+    function refreshUI() {
+        updateFilters();
+        updateDashboard();
+        applyFilters();
+    }
+
+    function updateFilters() {
+        const offSel = container.querySelector("#officerFilter");
+        const statSel = container.querySelector("#statusFilter");
+        if (!offSel || !statSel) return;
+        const currentOff = offSel.value;
+        const currentStat = statSel.value;
+
+        offSel.innerHTML = '<option value="">All Officers</option>';
+        Object.keys(officerIndex).sort().forEach(o => {
+            const opt = document.createElement("option");
+            opt.value = o;
+            opt.textContent = `${o} (${officerIndex[o].length})`;
+            offSel.appendChild(opt);
+        });
+
+        statSel.innerHTML = '<option value="">All Statuses</option>';
+        Object.keys(statusIndex).sort().forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s;
+            opt.textContent = `${s} (${statusIndex[s].length})`;
+            statSel.appendChild(opt);
+        });
+
+        offSel.value = currentOff;
+        statSel.value = currentStat;
+    }
+
+    function updateDashboard() {
+        const dash = container.querySelector("#dashboard");
+        const content = container.querySelector("#dashboardContent");
+        const showAllInp = container.querySelector("#showAllOfficers");
+        if (!dash || !content || !showAllInp) return;
+        const showAll = showAllInp.checked;
+        content.innerHTML = "";
+
+        const officers = Object.keys(dashboardIndex).sort();
+        if (officers.length === 0) { dash.style.display = "none"; return; }
+        dash.style.display = "block";
+
+        officers.forEach(o => {
+            const statuses = Object.keys(dashboardIndex[o]).sort();
+            if (!showAll && statuses.every(s => isStatusCompleted(s))) return;
+
+            const row = document.createElement("div");
+            row.className = "officer-row";
+            row.innerHTML = `<strong>${o}</strong>: `;
+            statuses.forEach(s => {
+                const count = dashboardIndex[o][s];
+                const span = document.createElement("span");
+                span.className = "status-pill";
+                span.style.color = isStatusCompleted(s) ? "grey" : "blue";
+                span.textContent = `${s} (${count})`;
+                span.onclick = () => {
+                    container.querySelector("#officerFilter").value = o;
+                    container.querySelector("#statusFilter").value = s;
+                    applyFilters();
+                };
+                row.appendChild(span);
+            });
+            content.appendChild(row);
+        });
+    }
+
+    function applyFilters() {
+        const termInp = container.querySelector("#searchBox");
+        const offInp = container.querySelector("#officerFilter");
+        const statInp = container.querySelector("#statusFilter");
+        if (!termInp || !offInp || !statInp) return;
+
+        const term = termInp.value.toLowerCase();
+        const officer = offInp.value;
+        const status = statInp.value;
+        const results = [];
+
+        for (const type in loadedData) {
+            const rows = loadedData[type];
+            if (!rows || rows.length < 2) continue;
+            const header = rows[0];
+            const officerCol = findOfficerColumn(header);
+            const statusCol = findStatusColumn(header);
+
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (officer) {
+                    let rowOff = normalizeOfficer(officerCol !== -1 ? row[officerCol] : null) || "no officer";
+                    if (rowOff !== officer) continue;
+                }
+                if (status) {
+                    const rowStat = (statusCol !== -1 ? row[statusCol] : "").toString().trim();
+                    if (rowStat !== status) continue;
+                }
+                if (term) {
+                    if (!JSON.stringify(row).toLowerCase().includes(term)) continue;
+                }
+                results.push({ type, row });
+                if (results.length > 500) break;
+            }
+            if (results.length > 500) break;
+        }
+        renderResults(results);
+    }
+
+    function renderResults(results) {
+        const head = container.querySelector("#resultsHead");
+        const body = container.querySelector("#resultsBody");
+        if (!head || !body) return;
+        head.innerHTML = ""; body.innerHTML = "";
+        if (results.length === 0) return;
+
+        let maxCols = 0;
+        results.forEach(r => maxCols = Math.max(maxCols, r.row.length));
+
+        let headHtml = "<tr><th>Report</th>";
+        for (let i = 0; i < maxCols; i++) headHtml += `<th>${i+1}</th>`;
+        head.innerHTML = headHtml + "</tr>";
+
+        results.forEach(r => {
+            const tr = document.createElement("tr");
+            let rowHtml = `<td>${r.type}</td>`;
+            for (let i = 0; i < maxCols; i++) rowHtml += `<td>${r.row[i] || ""}</td>`;
+            tr.innerHTML = rowHtml;
+            body.appendChild(tr);
+        });
+    }
+
+    container.querySelector("#searchBox").oninput = applyFilters;
+    container.querySelector("#officerFilter").onchange = applyFilters;
+    container.querySelector("#statusFilter").onchange = applyFilters;
+    container.querySelector("#showAllOfficers").onchange = updateDashboard;
+
+})();

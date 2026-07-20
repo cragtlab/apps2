@@ -1,0 +1,266 @@
+(async function() {
+    const title = "masterlist summary";
+
+    let isLoaded = false;
+    const DEFAULT_ALIASES = [
+        { canonical: 'LNW', aliases: 'WMS, LNW Gaming, Light & Wonder, ShuffleMaster, Shuffle Master, SG Gaming, Scientific Games, Bally Technologies, Bally' },
+        { canonical: 'Aristocrat',              aliases: 'Aristocrat Technologies' },
+        { canonical: 'IGT',                     aliases: 'International Game Technology' },
+        { canonical: 'Konami',                  aliases: 'Konami Gaming, Konami Australia' },
+        { canonical: 'Alfastreet / Pockaj D.O.O.', aliases: 'Alfastreet, Pockaj, Pockaj D.O.O.' },
+        { canonical: 'Interblock D.O.O.',       aliases: 'Interblock, Interblock DOO' },
+        { canonical: 'Aruze', aliases: 'Aruze Gaming' },
+        { canonical: 'Ainsworth', aliases: 'Ainsworth, AGT'}
+    ];
+
+    const container = PluginAPI.add(title, {
+        onActivated: () => {
+            if (!isLoaded) loadData();
+        }
+    });
+
+    // Scoped styles for the plugin
+    const style = document.createElement('style');
+    style.textContent = `
+        .masterlist-plugin { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #222; padding: 20px; }
+        .masterlist-plugin h1 { text-align: center; font-size: 1.5rem; margin-bottom: 8px; color: #1a1a2e; }
+        .masterlist-plugin .subtitle { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 20px; }
+        .masterlist-plugin .controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; align-items: center; }
+        .masterlist-plugin button { padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        .masterlist-plugin .btn-primary { background: #1a1a2e; color: white; }
+
+        .masterlist-plugin .section-title { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; margin: 32px 0 12px; padding-left: 10px; border-left: 4px solid #c8a84b; }
+        .masterlist-plugin table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 8px; }
+        .masterlist-plugin thead tr { background: #1a1a2e; color: white; }
+        .masterlist-plugin thead th { padding: 12px 16px; text-align: left; font-size: 0.88rem; font-weight: 600; }
+        .masterlist-plugin thead th:not(:first-child) { text-align: right; }
+        .masterlist-plugin tbody td { padding: 10px 16px; font-size: 0.9rem; border-bottom: 1px solid #eee; }
+        .masterlist-plugin tbody td:not(:first-child) { text-align: right; }
+        .masterlist-plugin tfoot tr { background: #2d2d5e; color: white; font-weight: 700; }
+        .masterlist-plugin tfoot td { padding: 11px 16px; font-size: 0.9rem; }
+        .masterlist-plugin tfoot td:not(:first-child) { text-align: right; }
+        .masterlist-plugin .mbs-val { color: #1565c0; font-weight: 500; }
+        .masterlist-plugin .rws-val { color: #6a1b9a; font-weight: 500; }
+        .masterlist-plugin .total-val { color: #222; font-weight: 600; }
+        .masterlist-plugin tfoot .mbs-val, .masterlist-plugin tfoot .rws-val, .masterlist-plugin tfoot .total-val { color: white; }
+
+        .masterlist-plugin .alias-section { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 20px; }
+        .masterlist-plugin .alias-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+        .masterlist-plugin .alias-row input { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.83rem; flex: 1; }
+
+        .masterlist-plugin .tabs { display: flex; gap: 8px; margin-top: 20px; }
+        .masterlist-plugin .tab-btn { padding: 8px 20px; border: none; border-radius: 8px 8px 0 0; background: #dde; color: #444; font-size: 0.88rem; cursor: pointer; font-weight: 600; }
+        .masterlist-plugin .tab-btn.active { background: #1a1a2e; color: white; }
+        .masterlist-plugin .tab-content { display: none; background: white; padding: 20px; border-radius: 0 10px 10px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+        .masterlist-plugin .tab-content.active { display: block; }
+    `;
+    document.head.appendChild(style);
+
+    container.className = "masterlist-plugin";
+    container.innerHTML = `
+        <h1>Casino Machine Inventory Summary</h1>
+        <p class="subtitle">Pulls from latest GRAMBS and GRARWS files automatically</p>
+
+        <div class="controls">
+            <span id="loadStatus">Loading data...</span>
+        </div>
+
+        <div class="alias-section">
+            <h3>⚙️ Manufacturer Name Aliases</h3>
+            <div id="alias-list"></div>
+            <button id="add-alias-btn">+ Add Row</button>
+        </div>
+
+        <div id="outputArea"></div>
+    `;
+
+    const aliasList = container.querySelector('#alias-list');
+    function addAliasRow(canonical = '', aliases = '') {
+        const row = document.createElement('div');
+        row.className = 'alias-row';
+        row.innerHTML = `
+            <input type="text" class="canonical" placeholder="Canonical name" value="${canonical}">
+            <span>←</span>
+            <input type="text" class="aliases" placeholder="alias1, alias2 …" value="${aliases}">
+            <button title="Remove row">✕</button>
+        `;
+        row.querySelector('button').onclick = () => row.remove();
+        aliasList.appendChild(row);
+    }
+    DEFAULT_ALIASES.forEach(r => addAliasRow(r.canonical, r.aliases));
+    container.querySelector('#add-alias-btn').onclick = () => addAliasRow();
+
+    function getAliasMap() {
+        const map = new Map();
+        aliasList.querySelectorAll('.alias-row').forEach(row => {
+            const canonical = row.querySelector('.canonical').value.trim();
+            const aliases = row.querySelector('.aliases').value;
+            if (!canonical) return;
+            map.set(normaliseForMatch(canonical), canonical);
+            aliases.split(',').forEach(a => {
+                const n = normaliseForMatch(a);
+                if (n) map.set(n, canonical);
+            });
+        });
+        return map;
+    }
+
+    function normaliseForMatch(str) {
+        return String(str).toLowerCase().replace(/[\s\.\-\/\\,()]/g, '');
+    }
+
+    function resolveManufacturer(raw, aliasMap) {
+        if (!raw || String(raw).trim() === '') return 'Unknown';
+        const key = normaliseForMatch(raw);
+        if (aliasMap.has(key)) return aliasMap.get(key);
+        for (const [alias, canonical] of aliasMap) {
+            if (key.includes(alias) || alias.includes(key)) return canonical;
+        }
+        return String(raw).trim();
+    }
+
+    function parseSheetData(rows, aliasMap) {
+        if (!rows || rows.length === 0) return {};
+        let mfgIdx = -1;
+        let headerIdx = -1;
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const idx = row.findIndex(h => ['manufacturer', 'make', 'brand', 'supplier'].some(k => String(h).toLowerCase().includes(k)));
+            if (idx >= 0) { headerIdx = i; mfgIdx = idx; break; }
+        }
+        if (headerIdx < 0) return {};
+        const counts = {};
+        rows.slice(headerIdx + 1).forEach(row => {
+            const firstVal = String(row[0]).trim().toLowerCase();
+            if (firstVal === 'total' || firstVal === '' || firstVal === 'no.' || firstVal === 'no') return;
+            const colF = String(row[5]).trim();
+            if (!colF) return;
+            const mfg = resolveManufacturer(row[mfgIdx], aliasMap);
+            counts[mfg] = (counts[mfg] || 0) + 1;
+        });
+        return counts;
+    }
+
+    function buildTable(headers, rows, footerRow) {
+        const t = document.createElement('table');
+        const thead = t.createTHead();
+        const hr = thead.insertRow();
+        headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
+        const tbody = t.createTBody();
+        rows.forEach(row => {
+            const tr = tbody.insertRow();
+            row.forEach((cell, i) => {
+                const td = tr.insertCell();
+                td.textContent = i === 0 ? cell : (typeof cell === 'number' ? cell.toLocaleString() : cell);
+                if (i === 1) td.className = 'mbs-val';
+                if (i === 2) td.className = 'rws-val';
+                if (i === 3) td.className = 'total-val';
+            });
+        });
+        if (footerRow) {
+            const tfoot = document.createElement('tfoot');
+            const fr = tfoot.insertRow();
+            footerRow.forEach((cell, i) => {
+                const td = document.createElement('td');
+                td.textContent = i === 0 ? cell : (typeof cell === 'number' ? cell.toLocaleString() : cell);
+                if (i === 1) td.className = 'mbs-val';
+                if (i === 2) td.className = 'rws-val';
+                if (i === 3) td.className = 'total-val';
+                fr.appendChild(td);
+            });
+            t.appendChild(tfoot);
+        }
+        return t;
+    }
+
+    async function loadData() {
+        if (isLoaded) return;
+        const status = container.querySelector("#loadStatus");
+        const output = container.querySelector("#outputArea");
+        if (!status || !output) return;
+
+        status.textContent = "Loading casino data...";
+        output.innerHTML = "";
+
+        try {
+            const mbsWB = await PluginAPI.pullData("GRAMBS");
+            const rwsWB = await PluginAPI.pullData("GRARWS");
+            status.textContent = "✅ Data loaded.";
+
+            const aliasMap = getAliasMap();
+            const EGM_TAB = 'Active EGMs';
+            const ETG_TAB = 'Active ETGs';
+
+            const mbsEGM = parseSheetData(mbsWB[EGM_TAB], aliasMap);
+            const mbsETG = parseSheetData(mbsWB[ETG_TAB], aliasMap);
+            const rwsEGM = parseSheetData(rwsWB[EGM_TAB], aliasMap);
+            const rwsETG = parseSheetData(rwsWB[ETG_TAB], aliasMap);
+
+            const mbsEGMTotal = Object.values(mbsEGM).reduce((a,b)=>a+b,0);
+            const mbsETGTotal = Object.values(mbsETG).reduce((a,b)=>a+b,0);
+            const rwsEGMTotal = Object.values(rwsEGM).reduce((a,b)=>a+b,0);
+            const rwsETGTotal = Object.values(rwsETG).reduce((a,b)=>a+b,0);
+
+            // Table 1: Machine Types
+            const div1 = document.createElement('div'); div1.className = 'section-title'; div1.textContent = 'Machine Types'; output.appendChild(div1);
+            output.appendChild(buildTable(
+                ['Type of Machines', 'MBS', 'RWS', 'Total'],
+                [
+                    ['Electronic Gaming Machines (EGMs)', mbsEGMTotal, rwsEGMTotal, mbsEGMTotal + rwsEGMTotal],
+                    ['Electronic Table Games (ETGs)',     mbsETGTotal, rwsETGTotal, mbsETGTotal + rwsETGTotal],
+                ],
+                ['Total', mbsEGMTotal + mbsETGTotal, rwsEGMTotal + rwsETGTotal, mbsEGMTotal + mbsETGTotal + rwsEGMTotal + rwsETGTotal]
+            ));
+
+            const merge = (m1, m2) => {
+                const keys = new Set([...Object.keys(m1), ...Object.keys(m2)]);
+                return Array.from(keys).map(k => ({ name: k, mbs: m1[k]||0, rws: m2[k]||0, total: (m1[k]||0)+(m2[k]||0) })).sort((a,b)=>b.total-a.total);
+            };
+
+            const egmMerged = merge(mbsEGM, rwsEGM);
+            const div2 = document.createElement('div'); div2.className = 'section-title'; div2.textContent = 'EGM Manufacturers'; output.appendChild(div2);
+            output.appendChild(buildTable(['Manufacturer', 'MBS', 'RWS', 'Total'], egmMerged.map(r=>[r.name, r.mbs, r.rws, r.total]), ['Total', mbsEGMTotal, rwsEGMTotal, mbsEGMTotal+rwsEGMTotal]));
+
+            const etgMerged = merge(mbsETG, rwsETG);
+            const div3 = document.createElement('div'); div3.className = 'section-title'; div3.textContent = 'ETG Manufacturers'; output.appendChild(div3);
+            output.appendChild(buildTable(['Manufacturer', 'MBS', 'RWS', 'Total'], etgMerged.map(r=>[r.name, r.mbs, r.rws, r.total]), ['Total', mbsETGTotal, rwsETGTotal, mbsETGTotal+rwsETGTotal]));
+
+            const div4 = document.createElement('div'); div4.className = 'section-title'; div4.textContent = 'Per-Casino Breakdown'; output.appendChild(div4);
+            const tabsContainer = document.createElement('div'); tabsContainer.className = 'tabs';
+            const contentContainer = document.createElement('div');
+
+            const tabDefs = [
+                { id: 'mbs-egm', label: 'MBS - EGMs', data: mbsEGM, total: mbsEGMTotal },
+                { id: 'mbs-etg', label: 'MBS - ETGs', data: mbsETG, total: mbsETGTotal },
+                { id: 'rws-egm', label: 'RWS - EGMs', data: rwsEGM, total: rwsEGMTotal },
+                { id: 'rws-etg', label: 'RWS - ETGs', data: rwsETG, total: rwsETGTotal }
+            ];
+
+            tabDefs.forEach((def, idx) => {
+                const btn = document.createElement('button'); btn.className = 'tab-btn' + (idx===0?' active':''); btn.textContent = def.label;
+                btn.onclick = () => {
+                    tabsContainer.querySelectorAll('button').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+                    contentContainer.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+                    const target = contentContainer.querySelector('#tab-'+def.id);
+                    if (target) target.classList.add('active');
+                };
+                tabsContainer.appendChild(btn);
+
+                const c = document.createElement('div'); c.id = 'tab-'+def.id; c.className = 'tab-content' + (idx===0?' active':'');
+                const sorted = Object.entries(def.data).sort((a,b)=>b[1]-a[1]);
+                if (sorted.length === 0) c.textContent = "No data.";
+                else {
+                    c.appendChild(buildTable(['Manufacturer', 'Count'], sorted, ['Total', def.total]));
+                }
+                contentContainer.appendChild(c);
+            });
+            output.appendChild(tabsContainer);
+            output.appendChild(contentContainer);
+
+            isLoaded = true;
+        } catch (err) {
+            status.textContent = "❌ Error: " + err.message;
+        }
+    }
+
+})();
