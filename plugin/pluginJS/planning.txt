@@ -443,37 +443,21 @@
             statusDateDiv.style.gap = '6px';
             statusDateDiv.style.flexWrap = 'wrap';
 
-            const dateDisplay = document.createElement('span');
-            dateDisplay.textContent = formatDateDisplay(task.date) || 'Set Date';
-            dateDisplay.style.cursor = 'pointer';
-            dateDisplay.style.fontSize = '0.85em';
-            dateDisplay.style.color = task.date ? '#333' : '#999';
-            dateDisplay.style.textDecoration = 'underline';
-            dateDisplay.style.whiteSpace = 'nowrap';
-
             const datePicker = document.createElement('input');
             datePicker.type = 'date';
             datePicker.value = task.date || '';
-            datePicker.style.position = 'absolute';
-            datePicker.style.opacity = '0';
-            datePicker.style.width = '1px';
-            datePicker.style.height = '1px';
-            datePicker.style.overflow = 'hidden';
-            datePicker.style.border = 'none';
-            datePicker.style.padding = '0';
-            datePicker.style.margin = '0';
-            datePicker.style.pointerEvents = 'none';
+            datePicker.style.fontSize = '0.85em';
+            datePicker.style.border = '1px solid #ccc';
+            datePicker.style.borderRadius = '4px';
+            datePicker.style.padding = '2px 4px';
+            datePicker.style.cursor = 'pointer';
+            datePicker.style.width = '115px';
+            datePicker.style.boxSizing = 'border-box';
+            datePicker.style.background = '#fff';
 
             datePicker.onchange = () => {
                 task.date = datePicker.value;
                 saveData(); renderUI();
-            };
-            dateDisplay.onclick = () => {
-                try {
-                    datePicker.showPicker();
-                } catch (e) {
-                    datePicker.click();
-                }
             };
 
             const doneCb = document.createElement('input');
@@ -496,7 +480,6 @@
                 }
             };
 
-            statusDateDiv.appendChild(dateDisplay);
             statusDateDiv.appendChild(datePicker);
             statusDateDiv.appendChild(doneCb);
             statusDateDiv.appendChild(delBtn);
