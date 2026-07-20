@@ -511,12 +511,33 @@
             remInp.rows = 3;
             remInp.value = task.remarks || '';
             remInp.placeholder = 'Remarks';
-            remInp.onchange = () => { task.remarks = remInp.value; saveData(); };
+            if (task.remarks && task.remarks.trim()) {
+                remInp.title = task.remarks;
+            }
+            remInp.onchange = () => {
+                task.remarks = remInp.value;
+                if (task.remarks && task.remarks.trim()) {
+                    remInp.title = task.remarks;
+                    if (remInp.parentElement) {
+                        remInp.parentElement.title = task.remarks;
+                    }
+                } else {
+                    remInp.removeAttribute('title');
+                    if (remInp.parentElement) {
+                        remInp.parentElement.removeAttribute('title');
+                    }
+                }
+                saveData();
+            };
 
             tr.appendChild(createCell(statusDateDiv));
             tr.appendChild(createCell(titleInp));
             tr.appendChild(createCell(offInp));
-            tr.appendChild(createCell(remInp));
+            const remCell = createCell(remInp);
+            if (task.remarks && task.remarks.trim()) {
+                remCell.title = task.remarks;
+            }
+            tr.appendChild(remCell);
 
             if (task.date && task.date <= today) {
                 dueTbody.appendChild(tr);
@@ -550,6 +571,9 @@
                 item.className = 'task-item' + (task.done ? ' done' : '');
                 item.style.cursor = 'pointer';
                 if (isDue) item.style.backgroundColor = '#ffe0b2'; // Orange highlight
+                if (task.remarks && task.remarks.trim()) {
+                    item.title = task.remarks;
+                }
 
                 const row = document.createElement('div'); row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '5px';
                 const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!task.done;
