@@ -443,10 +443,6 @@
             statusDateDiv.style.gap = '6px';
             statusDateDiv.style.flexWrap = 'wrap';
 
-            const dateWrapper = document.createElement('div');
-            dateWrapper.style.position = 'relative';
-            dateWrapper.style.display = 'inline-block';
-
             const dateDisplay = document.createElement('span');
             dateDisplay.textContent = formatDateDisplay(task.date) || 'Set Date';
             dateDisplay.style.cursor = 'pointer';
@@ -459,23 +455,26 @@
             datePicker.type = 'date';
             datePicker.value = task.date || '';
             datePicker.style.position = 'absolute';
-            datePicker.style.top = '0';
-            datePicker.style.left = '0';
-            datePicker.style.width = '100%';
-            datePicker.style.height = '100%';
             datePicker.style.opacity = '0';
-            datePicker.style.cursor = 'pointer';
+            datePicker.style.width = '1px';
+            datePicker.style.height = '1px';
+            datePicker.style.overflow = 'hidden';
             datePicker.style.border = 'none';
             datePicker.style.padding = '0';
             datePicker.style.margin = '0';
+            datePicker.style.pointerEvents = 'none';
 
             datePicker.onchange = () => {
                 task.date = datePicker.value;
                 saveData(); renderUI();
             };
-
-            dateWrapper.appendChild(dateDisplay);
-            dateWrapper.appendChild(datePicker);
+            dateDisplay.onclick = () => {
+                try {
+                    datePicker.showPicker();
+                } catch (e) {
+                    datePicker.click();
+                }
+            };
 
             const doneCb = document.createElement('input');
             doneCb.type = 'checkbox';
@@ -497,7 +496,8 @@
                 }
             };
 
-            statusDateDiv.appendChild(dateWrapper);
+            statusDateDiv.appendChild(dateDisplay);
+            statusDateDiv.appendChild(datePicker);
             statusDateDiv.appendChild(doneCb);
             statusDateDiv.appendChild(delBtn);
 
