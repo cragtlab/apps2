@@ -81,6 +81,7 @@
     <font color=white>Alt-L: Load, Alt-R: Refresh</font><br/>
     <font color=white>Alt-P: Pass mode</font><br/>
     <div id="passIndicator" style="color: yellow; margin: 5px 0; font-weight: bold; min-height: 20px; font-size: 14px;"></div>
+    <div id="passLabelsList" style="color: white; font-size: 12px; margin-bottom: 10px; display: none; background: #444; padding: 5px; border-radius: 4px; max-height: 100px; overflow-y: auto;"></div>
     <button id="loadBtn" class="controlBtn">Load Plugins</button>
     <button id="refreshBtn" class="controlBtn">Refresh Plugins</button>
     <font color=white>Press Alt-1 to go 1st</font><br/>
@@ -129,12 +130,22 @@
 
     function updatePassUI() {
       const indicator = document.getElementById("passIndicator");
+      const labelsList = document.getElementById("passLabelsList");
       if (isPassActive) {
         indicator.textContent = `Pass for [${passBuffer}]`;
         indicator.style.color = "lightgreen";
+
+        // Find matching or remaining items
+        const candidates = passData.filter(item =>
+          item.label.toLowerCase().startsWith(passBuffer.toLowerCase())
+        );
+        labelsList.style.display = "block";
+        labelsList.innerHTML = candidates.map(item => `• ${item.label}`).join("<br/>");
       } else {
         indicator.textContent = lastCopiedText ? `Copied: ${lastCopiedText}` : "";
         indicator.style.color = "yellow";
+        labelsList.style.display = "none";
+        labelsList.innerHTML = "";
       }
     }
 
@@ -288,6 +299,7 @@ document.addEventListener("keydown", (e) => {
       e.preventDefault();
       isPassActive = false;
       passBuffer = "";
+      lastCopiedText = ""; // reset the last copied text to empty / initial state
       updatePassUI();
       return;
     }
