@@ -32,14 +32,17 @@
         #${tabId} .ops-table { width: 100%; border-collapse: collapse; font-size: 0.9em; table-layout: fixed; }
         #${tabId} .ops-table th, #${tabId} .ops-table td { border: 1px solid #ddd; padding: 5px; text-align: left; overflow: hidden; }
         #${tabId} .ops-table th { background: #f4f4f4; position: sticky; top: 0; z-index: 10; }
-        #${tabId} .ops-table input, #${tabId} .ops-table textarea, #${tabId} .remarks-input { width: 100%; border: 1px solid transparent; background: transparent; box-sizing: border-box; }
-        #${tabId} .ops-table input:focus, #${tabId} .ops-table textarea:focus, #${tabId} .remarks-input:focus { background: white; border-color: #007BFF; outline: none; }
-        #${tabId} .remarks-input { min-height: 20px; word-break: break-word; white-space: pre-wrap; font-family: inherit; font-size: inherit; }
+        #${tabId} .ops-table input, #${tabId} .ops-table textarea, #${tabId} .remarks-input, #${tabId} .task-name-input, #${tabId} .officers-input { width: 100%; border: 1px solid transparent; background: transparent; box-sizing: border-box; }
+        #${tabId} .ops-table input:focus, #${tabId} .ops-table textarea:focus, #${tabId} .remarks-input:focus, #${tabId} .task-name-input:focus, #${tabId} .officers-input:focus { background: white; border-color: #007BFF; outline: none; }
+        #${tabId} .remarks-input, #${tabId} .task-name-input, #${tabId} .officers-input { min-height: 20px; word-break: break-word; white-space: pre-wrap; font-family: inherit; font-size: inherit; }
         #${tabId} .ops-table .done-row { background-color: #f9f9f9; color: #888; }
-        #${tabId} .ops-table .done-row input, #${tabId} .ops-table .done-row textarea, #${tabId} .ops-table .done-row .remarks-input { color: #888; }
+        #${tabId} .ops-table .done-row input, #${tabId} .ops-table .done-row textarea, #${tabId} .ops-table .done-row .remarks-input, #${tabId} .ops-table .done-row .task-name-input, #${tabId} .ops-table .done-row .officers-input { color: #888; }
         #${tabId} .ops-table .done-row .task-name-input { text-decoration: line-through; }
 
-        #${tabId} .officer-view-container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        #${tabId} .officer-view-container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; align-items: start; }
+        @media (max-width: 768px) {
+            #${tabId} .officer-view-container { grid-template-columns: 1fr; }
+        }
         #${tabId} .officer-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; border-left: 5px solid #28a745; }
         #${tabId} .officer-card h2 { margin: 0 0 10px 0; font-size: 1.2em; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
 
@@ -73,7 +76,6 @@
     let currentView = "tasks";
 
     container.innerHTML = `
-        <h1>Team Planning & Actual Ops</h1>
         <div class="nav-tabs">
             <div class="nav-tab active" data-view="tasks">Monthly Tasks</div>
             <div class="nav-tab" data-view="ops">Actual Ops</div>
@@ -477,19 +479,17 @@
             statusDateDiv.appendChild(doneCb);
             statusDateDiv.appendChild(delBtn);
 
-            const titleInp = document.createElement('textarea');
-            titleInp.rows = 2;
-            titleInp.value = task.title || '';
+            const titleInp = document.createElement('div');
+            titleInp.contentEditable = "true";
             titleInp.className = 'task-name-input';
-            titleInp.placeholder = 'Title';
-            titleInp.onchange = () => { task.title = titleInp.value; saveData(); };
+            titleInp.textContent = task.title || '';
+            titleInp.onblur = () => { task.title = titleInp.textContent; saveData(); };
 
-            const offInp = document.createElement('textarea');
-            offInp.rows = 2;
-            offInp.value = task.officers || '';
+            const offInp = document.createElement('div');
+            offInp.contentEditable = "true";
             offInp.className = 'officers-input';
-            offInp.placeholder = 'Officers';
-            offInp.onchange = () => { task.officers = offInp.value; saveData(); };
+            offInp.textContent = task.officers || '';
+            offInp.onblur = () => { task.officers = offInp.textContent; saveData(); renderUI(); };
 
             const remInp = document.createElement('div');
             remInp.contentEditable = "true";
