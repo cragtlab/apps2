@@ -60,6 +60,10 @@
 <body>
   <div id="tabBar">
     <div style="color:white; margin-bottom: 10px; font-size: 0.8em;">Alt-L: Load, Alt-R: Refresh</div>
+    <div style="color:white; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
+      <input type="checkbox" id="preloadCheckbox" checked>
+      <label for="preloadCheckbox" style="font-size: 0.9em; cursor: pointer; user-select: none;">Preload data</label>
+    </div>
     <button id="loadBtn" class="controlBtn">📂 Load Data Folder</button>
     <button id="refreshBtn" class="controlBtn">🔄 Refresh Plugins</button>
     <div id="pluginTabs"></div>
@@ -459,6 +463,19 @@
         globalRootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
         await scanDataFiles();
         await scanDataJS();
+
+        // Handle preload if checked
+        if (document.getElementById("preloadCheckbox").checked) {
+          for (const type of reportTypes) {
+            if (foundFiles[type]) {
+              try {
+                await PluginAPI.pullData(type);
+              } catch (preloadErr) {
+                console.error(`Preload failed for report type "${type}":`, preloadErr);
+              }
+            }
+          }
+        }
       } catch (err) {
         console.error('Loading failed:', err);
         alert(err);
