@@ -563,8 +563,19 @@
                 const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!task.done;
                 cb.onclick = (e) => e.stopPropagation();
                 cb.onchange = () => { task.done = cb.checked; saveData(); renderUI(); };
+
+                const dateInp = document.createElement('input');
+                dateInp.type = 'date';
+                dateInp.value = task.date || '';
+                dateInp.onclick = (e) => e.stopPropagation();
+                dateInp.onchange = () => {
+                    task.date = dateInp.value;
+                    saveData();
+                    renderUI();
+                };
+
                 const span = document.createElement('span'); span.className = 'task-display';
-                span.textContent = (task.date ? '['+formatDateDisplay(task.date)+'] ' : '') + task.title;
+                span.textContent = task.title;
 
                 item.onclick = () => {
                     const opsTab = container.querySelector('.nav-tab[data-view="ops"]');
@@ -583,7 +594,11 @@
                     }
                 };
 
-                row.appendChild(cb); row.appendChild(span); item.appendChild(row); taskList.appendChild(item);
+                row.appendChild(cb);
+                row.appendChild(dateInp);
+                row.appendChild(span);
+                item.appendChild(row);
+                taskList.appendChild(item);
             });
             card.appendChild(taskList);
             list.appendChild(card);
