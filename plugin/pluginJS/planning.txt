@@ -32,14 +32,18 @@
         #${tabId} .ops-table { width: 100%; border-collapse: collapse; font-size: 0.9em; table-layout: fixed; }
         #${tabId} .ops-table th, #${tabId} .ops-table td { border: 1px solid #ddd; padding: 5px; text-align: left; overflow: hidden; }
         #${tabId} .ops-table th { background: #f4f4f4; position: sticky; top: 0; z-index: 10; }
-        #${tabId} .ops-table input, #${tabId} .ops-table textarea { width: 100%; border: 1px solid transparent; background: transparent; box-sizing: border-box; }
-        #${tabId} .ops-table input:focus, #${tabId} .ops-table textarea:focus { background: white; border-color: #007BFF; outline: none; }
+        #${tabId} .ops-table input, #${tabId} .ops-table textarea, #${tabId} .remarks-input, #${tabId} .task-name-input, #${tabId} .officers-input { width: 100%; border: 1px solid transparent; background: transparent; box-sizing: border-box; }
+        #${tabId} .ops-table input:focus, #${tabId} .ops-table textarea:focus, #${tabId} .remarks-input:focus, #${tabId} .task-name-input:focus, #${tabId} .officers-input:focus { background: white; border-color: #007BFF; outline: none; }
+        #${tabId} .remarks-input, #${tabId} .task-name-input, #${tabId} .officers-input { min-height: 20px; word-break: break-word; white-space: pre-wrap; font-family: inherit; font-size: inherit; }
         #${tabId} .ops-table .done-row { background-color: #f9f9f9; color: #888; }
-        #${tabId} .ops-table .done-row input, #${tabId} .ops-table .done-row textarea { color: #888; }
+        #${tabId} .ops-table .done-row input, #${tabId} .ops-table .done-row textarea, #${tabId} .ops-table .done-row .remarks-input, #${tabId} .ops-table .done-row .task-name-input, #${tabId} .ops-table .done-row .officers-input { color: #888; }
         #${tabId} .ops-table .done-row .task-name-input { text-decoration: line-through; }
 
-        #${tabId} .officer-view-container { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-        #${tabId} .officer-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; border-left: 5px solid #28a745; }
+        #${tabId} .officer-view-container { max-width: 1200px; margin: 0 auto; column-count: 2; column-gap: 15px; }
+        @media (max-width: 768px) {
+            #${tabId} .officer-view-container { column-count: 1; }
+        }
+        #${tabId} .officer-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; border-left: 5px solid #28a745; break-inside: avoid; display: inline-block; width: 100%; box-sizing: border-box; margin-bottom: 15px; }
         #${tabId} .officer-card h2 { margin: 0 0 10px 0; font-size: 1.2em; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
 
         #${tabId} .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; }
@@ -72,7 +76,6 @@
     let currentView = "tasks";
 
     container.innerHTML = `
-        <h1>Team Planning & Actual Ops</h1>
         <div class="nav-tabs">
             <div class="nav-tab active" data-view="tasks">Monthly Tasks</div>
             <div class="nav-tab" data-view="ops">Actual Ops</div>
@@ -443,29 +446,14 @@
             statusDateDiv.style.gap = '6px';
             statusDateDiv.style.flexWrap = 'wrap';
 
-            const dateDisplay = document.createElement('span');
-            dateDisplay.textContent = formatDateDisplay(task.date) || 'Set Date';
-            dateDisplay.style.cursor = 'pointer';
-            dateDisplay.style.fontSize = '0.85em';
-            dateDisplay.style.color = task.date ? '#333' : '#999';
-            dateDisplay.style.textDecoration = 'underline';
-            dateDisplay.style.whiteSpace = 'nowrap';
-
             const datePicker = document.createElement('input');
             datePicker.type = 'date';
             datePicker.value = task.date || '';
-            datePicker.style.width = '0';
-            datePicker.style.height = '0';
-            datePicker.style.padding = '0';
-            datePicker.style.border = 'none';
-            datePicker.style.visibility = 'hidden';
-            datePicker.style.position = 'absolute';
 
             datePicker.onchange = () => {
                 task.date = datePicker.value;
                 saveData(); renderUI();
             };
-            dateDisplay.onclick = () => datePicker.showPicker();
 
             const doneCb = document.createElement('input');
             doneCb.type = 'checkbox';
@@ -487,36 +475,53 @@
                 }
             };
 
-            statusDateDiv.appendChild(dateDisplay);
             statusDateDiv.appendChild(datePicker);
             statusDateDiv.appendChild(doneCb);
             statusDateDiv.appendChild(delBtn);
 
-            const titleInp = document.createElement('textarea');
-            titleInp.rows = 2;
-            titleInp.value = task.title || '';
+            const titleInp = document.createElement('div');
+            titleInp.contentEditable = "true";
             titleInp.className = 'task-name-input';
-            titleInp.placeholder = 'Title';
-            titleInp.onchange = () => { task.title = titleInp.value; saveData(); };
+            titleInp.textContent = task.title || '';
+            titleInp.onblur = () => { task.title = titleInp.textContent; saveData(); };
 
-            const offInp = document.createElement('textarea');
-            offInp.rows = 2;
-            offInp.value = task.officers || '';
+            const offInp = document.createElement('div');
+            offInp.contentEditable = "true";
             offInp.className = 'officers-input';
-            offInp.placeholder = 'Officers';
-            offInp.onchange = () => { task.officers = offInp.value; saveData(); };
+            offInp.textContent = task.officers || '';
+            offInp.onblur = () => { task.officers = offInp.textContent; saveData(); renderUI(); };
 
-            const remInp = document.createElement('textarea');
+            const remInp = document.createElement('div');
+            remInp.contentEditable = "true";
             remInp.className = 'remarks-input';
-            remInp.rows = 3;
-            remInp.value = task.remarks || '';
-            remInp.placeholder = 'Remarks';
-            remInp.onchange = () => { task.remarks = remInp.value; saveData(); };
+            remInp.textContent = task.remarks || '';
+            if (task.remarks && task.remarks.trim()) {
+                remInp.title = task.remarks;
+            }
+            remInp.onblur = () => {
+                task.remarks = remInp.textContent;
+                if (task.remarks && task.remarks.trim()) {
+                    remInp.title = task.remarks;
+                    if (remInp.parentElement) {
+                        remInp.parentElement.title = task.remarks;
+                    }
+                } else {
+                    remInp.removeAttribute('title');
+                    if (remInp.parentElement) {
+                        remInp.parentElement.removeAttribute('title');
+                    }
+                }
+                saveData();
+            };
 
             tr.appendChild(createCell(statusDateDiv));
             tr.appendChild(createCell(titleInp));
             tr.appendChild(createCell(offInp));
-            tr.appendChild(createCell(remInp));
+            const remCell = createCell(remInp);
+            if (task.remarks && task.remarks.trim()) {
+                remCell.title = task.remarks;
+            }
+            tr.appendChild(remCell);
 
             if (task.date && task.date <= today) {
                 dueTbody.appendChild(tr);
@@ -550,13 +555,27 @@
                 item.className = 'task-item' + (task.done ? ' done' : '');
                 item.style.cursor = 'pointer';
                 if (isDue) item.style.backgroundColor = '#ffe0b2'; // Orange highlight
+                if (task.remarks && task.remarks.trim()) {
+                    item.title = task.remarks;
+                }
 
                 const row = document.createElement('div'); row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '5px';
                 const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!task.done;
                 cb.onclick = (e) => e.stopPropagation();
                 cb.onchange = () => { task.done = cb.checked; saveData(); renderUI(); };
+
+                const dateInp = document.createElement('input');
+                dateInp.type = 'date';
+                dateInp.value = task.date || '';
+                dateInp.onclick = (e) => e.stopPropagation();
+                dateInp.onchange = () => {
+                    task.date = dateInp.value;
+                    saveData();
+                    renderUI();
+                };
+
                 const span = document.createElement('span'); span.className = 'task-display';
-                span.textContent = (task.date ? '['+formatDateDisplay(task.date)+'] ' : '') + task.title;
+                span.textContent = task.title;
 
                 item.onclick = () => {
                     const opsTab = container.querySelector('.nav-tab[data-view="ops"]');
@@ -575,7 +594,11 @@
                     }
                 };
 
-                row.appendChild(cb); row.appendChild(span); item.appendChild(row); taskList.appendChild(item);
+                row.appendChild(cb);
+                row.appendChild(dateInp);
+                row.appendChild(span);
+                item.appendChild(row);
+                taskList.appendChild(item);
             });
             card.appendChild(taskList);
             list.appendChild(card);
