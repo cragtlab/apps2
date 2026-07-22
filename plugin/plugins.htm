@@ -79,7 +79,7 @@
 <body>
   <div id="tabBar">
     <font color=white>Alt-L: Load, Alt-R: Refresh</font><br/>
-    <font color=white>Alt-P: Pass mode</font><br/>
+    <button id="passBtn" class="controlBtn">Alt-P: Pass mode</button>
     <div id="passIndicator" style="color: yellow; margin: 5px 0; font-weight: bold; min-height: 20px; font-size: 14px;"></div>
     <div id="passLabelsList" style="color: white; font-size: 12px; margin-bottom: 10px; display: none; background: #444; padding: 5px; border-radius: 4px; max-height: 100px; overflow-y: auto;"></div>
     <button id="loadBtn" class="controlBtn">Load Plugins</button>
@@ -292,6 +292,19 @@ async function ensureWritePermission(handle) {
   if ((await handle.requestPermission(opts)) === 'granted') return true;
   return false;
 }
+    function activatePassMode() {
+      isPassActive = true;
+      passBuffer = "";
+      if (document.activeElement) {
+        document.activeElement.blur();
+      }
+      updatePassUI();
+    }
+
+    document.getElementById("passBtn").onclick = () => {
+      activatePassMode();
+    };
+
 document.addEventListener("keydown", (e) => {
   // If pass mode is active, intercept standard keys (letters) for matching
   if (isPassActive) {
@@ -345,13 +358,7 @@ document.addEventListener("keydown", (e) => {
 
   if (e.code === 'KeyP') {
     e.preventDefault();
-    isPassActive = true;
-    passBuffer = "";
-    // If we have an active input, blur it so keyboard input goes to document keydown
-    if (document.activeElement) {
-      document.activeElement.blur();
-    }
-    updatePassUI();
+    activatePassMode();
     return;
   }
   if (e.code === 'KeyL') {
