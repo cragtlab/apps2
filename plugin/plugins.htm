@@ -128,6 +128,14 @@
       document.body.removeChild(textArea);
     }
 
+    function handleLabelClick(label, value) {
+      copyText(value);
+      lastCopiedText = label;
+      isPassActive = false;
+      passBuffer = "";
+      updatePassUI();
+    }
+
     function updatePassUI() {
       const indicator = document.getElementById("passIndicator");
       const labelsList = document.getElementById("passLabelsList");
@@ -140,7 +148,15 @@
           item.label.toLowerCase().startsWith(passBuffer.toLowerCase())
         );
         labelsList.style.display = "block";
-        labelsList.innerHTML = candidates.map(item => `• ${item.label}`).join("<br/>");
+        labelsList.innerHTML = "";
+        candidates.forEach(item => {
+          const itemDiv = document.createElement("div");
+          itemDiv.style.cursor = "pointer";
+          itemDiv.style.padding = "2px 0";
+          itemDiv.textContent = `• ${item.label}`;
+          itemDiv.onclick = () => handleLabelClick(item.label, item.value);
+          labelsList.appendChild(itemDiv);
+        });
       } else {
         indicator.textContent = lastCopiedText ? `Copied: ${lastCopiedText}` : "";
         indicator.style.color = "yellow";
