@@ -79,9 +79,9 @@
 <body>
   <div id="tabBar">
     <font color=white>Alt-L: Load, Alt-R: Refresh</font><br/>
-    <font color=white>Alt-P: Pass mode</font><br/>
-    <div id="passIndicator" style="color: yellow; margin: 5px 0; font-weight: bold; min-height: 20px; font-size: 14px;"></div>
-    <div id="passLabelsList" style="color: white; font-size: 12px; margin-bottom: 10px; display: none; background: #444; padding: 5px; border-radius: 4px; max-height: 100px; overflow-y: auto;"></div>
+    <button id="passBtn" class="controlBtn">Alt-P: Pass mode</button>
+    <div id="passIndicator" style="color: yellow; margin: 5px 0; font-weight: bold; min-height: 20px; font-size: 16px;"></div>
+    <div id="passLabelsList" style="color: white; font-size: 14px; margin-bottom: 10px; display: none; background: #444; padding: 5px; border-radius: 4px;"></div>
     <button id="loadBtn" class="controlBtn">Load Plugins</button>
     <button id="refreshBtn" class="controlBtn">Refresh Plugins</button>
     <font color=white>Press Alt-1 to go 1st</font><br/>
@@ -128,6 +128,14 @@
       document.body.removeChild(textArea);
     }
 
+    function handleLabelClick(label, value) {
+      copyText(value);
+      lastCopiedText = label;
+      isPassActive = false;
+      passBuffer = "";
+      updatePassUI();
+    }
+
     function updatePassUI() {
       const indicator = document.getElementById("passIndicator");
       const labelsList = document.getElementById("passLabelsList");
@@ -140,7 +148,15 @@
           item.label.toLowerCase().startsWith(passBuffer.toLowerCase())
         );
         labelsList.style.display = "block";
-        labelsList.innerHTML = candidates.map(item => `• ${item.label}`).join("<br/>");
+        labelsList.innerHTML = "";
+        candidates.forEach(item => {
+          const itemDiv = document.createElement("div");
+          itemDiv.style.cursor = "pointer";
+          itemDiv.style.padding = "2px 0";
+          itemDiv.textContent = `• ${item.label}`;
+          itemDiv.onclick = () => handleLabelClick(item.label, item.value);
+          labelsList.appendChild(itemDiv);
+        });
       } else {
         indicator.textContent = lastCopiedText ? `Copied: ${lastCopiedText}` : "";
         indicator.style.color = "yellow";
@@ -292,6 +308,19 @@ async function ensureWritePermission(handle) {
   if ((await handle.requestPermission(opts)) === 'granted') return true;
   return false;
 }
+    function activatePassMode() {
+      isPassActive = true;
+      passBuffer = "";
+      if (document.activeElement) {
+        document.activeElement.blur();
+      }
+      updatePassUI();
+    }
+
+    document.getElementById("passBtn").onclick = () => {
+      activatePassMode();
+    };
+
 document.addEventListener("keydown", (e) => {
   // If pass mode is active, intercept standard keys (letters) for matching
   if (isPassActive) {
@@ -345,13 +374,7 @@ document.addEventListener("keydown", (e) => {
 
   if (e.code === 'KeyP') {
     e.preventDefault();
-    isPassActive = true;
-    passBuffer = "";
-    // If we have an active input, blur it so keyboard input goes to document keydown
-    if (document.activeElement) {
-      document.activeElement.blur();
-    }
-    updatePassUI();
+    activatePassMode();
     return;
   }
   if (e.code === 'KeyL') {
