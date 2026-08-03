@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>LayerZero OFT Scanner</title>
+
+<style>
+body{
+    background:#111;
+    color:#eee;
+    font-family:Arial,sans-serif;
+    padding:20px;
+}
+
+button{
+    padding:10px 20px;
+    cursor:pointer;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
+}
+
+th,td{
+    border:1px solid #333;
+    padding:8px;
+}
+
+th{
+    background:#222;
+}
+
+.multi{
+    background:#1f3b1f;
+}
+
+#status{
+    margin:10px 0;
+}
+</style>
+</head>
+<body>
+
+<h2>LayerZero OFT Scanner</h2>
+
+<button onclick="scan()">Scan</button>
+
+<div id="status"></div>
+
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Chains</th>
+<th>Deployments</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+
+<script>
+
+async function getAllTokens(){
+
+    let all = [];
+    let nextToken = null;
+
+    do{
+
+        let url = "https://transfer.layerzero-api.com/v1/tokens";
+
+        if(nextToken){
+            url += "?pagination[nextToken]=" + encodeURIComponent(nextToken);
+        }
+
+        const r = await fetch(url);
+        const j = await r.json();
+
+        if(j.tokens){
+            all.push(...j.tokens);
+        }
+
+        nextToken = j.pagination?.nextToken;
+
+    }while(nextToken);
+
+    return all;
+}
+
+async function scan(){
+
+    const tbody = document.getElementById("tbody");
+    tbody.innerHTML = "";
+
+    document.getElementById("status").innerText =
+        "Loading LayerZero tokens...";
+
+    try{
+
+        const tokens = await getAllTokens();
+
+        const grouped = {};
+
+        for(const t of tokens){
+
+            const symbol =
+                t.symbol ||
+                t.tokenSymbol ||
+                t.name ||
+                "UNKNOWN";
+
+            if(!grouped[symbol]){
+                grouped[symbol] = [];
+            }
+
+            grouped[symbol].push({
+                chain:
+                    t.chainKey ||
+                    t.chain ||
+                    t.chainName,
+                address:
+                    t.address ||
+                    t.tokenAddress
+            });
+        }
+
+        const entries =
+            Object.entries(grouped)
+            .filter(x => x[1].length > 1)
+            .sort((a,b)=>b[1].length-a[1].length);
+
+        for(const [symbol,list] of entries){
+
+            const tr = document.createElement("tr");
+
+            if(list.length > 1){
+                tr.className = "multi";
+            }
+
+            tr.innerHTML = `
+                <td>${symbol}</td>
+                <td>${list.map(x=>x.chain).join(", ")}</td>
+                <td>${list.length}</td>
+            `;
+
+            tbody.appendChild(tr);
+        }
+
+        document.getElementById("status").innerText =
+            `${tokens.length} token records loaded. ${entries.length} symbols found on multiple chains.`;
+
+    }catch(err){
+
+        document.getElementById("status").innerText =
+            err.toString();
+    }
+}
+
+</script>
+
+</body>
+</html>
