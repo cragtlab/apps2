@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mow — cover the lawn in the fewest passes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --soil: #3d2b1f;
+    --grass-a: #4d7c2e;
+    --grass-b: #5c8f36;
+    --mow-a: #cfe3a3;
+    --mow-b: #bcd98d;
+    --rock: #6b675f;
+    --rock-dark: #504d47;
+    --paper: #f6f3ea;
+    --ink: #23291d;
+    --accent: #e8a13b;
+    --accent-2: #d6672f;
+    --line: rgba(35,41,29,0.14);
+    --win: #3f7d3a;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 700px at 15% -10%, #eef2e0 0%, transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'JetBrains Mono', monospace;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:28px 14px 60px;
+  }
+  h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size:clamp(28px, 5vw, 44px);
+    letter-spacing:-0.02em;
+    margin:0 0 4px;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  h1 .dot{ color:var(--accent-2); }
+  .tagline{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:14px;
+    color:#5a5646;
+    margin:0 0 22px;
+    max-width:520px;
+    text-align:center;
+    line-height:1.5;
+  }
+  .panel{
+    background:#fffdf7;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px;
+    box-shadow:0 1px 0 rgba(35,41,29,0.04), 0 12px 30px -18px rgba(35,41,29,0.35);
+    width:100%;
+    max-width:640px;
+  }
+  .toprow{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .stats{
+    display:flex;
+    gap:18px;
+    flex-wrap:wrap;
+  }
+  .stat{ line-height:1.15; }
+  .stat .num{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size:22px;
+    display:block;
+  }
+  .stat .label{
+    font-size:10px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:#8a8570;
+  }
+  .controls-row{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  select, button{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    border-radius:8px;
+    padding:7px 11px;
+    cursor:pointer;
+    transition:transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  select:hover, button:hover{ border-color:#b8b299; }
+  button.primary{
+    background:var(--accent-2);
+    color:#fff8ef;
+    border-color:var(--accent-2);
+    font-weight:700;
+  }
+  button.primary:hover{ background:#c05a26; }
+  button:active{ transform:scale(0.96); }
+  button:focus-visible, select:focus-visible{
+    outline:2px solid var(--accent-2);
+    outline-offset:2px;
+  }
+
+  #board-wrap{
+    display:flex;
+    justify-content:center;
+    margin:6px 0 14px;
+    position:relative;
+  }
+  #board{
+    display:grid;
+    gap:2px;
+    background:var(--soil);
+    padding:6px;
+    border-radius:10px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
+    touch-action:none;
+  }
+  .cell{
+    width:100%;
+    height:100%;
+    position:relative;
+    border-radius:2px;
+  }
+  .cell.grass-a{ background:var(--grass-a); }
+  .cell.grass-b{ background:var(--grass-b); }
+  .cell.mow-a{ background:var(--mow-a); }
+  .cell.mow-b{ background:var(--mow-b); }
+  .cell.rock{
+    background:var(--rock);
+    background-image: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.18), transparent 55%),
+                       radial-gradient(circle at 65% 70%, rgba(0,0,0,0.18), transparent 55%);
+    border-radius:40%;
+    box-shadow: inset 0 -3px 0 var(--rock-dark);
+  }
+  .cell.player::after{
+    content:"";
+    position:absolute;
+    inset:14%;
+    background:var(--accent-2);
+    border-radius:5px;
+    box-shadow:0 0 0 2px #fff8ef, 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  #win-banner{
+    display:none;
+    text-align:center;
+    font-family:'Space Grotesk', sans-serif;
+    background:#eaf3e2;
+    border:1px solid #bcd9a8;
+    color:var(--win);
+    border-radius:10px;
+    padding:12px 16px;
+    margin-bottom:14px;
+    font-size:14px;
+    line-height:1.5;
+  }
+  #win-banner strong{ font-size:17px; display:block; margin-bottom:2px;}
+
+  .hint{
+    text-align:center;
+    font-size:11.5px;
+    color:#8a8570;
+    line-height:1.6;
+  }
+  kbd{
+    font-family:'JetBrains Mono', monospace;
+    background:#efe9d8;
+    border:1px solid #d8d0b8;
+    border-bottom-width:2px;
+    border-radius:4px;
+    padding:1px 6px;
+    font-size:11px;
+  }
+
+  #dpad{
+    display:grid;
+    grid-template-columns:repeat(3, 46px);
+    grid-template-rows:repeat(3, 46px);
+    gap:5px;
+    justify-content:center;
+    margin:2px auto 0;
+  }
+  #dpad button{
+    width:46px; height:46px;
+    font-size:18px;
+    display:flex; align-items:center; justify-content:center;
+    padding:0;
+  }
+  #dpad .up{grid-column:2; grid-row:1;}
+  #dpad .left{grid-column:1; grid-row:2;}
+  #dpad .down{grid-column:2; grid-row:2;}
+  #dpad .right{grid-column:3; grid-row:2;}
+  @media (min-width: 620px){
+    #dpad{ display:none; }
+  }
+  @media (max-width: 619px){
+    #board-wrap{ margin:4px 0 2px; }
+  }
+
+  .cell.path-step{
+    box-shadow: inset 0 0 0 2px rgba(214,103,47,0.55);
+  }
+  .cell.path-current::after{
+    content:"";
+    position:absolute;
+    inset:20%;
+    background:var(--accent);
+    border-radius:50%;
+    box-shadow:0 0 0 2px #fff8ef, 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .cell.path-num{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:8px;
+    font-weight:700;
+    color:rgba(35,41,29,0.55);
+  }
+  #preview-banner{
+    display:none;
+    text-align:center;
+    font-family:'Space Grotesk', sans-serif;
+    background:#fdf1e2;
+    border:1px solid #f0d4a3;
+    color:#8a5a1c;
+    border-radius:10px;
+    padding:10px 14px;
+    margin-bottom:14px;
+    font-size:13px;
+    line-height:1.5;
+  }
+  #preview-banner strong{ display:block; font-size:15px; margin-bottom:2px; }
+
+  footer{
+    margin-top:22px;
+    font-size:11px;
+    color:#a39d86;
+    text-align:center;
+    max-width:480px;
+  }
+  footer a{ color:#a39d86; }
+</style>
+</head>
+<body>
+
+  <h1>Mow<span class="dot">.</span></h1>
+  <p class="tagline">Cover every square of grass in as few moves as possible. Plan ahead — dead ends force backtracking, and every backtrack costs you.</p>
+
+  <div class="panel">
+    <div class="toprow">
+      <div class="stats">
+        <div class="stat"><span class="num" id="stat-moves">0</span><span class="label">moves</span></div>
+        <div class="stat"><span class="num" id="stat-coverage">0%</span><span class="label">mowed</span></div>
+        <div class="stat"><span class="num" id="stat-best">–</span><span class="label">min. possible</span></div>
+      </div>
+      <div class="controls-row">
+        <select id="size-select">
+          <option value="6">small · 6×6</option>
+          <option value="8" selected>medium · 8×8</option>
+          <option value="10">large · 10×10</option>
+          <option value="14">huge · 14×14</option>
+        </select>
+        <button id="new-lawn" class="primary">New lawn</button>
+        <button id="reset-btn">Restart</button>
+        <button id="show-optimal">Show optimal path</button>
+      </div>
+    </div>
+
+    <div id="win-banner">
+      <strong id="win-headline"></strong>
+      <span id="win-sub"></span>
+    </div>
+
+    <div id="preview-banner">
+      <strong id="preview-headline"></strong>
+      <span id="preview-sub"></span>
+    </div>
+
+    <div id="board-wrap">
+      <div id="board"></div>
+    </div>
+
+    <div id="dpad">
+      <button class="up" data-dir="up">↑</button>
+      <button class="left" data-dir="left">←</button>
+      <button class="down" data-dir="down">↓</button>
+      <button class="right" data-dir="right">→</button>
+    </div>
+
+    <p class="hint">Use <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to mow. Rocks block your path.</p>
+  </div>
+
+  <footer>A little clone inspired by <a href="https://pudding.cool/2026/06/mow/" target="_blank" rel="noopener">The Pudding's "Why some people mow a lawn better than others."</a> Minimum possible = open squares − 1, i.e. a perfect run with zero backtracking.</footer>
+
+<script>
+(function(){
+  const boardEl = document.getElementById('board');
+  const sizeSelect = document.getElementById('size-select');
+  const newLawnBtn = document.getElementById('new-lawn');
+  const resetBtn = document.getElementById('reset-btn');
+  const showOptimalBtn = document.getElementById('show-optimal');
+  const statMoves = document.getElementById('stat-moves');
+  const statCoverage = document.getElementById('stat-coverage');
+  const statBest = document.getElementById('stat-best');
+  const winBanner = document.getElementById('win-banner');
+  const winHeadline = document.getElementById('win-headline');
+  const winSub = document.getElementById('win-sub');
+  const previewBanner = document.getElementById('preview-banner');
+  const previewHeadline = document.getElementById('preview-headline');
+  const previewSub = document.getElementById('preview-sub');
+
+  let N = 8;
+  let grid = [];       // 'open' | 'rock'
+  let mowed = [];      // boolean
+  let player = {r:0,c:0};
+  let moves = 0;
+  let openCount = 0;
+  let mowedCount = 0;
+  let finished = false;
+  let currentLawn = null; // { blocked, startR, startC, openCount } — kept stable across restarts
+
+  let previewMode = false;
+  let previewPath = [];
+  let previewStep = 0;
+  let previewTimer = null;
+
+  function idx(r,c){ return r*N+c; }
+  function inBounds(r,c){ return r>=0 && r<N && c>=0 && c<N; }
+
+  function floodFillCount(startR, startC, blocked){
+    const seen = new Set();
+    const stack = [[startR,startC]];
+    seen.add(idx(startR,startC));
+    while(stack.length){
+      const [r,c] = stack.pop();
+      const deltas = [[1,0],[-1,0],[0,1],[0,-1]];
+      for(const [dr,dc] of deltas){
+        const nr=r+dr, nc=c+dc;
+        if(inBounds(nr,nc) && !blocked[idx(nr,nc)] && !seen.has(idx(nr,nc))){
+          seen.add(idx(nr,nc));
+          stack.push([nr,nc]);
+        }
+      }
+    }
+    return seen;
+  }
+
+  function generateLawn(size){
+    N = size;
+    const density = size <= 6 ? 0.12 : size <= 10 ? 0.18 : 0.22;
+    let attempt = 0;
+    let best = null;
+
+    while(attempt < 60){
+      attempt++;
+      const blocked = new Array(N*N).fill(false);
+      for(let i=0;i<N*N;i++){
+        if(Math.random() < density) blocked[i] = true;
+      }
+      // pick a start cell that's open
+      let startR=0, startC=0;
+      // prefer top-left-ish open cell
+      outer:
+      for(let r=0;r<N;r++){
+        for(let c=0;c<N;c++){
+          if(!blocked[idx(r,c)]){ startR=r; startC=c; break outer; }
+        }
+      }
+      if(blocked[idx(startR,startC)]) continue;
+
+      const reached = floodFillCount(startR, startC, blocked);
+      const totalOpen = blocked.filter(b=>!b).length;
+
+      // require full connectivity and a reasonable amount of open space
+      if(reached.size === totalOpen && totalOpen >= (N*N)*0.55){
+        return { blocked, startR, startC, openCount: totalOpen, N: size };
+      }
+      if(!best || reached.size > best.reached.size){
+        best = { blocked, startR, startC, reached, openCount: totalOpen };
+      }
+    }
+    // fallback: carve rocks that aren't reachable so board is always valid
+    const { blocked, startR, startC, reached } = best;
+    for(let i=0;i<N*N;i++){
+      if(!blocked[i] && !reached.has(i)) blocked[i] = true;
+    }
+    const finalOpen = blocked.filter(b=>!b).length;
+    return { blocked, startR, startC, openCount: finalOpen, N: size };
+  }
+
+  function newLawn(){
+    currentLawn = generateLawn(N);
+    currentLawn.lowerBound = bipartiteLowerBound(currentLawn.blocked, N, currentLawn.startR, currentLawn.startC);
+    currentLawn.solverResult = null;
+    resetGameState();
+    solveInBackground(currentLawn);
+  }
+
+  function solveInBackground(lawn){
+    setTimeout(() => {
+      if(lawn !== currentLawn) return; // a newer lawn replaced this one
+      const result = solvePath(lawn.blocked, lawn.N, lawn.startR, lawn.startC, lawn.openCount);
+      if(lawn !== currentLawn) return;
+      lawn.solverResult = result;
+      renderBestStat();
+    }, 20);
+  }
+
+  function restartLawn(){
+    if(!currentLawn || currentLawn.N !== N){
+      newLawn();
+      return;
+    }
+    resetGameState();
+  }
+
+  function resetGameState(){
+    clearPreviewState();
+    const { blocked, startR, startC, openCount: oc } = currentLawn;
+    grid = blocked.map(b => b ? 'rock' : 'open');
+    mowed = new Array(N*N).fill(false);
+    openCount = oc;
+    mowedCount = 0;
+    moves = 0;
+    finished = false;
+    player = { r: startR, c: startC };
+    mowed[idx(startR,startC)] = true;
+    mowedCount = 1;
+    winBanner.style.display = 'none';
+
+    renderBoardStructure();
+    updateStats();
+    renderCells();
+  }
+
+  function renderBoardStructure(){
+    boardEl.innerHTML = '';
+    // fit the board within the viewport (leaves room for stats + dpad on phones)
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const maxBoardW = Math.min(vw - 48, 560);
+    const maxBoardH = Math.max(vh - 340, 180); // reserve space for header/stats/dpad/footer
+    const cellPx = Math.max(16, Math.floor(Math.min(maxBoardW, maxBoardH) / N) - 2);
+    boardEl.style.gridTemplateColumns = `repeat(${N}, ${cellPx}px)`;
+    boardEl.style.gridTemplateRows = `repeat(${N}, ${cellPx}px)`;
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const div = document.createElement('div');
+        div.className = 'cell';
+        div.dataset.r = r;
+        div.dataset.c = c;
+        boardEl.appendChild(div);
+      }
+    }
+  }
+
+  function renderCells(){
+    const children = boardEl.children;
+    const previewSet = previewMode ? new Set(previewPath.slice(0, previewStep+1).map(p=>idx(p.r,p.c))) : null;
+    const previewCurrent = previewMode ? previewPath[previewStep] : null;
+
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const i = idx(r,c);
+        const div = children[i];
+        div.className = 'cell';
+        if(grid[i] === 'rock'){
+          div.classList.add('rock');
+        } else if(previewMode ? previewSet.has(i) : mowed[i]){
+          div.classList.add((r+c) % 2 === 0 ? 'mow-a' : 'mow-b');
+        } else {
+          div.classList.add((r+c) % 2 === 0 ? 'grass-a' : 'grass-b');
+        }
+        if(previewMode){
+          if(previewCurrent && r === previewCurrent.r && c === previewCurrent.c){
+            div.classList.add('path-current');
+          }
+        } else if(r === player.r && c === player.c){
+          div.classList.add('player');
+        }
+      }
+    }
+  }
+
+  function updateStats(){
+    statMoves.textContent = moves;
+    const pct = openCount ? Math.round((mowedCount/openCount)*100) : 0;
+    statCoverage.textContent = pct + '%';
+    renderBestStat();
+  }
+
+  function renderBestStat(){
+    if(!currentLawn) { statBest.textContent = '–'; return; }
+    if(currentLawn.solverResult){
+      const r = currentLawn.solverResult;
+      statBest.textContent = (r.exact ? '' : '~') + r.moves;
+      statBest.title = r.exact
+        ? 'Verified minimum — a shortest possible route exists at this length.'
+        : 'Best route found so far (board too large to fully verify) — treat as an upper bound.';
+    } else {
+      // instant estimate shown while the exact solver runs in the background
+      statBest.textContent = '≥' + currentLawn.lowerBound;
+      statBest.title = 'Provisional lower bound — solving for the exact minimum…';
+    }
+  }
+
+  function tryMove(dr, dc){
+    if(finished || previewMode) return;
+    const nr = player.r + dr;
+    const nc = player.c + dc;
+    if(!inBounds(nr,nc)) return;
+    if(grid[idx(nr,nc)] === 'rock') return;
+
+    player = { r: nr, c: nc };
+    moves++;
+    const i = idx(nr,nc);
+    if(!mowed[i]){
+      mowed[i] = true;
+      mowedCount++;
+    }
+    updateStats();
+    renderCells();
+
+    if(mowedCount === openCount){
+      finished = true;
+      const known = currentLawn.solverResult;
+      const minMoves = known ? known.moves : currentLawn.lowerBound;
+      const isVerified = known ? known.exact : false;
+      const extra = moves - minMoves;
+      winHeadline.textContent = extra <= 0 ? 'Perfect run!' : `Lawn cleared in ${moves} moves`;
+      let sub;
+      const qualifier = isVerified ? '' : (known ? ' (best known, not verified optimal)' : ' (estimated lower bound)');
+      if(extra <= 0){
+        sub = `You mowed all ${openCount} squares in ${minMoves} moves${qualifier} — no wasted steps.`;
+      } else {
+        const eff = minMoves > 0 ? Math.round((minMoves/moves)*100) : 100;
+        sub = `Best possible${qualifier} was ${minMoves} — you were ${extra} move${extra===1?'':'s'} over, ${eff}% efficient.`;
+      }
+      winSub.textContent = sub;
+      winBanner.style.display = 'block';
+    }
+  }
+
+  // ---- Bipartite lower bound ----
+  // Grid movement always steps to an orthogonally adjacent cell, which always
+  // flips the (row+col)%2 checkerboard color. That means the *minimum*
+  // number of moves to cover every open cell isn't always openCount-1: if the
+  // two color classes are unbalanced, some backtracking is unavoidable no
+  // matter how you play. This computes the true lower bound from that.
+  function colorCounts(blocked, N){
+    let c0 = 0, c1 = 0;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(!blocked[r*N+c]){ if((r+c)%2===0) c0++; else c1++; }
+    }
+    return [c0, c1];
+  }
+
+  function bipartiteLowerBound(blocked, N, startR, startC){
+    const [c0, c1] = colorCounts(blocked, N);
+    const startColor = (startR+startC) % 2;
+    const same = (startColor === 0 ? c0 : c1) - 1;
+    const other = (startColor === 0 ? c1 : c0);
+    return Math.max(2*other - 1, 2*same, 0);
+  }
+
+  // ---- Optimal path solver ----
+  // Iterative-deepening DFS starting from the true bipartite lower bound,
+  // with a dynamic per-node bound (same formula, recomputed from whatever's
+  // left to mow) that prunes far more aggressively than a plain cell-count
+  // check. When it completes in budget the result is a verified optimum.
+  // Otherwise it falls back to a nearest-unmowed greedy heuristic.
+  function solvePath(blocked, N, startR, startC, openCount){
+    const deltas = [[-1,0],[1,0],[0,-1],[0,1]];
+    const total = openCount;
+    const minMoves = bipartiteLowerBound(blocked, N, startR, startC);
+    const deadline = performance.now() + 1400; // time budget
+    const maxExtra = 10;
+    const [c0, c1] = colorCounts(blocked, N);
+
+    function neighborsOpen(r,c){
+      const out = [];
+      for(const [dr,dc] of deltas){
+        const nr=r+dr, nc=c+dc;
+        if(nr>=0&&nr<N&&nc>=0&&nc<N&&!blocked[nr*N+nc]) out.push([nr,nc]);
+      }
+      return out;
+    }
+
+    const startColor = (startR+startC) % 2;
+    const initRemain0 = c0 - (startColor === 0 ? 1 : 0);
+    const initRemain1 = c1 - (startColor === 1 ? 1 : 0);
+
+    for(let extra=0; extra<=maxExtra; extra++){
+      const limit = minMoves + extra;
+      const visited = new Array(N*N).fill(false);
+      visited[startR*N+startC] = true;
+      const path = [{r:startR,c:startC}];
+      let found = null;
+      let overBudget = false;
+
+      function dfs(r,c,movesSoFar,mowedSoFar,remain0,remain1){
+        if(performance.now() > deadline){ overBudget = true; return true; }
+        if(mowedSoFar === total){ found = path.slice(); return true; }
+
+        const curColor = (r+c) % 2;
+        const remainSame = curColor === 0 ? remain0 : remain1;
+        const remainOther = curColor === 0 ? remain1 : remain0;
+        const mMin = Math.max(2*remainOther - 1, 2*remainSame, 0);
+        if(movesSoFar + mMin > limit) return false;
+
+        const nbrs = neighborsOpen(r,c);
+        nbrs.sort((a,
