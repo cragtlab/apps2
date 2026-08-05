@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR/VIDEO — chunked data over camera</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" onerror="window.__qrcodeLoadFailed=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" onerror="window.__jsqrLoadFailed=true"></script>
+<style>
+  :root{
+    --bg:#0a0e0f;
+    --panel:#10171a;
+    --panel-2:#141d20;
+    --border:#21302e;
+    --text:#e8f0ee;
+    --muted:#7c9490;
+    --accent:#4dd8c9;
+    --accent-dim:#2a5c56;
+    --warn:#ffb454;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --body:'Inter', system-ui, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(77,216,201,0.08), transparent),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    min-height:100vh;
+    padding:28px 20px 60px;
+  }
+  a{ color:var(--accent); }
+
+  header.top{
+    max-width:1080px;
+    margin:0 auto 28px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:16px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:16px;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    color:var(--accent);
+    text-transform:uppercase;
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:26px;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+  .top p{
+    color:var(--muted);
+    font-size:13px;
+    max-width:360px;
+    margin:0;
+    text-align:right;
+  }
+
+  main{
+    max-width:1080px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+  }
+  @media (max-width:840px){
+    main{ grid-template-columns:1fr; }
+    .top p{ display:none; }
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:18px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .panel h2{
+    font-family:var(--mono);
+    font-size:13px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text);
+    margin:0;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .panel h2 .arrow{ color:var(--accent); }
+  .panel .desc{
+    color:var(--muted);
+    font-size:12.5px;
+    margin:-8px 0 0;
+    line-height:1.5;
+  }
+
+  textarea{
+    width:100%;
+    min-height:120px;
+    resize:vertical;
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:10px 12px;
+    font-family:var(--mono);
+    font-size:13px;
+    line-height:1.5;
+  }
+  textarea:focus, button:focus-visible, select:focus-visible, input:focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:1px;
+  }
+
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--muted);
+  }
+  .controls label{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .controls input[type=range]{ width:110px; accent-color:var(--accent); }
+  .controls select{
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:4px 6px;
+    font-family:var(--mono);
+    font-size:11.5px;
+  }
+
+  button{
+    font-family:var(--mono);
+    font-size:12.5px;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    background:var(--accent);
+    color:#04211d;
+    border:none;
+    border-radius:4px;
+    padding:10px 14px;
+    cursor:pointer;
+    font-weight:700;
+  }
+  button.secondary{
+    background:transparent;
+    color:var(--text);
+    border:1px solid var(--border);
+    font-weight:500;
+  }
+  button:disabled{
+    opacity:.4;
+    cursor:not-allowed;
+  }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* viewfinder — shared signature element for both QR display and camera */
+  .viewfinder{
+    position:relative;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    aspect-ratio:1/1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+  .viewfinder .corner{
+    position:absolute;
+    width:20px; height:20px;
+    border-color:var(--accent);
+    border-style:solid;
+    opacity:.9;
+  }
+  .corner.tl{ top:8px; left:8px; border-width:2px 0 0 2px; }
+  .corner.tr{ top:8px; right:8px; border-width:2px 2px 0 0; }
+  .corner.bl{ bottom:8px; left:8px; border-width:0 0 2px 2px; }
+  .corner.br{ bottom:8px; right:8px; border-width:0 2px 2px 0; }
+
+  .scanline{
+    position:absolute;
+    left:0; right:0; height:2px;
+    background:linear-gradient(90deg, transparent, var(--accent), transparent);
+    top:0;
+    animation:sweep 2.6s linear infinite;
+    pointer-events:none;
+  }
+  @keyframes sweep{
+    0%{ transform:translateY(0); }
+    100%{ transform:translateY(320px); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .scanline{ animation:none; display:none; }
+  }
+
+  canvas#qrCanvas{
+    width:78%;
+    height:78%;
+    image-rendering:pixelated;
+    background:#e8f0ee;
+    border-radius:2px;
+  }
+  video#video{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:none;
+  }
+  canvas#overlay{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+  }
+  .vf-placeholder{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    text-align:center;
+    padding:0 20px;
+  }
+
+  .ticker{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--accent);
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:8px 10px;
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .ticker .muted{ color:var(--muted); }
+
+  .bar{
+    height:6px;
+    border-radius:3px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    overflow:hidden;
+  }
+  .bar-fill{
+    height:100%;
+    width:0%;
+    background:var(--accent);
+    transition:width .15s ease;
+  }
+
+  .status{
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--muted);
+    min-height:14px;
+  }
+  .status.warn{ color:var(--warn); }
+
+  footer{
+    max-width:1080px;
+    margin:36px auto 0;
+    color:var(--muted);
+    font-size:11.5px;
+    font-family:var(--mono);
+    border-top:1px solid var(--border);
+    padding-top:14px;
+    line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <p class="eyebrow">Chunked data transfer</p>
+    <h1>QR / VIDEO</h1>
+  </div>
+  <p>Paste data on one screen, point a second device's camera at it, and it's read back into text — no network between the two.</p>
+</header>
+
+<main>
+  <!-- TRANSMIT -->
+  <section class="panel">
+    <h2><span class="arrow">▸</span> Transmit</h2>
+    <p class="desc">Paste (or type) data below. It's split into frames and broadcast as a looping sequence of QR codes.</p>
+    <textarea id="dataInput" placeholder="Paste data here…"></textarea>
+
+    <div class="controls">
+      <label>Chunk size
+        <input type="range" id="chunkSize" min="50" max="800" step="10" value="300">
+      </label>
+      <label>Frames / sec
+        <input type="range" id="fps" min="1" max="10" step="1" value="4">
+      </label>
+      <label>Error correction
+        <select id="ecLevel">
+          <option value="L">L — max capacity</option>
+          <option value="M" selected>M — balanced</option>
+          <option value="Q">Q — sturdier</option>
+          <option value="H">H — max resilience</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="viewfinder" id="txViewfinder">
+      <span class="vf-placeholder" id="txPlaceholder">Paste data to start broadcasting</span>
+      <canvas id="qrCanvas" width="480" height="480" style="display:none"></canvas>
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+      <div class="scanline" id="txScanline" style="display:none"></div>
+    </div>
+
+    <div class="ticker">
+      <span id="frameLabel">CH 00/00 · 0/0 B</span>
+      <span class="muted" id="sessionLabel">no session</span>
+    </div>
+
+    <div class="btn-row">
+      <button id="playPauseBtn" class="secondary" disabled>Play</button>
+    </div>
+    <div class="status" id="txStatus">Waiting for data…</div>
+  </section>
+
+  <!-- RECEIVE -->
+  <section class="panel">
+    <h2><span class="arrow">◂</span> Receive</h2>
+    <p class="desc">On the second device, tap the button, grant camera access, and hold the camera up to the transmitting screen until every frame is collected.</p>
+
+    <div class="viewfinder" id="rxViewfinder">
+      <span class="vf-placeholder" id="rxPlaceholder">Camera preview appears here</span>
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+    </div>
+
+    <div class="bar"><div class="bar-fill" id="rxBarFill"></div></div>
+    <div class="ticker">
+      <span id="rxProgress">0/0 frames</span>
+      <span class="muted" id="rxSession">no session</span>
+    </div>
+
+    <div class="btn-row">
+      <button id="startScanBtn">Read Video QR</button>
+    </div>
+    <div class="status" id="rxStatus">Idle.</div>
+
+    <textarea id="resultArea" placeholder="Decoded data will appear here…"></textarea>
+    <div class="btn-row">
+      <button class="secondary" id="copyBtn">Copy result</button>
+      <button class="secondary" id="clearBtn">Clear</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Runs entirely in the browser — no server involved. The camera requires a secure context
+  (HTTPS, or <code>localhost</code>); opening this file directly via <code>file://</code> may block camera access in some browsers.
+  Frames are cycled continuously, so the reader can join mid-broadcast and will keep collecting until every frame for the current session has been seen.
+</footer>
+
+<canvas id="scanCanvas" style="display:none"></canvas>
+
+<script>
+(function(){
+  if (typeof QRCode === 'undefined' || typeof jsQR === 'undefined'){
+    const msg = 'Failed to load a required library from the CDN (' +
+      (typeof QRCode === 'undefined' ? 'qrcode.js' : '') +
+      (typeof QRCode === 'undefined' && typeof jsQR === 'undefined' ? ' and ' : '') +
+      (typeof jsQR === 'undefined' ? 'jsQR' : '') +
+      '). Check your internet connection and reload.';
+    document.querySelectorAll('.panel').forEach(function(p){
+      const d = document.createElement('div');
+      d.className = 'status warn';
+      d.textContent = msg;
+      p.appendChild(d);
+    });
+    document.querySelectorAll('button, textarea, input, select').forEach(function(el){ el.disabled = true; });
+    return;
+  }
+  // ---------- shared helpers ----------
+  function debounce(fn, ms){
+    let t;
+    return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), ms); };
+  }
+  function utf8ByteLength(str){
+    return new TextEncoder().encode(str).length;
+  }
+  function makeSessionId(){
+    return Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
+  }
+
+  // ---------- TRANSMIT ----------
+  const dataInput = document.getElementById('dataInput');
+  const qrCanvas = document.getElementById('qrCanvas');
+  const txPlaceholder = document.getElementById('txPlaceholder');
+  const txScanline = document.getElementById('txScanline');
+  const chunkSizeInput = document.getElementById('chunkSize');
+  const fpsInput = document.getElementById('fps');
+  const ecInput = document.getElementById('ecLevel');
+  const frameLabel = document.getElementById('frameLabel');
+  const sessionLabel = document.getElementById('sessionLabel');
+  const playPauseBtn = document.getElementById('playPauseBtn');
+  const txStatus = document.getElementById('txStatus');
+
+  let chunks = [];
+  let sessionId = '';
+  let frameIndex = 0;
+  let timer = null;
+  let playing = false;
+  let totalBytes = 0;
+
+  function buildChunks(text){
+    const size = parseInt(chunkSizeInput.value, 10) || 300;
+    const arr = [];
+    let i = 0;
+    while (i < text.length){
+      let end = Math.min(i + size, text.length);
+      if (end < text.length){
+        const code = text.charCodeAt(end - 1);
+        if (code >= 0xD800 && code <= 0xDBFF) end -= 1; // don't split a surrogate pair
+      }
+      arr.push(text.slice(i, end));
+      i = end;
+    }
+    if (arr.length === 0) arr.push('');
+    return arr;
+  }
+
+  function startEncoding(){
+    const text = dataInput.value;
+    stop();
+    if (!text){
+      chunks = [];
+      qrCanvas.style.display = 'none';
+      txScanline.style.display = 'none';
+      txPlaceholder.style.display = 'block';
+      playPauseBtn.disabled = true;
+      frameLabel.textContent = 'CH 00/00 · 0/0 B';
+      sessionLabel.textContent = 'no session';
+      txStatus.textContent = 'Waiting for data…';
+      return;
+    }
+    chunks = buildChunks(text);
+    sessionId = makeSessionId();
+    frameIndex = 0;
+    totalBytes = utf8ByteLength(text);
+    qrCanvas.style.display = 'block';
+    txScanline.style.display = 'block';
+    txPlaceholder.style.display = 'none';
+    playPauseBtn.disabled = false;
+    sessionLabel.textContent = 'session ' + sessionId;
+    txStatus.textContent = chunks.length + ' frame' + (chunks.length > 1 ? 's' : '') + ' · ' + totalBytes + ' bytes total';
+    play();
+  }
+
+  function drawFrame(){
+    if (chunks.length === 0) return;
+    const payload = JSON.stringify({ id: sessionId, i: frameIndex, n: chunks.length, d: chunks[frameIndex] });
+    QRCode.toCanvas(qrCanvas, payload, {
+      errorCorrectionLevel: ecInput.value,
+      margin: 2,
+      width: qrCanvas.width,
+      color: { dark: '#0a0e0f', light: '#e8f0ee' }
+    }, function(err){ if (err) txStatus.textContent = 'Frame ' + (frameIndex+1) + ' too large for a QR code — reduce chunk size.'; });
+    frameLabel.textContent = 'CH ' + String(frameIndex+1).padStart(2,'0') + '/' + String(chunks.length).padStart(2,'0') +
+      ' · ' + chunks[frameIndex].length + '/' + totalBytes + ' B';
+    frameIndex = (frameIndex + 1) % chunks.length;
+  }
+
+  function play(){
+    if (chunks.length === 0) return;
+    if (timer) clearInterval(timer);
+    playing = true;
+    playPauseBtn.textContent = 'Pause';
+    const fps = parseInt(fpsInput.value, 10) || 4;
+    drawFrame();
+    timer = setInterval(drawFrame, 1000 / fps);
+  }
+  function stop(){
+    if (timer) clearInterval(timer);
+    timer = null;
+    playing = false;
+    playPauseBtn.textContent = 'Play';
+  }
+
+  dataInput.addEventListener('paste', () => setTimeout(startEncoding, 30));
+  dataInput.addEventListener('input', debounce(startEncoding, 500));
+  playPauseBtn.addEventListener('click', () => { if (playing) stop(); else play(); });
+  chunkSizeInput.addEventListener('change', () => { if (dataInput.value) startEncoding(); });
+  ecInput.addEventListener('change', () => { if (dataInput.value) startEncoding(); });
+  fpsInput.addEventListener('change', () => { if (playing) play(); });
+
+  // ---------- RECEIVE ----------
+  const startScanBtn = document.getElementById('startScanBtn');
+  const video = document.getElementById('video');
+  const rxPlaceholder = document.getElementById('rxPlaceholder');
+  const overlay = document.getElementById('overlay');
+  const scanCanvas = document.getElementById('scanCanvas');
+  const resultArea = document.getElementById('resultArea');
+  const rxStatus = document.getElementById('rxStatus');
+  const rxProgress = document.getElementById('rxProgress');
+  const rxSession = document.getElementById('rxSession');
+  const rxBarFill = document.getElementById('rxBarFill');
+  const copyBtn = document.getElementById('copyBtn');
+  const clearBtn = document.getElementById('clearBtn');
+
+  let stream = null;
+  let scanning = false;
+  let rxId = null;
+  let rxTotal = 0;
+  let rxChunks = {};
+  let rafId = null;
+
+  async function startScan(){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      rxStatus.textContent = 'Camera API unavailable — this needs a secure context (HTTPS or localhost).';
+      rxStatus.className = 'status warn';
+      return;
+    }
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    }catch(e){
+      rxStatus.textContent = 'Camera permission denied or unavailable (' + e.message + ').';
+      rxStatus.className = 'status warn';
+      return;
+    }
+    video.srcObject = stream;
+    video.style.display = 'block';
+    rxPlaceholder.style.display = 'none';
+    await video.play();
+    scanning = true;
+    startScanBtn.textContent = 'Stop Camera';
+    rxId = null; rxTotal = 0; rxChunks = {};
+    updateProgress();
+    rxStatus.className = 'status';
+    rxStatus.textContent = 'Scanning…';
+    scanLoop();
+  }
+
+  function stopScan(keepResult){
+    scanning = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    if (stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+    video.style.display = 'none';
+    rxPlaceholder.style.display = 'block';
+    startScanBtn.textContent = 'Read Video QR';
+    const octx = overlay.getContext('2d');
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    if (!keepResult){ rxStatus.textContent = 'Stopped.'; }
+  }
+
+  function scanLoop(){
+    if (!scanning) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA){
+      scanCanvas.width = video.videoWidth;
+      scanCanvas.height = video.videoHeight;
+      const ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
+      const imageData = ctx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+      drawOverlay(code);
+      if (code) handleCode(code.data);
+    }
+    rafId = requestAnimationFrame(scanLoop);
+  }
+
+  function drawOverlay(code){
+    overlay.width = video.clientWidth;
+    overlay.height = video.clientHeight;
+    const octx = overlay.getContext('2d');
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    if (code && scanCanvas.width && scanCanvas.height){
+      const scaleX = overlay.width / scanCanvas.width;
+      const scaleY = overlay.height / scanCanvas.height;
+      const loc = code.location;
+      octx.strokeStyle = '#4dd8c9';
+      octx.lineWidth = 3;
+      octx.beginPath();
+      octx.moveTo(loc.topLeftCorner.x * scaleX, loc.topLeftCorner.y * scaleY);
+      octx.lineTo(loc.topRightCorner.x * scaleX, loc.topRightCorner.y * scaleY);
+      octx.lineTo(loc.bottomRightCorner.x * scaleX, loc.bottomRightCorner.y * scaleY);
+      octx.lineTo(loc.bottomLeftCorner.x * scaleX, loc.bottomLeftCorner.y * scaleY);
+      octx.closePath();
+      octx.stroke();
+    }
+  }
+
+  function handleCode(raw){
+    let parsed;
+    try{ parsed = JSON.parse(raw); }catch(e){ return; }
+    if (!parsed || typeof parsed.i !== 'number' || typeof parsed.n !== 'number' ||
+        typeof parsed.d !== 'string' || !parsed.id) return;
+
+    if (parsed.id !== rxId){
+      rxId = parsed.id;
+      rxTotal = parsed.n;
+      rxChunks = {};
+      rxSession.textContent = 'session ' + rxId;
+    }
+    if (!(parsed.i in rxChunks)){
+      rxChunks[parsed.i] = parsed.d;
+    }
+    updateProgress();
+
+    if (Object.keys(rxChunks).length === rxTotal){
+      const full = [];
+      for (let i = 0; i < rxTotal; i++) full.push(rxChunks[i] ?? '');
+      resultArea.value = full.join('');
+      rxStatus.textContent = 'Complete — ' + rxTotal + ' frame' + (rxTotal>1?'s':'') + ' received.';
+      stopScan(true);
+    }
+  }
+
+  function updateProgress(){
+    const received = Object.keys(rxChunks).length;
+    rxProgress.textContent = rxTotal ? received + '/' + rxTotal + ' frames' : '0/0 frames';
+    rxBarFill.style.width = rxTotal ? (received / rxTotal * 100) + '%' : '0%';
+  }
+
+  startScanBtn.addEventListener('click', () => { if (scanning) stopScan(); else startScan(); });
+  copyBtn.addEventListener('click', () => {
+    resultArea.select();
+    navigator.clipboard && navigator.clipboard.writeText(resultArea.value).catch(()=>{});
+  });
+  clearBtn.addEventListener('click', () => {
+    resultArea.value = '';
+    rxId = null; rxTotal = 0; rxChunks = {};
+    updateProgress();
+    rxSession.textContent = 'no session';
+    rxStatus.textContent = 'Idle.';
+    rxStatus.className = 'status';
+  });
+
+  window.addEventListener('beforeunload', () => { if (stream) stream.getTracks().forEach(t => t.stop()); });
+})();
+</script>
+</body>
+</html>
