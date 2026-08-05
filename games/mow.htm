@@ -631,4 +631,199 @@
         if(movesSoFar + mMin > limit) return false;
 
         const nbrs = neighborsOpen(r,c);
-        nbrs.sort((a,
+        nbrs.sort((a,b) => {
+          const av = visited[a[0]*N+a[1]] ? 1 : 0;
+          const bv = visited[b[0]*N+b[1]] ? 1 : 0;
+          return av - bv;
+        });
+        for(const [nr,nc] of nbrs){
+          const ni = nr*N+nc;
+          const wasVisited = visited[ni];
+          visited[ni] = true;
+          path.push({r:nr,c:nc});
+          const ncColor = (nr+nc) % 2;
+          const nRemain0 = (!wasVisited && ncColor===0) ? remain0-1 : remain0;
+          const nRemain1 = (!wasVisited && ncColor===1) ? remain1-1 : remain1;
+          if(dfs(nr,nc, movesSoFar+1, wasVisited ? mowedSoFar : mowedSoFar+1, nRemain0, nRemain1)) return true;
+          path.pop();
+          if(!wasVisited) visited[ni] = false;
+          if(overBudget) return true;
+        }
+        return false;
+      }
+
+      dfs(startR,startC,0,1,initRemain0,initRemain1);
+      if(found) return { path: found, exact: true, moves: found.length - 1 };
+      if(overBudget) break;
+    }
+
+    // fallback: greedy nearest-unmowed heuristic
+    return greedyPath(blocked, N, startR, startC, openCount);
+  }
+
+  function greedyPath(blocked, N, startR, startC, openCount){
+    const mowedSet = new Set([startR*N+startC]);
+    const path = [{r:startR,c:startC}];
+    let cur = {r:startR,c:startC};
+
+    while(mowedSet.size < openCount){
+      // BFS from cur to nearest unmowed open cell
+      const prev = new Array(N*N).fill(-1);
+      const seen = new Array(N*N).fill(false);
+      const q = [cur.r*N+cur.c];
+      seen[cur.r*N+cur.c] = true;
+      let target = -1;
+      let qi = 0;
+      while(qi < q.length){
+        const ci = q[qi++];
+        if(!mowedSet.has(ci)){ target = ci; break; }
+        const cr = Math.floor(ci/N), cc = ci%N;
+        const deltas = [[-1,0],[1,0],[0,-1],[0,1]];
+        for(const [dr,dc] of deltas){
+          const nr=cr+dr, nc=cc+dc;
+          if(nr>=0&&nr<N&&nc>=0&&nc<N&&!blocked[nr*N+nc]&&!seen[nr*N+nc]){
+            seen[nr*N+nc]=true; prev[nr*N+nc]=ci; q.push(nr*N+nc);
+          }
+        }
+      }
+      if(target === -1) break; // shouldn't happen on a connected board
+      // reconstruct path from cur to target
+      const steps = [];
+      let t = target;
+      while(t !== cur.r*N+cur.c){ steps.push(t); t = prev[t]; }
+      steps.reverse();
+      for(const s of steps){
+        const r = Math.floor(s/N), c = s%N;
+        path.push({r,c});
+        mowedSet.add(s);
+      }
+      cur = path[path.length-1];
+    }
+    return { path, exact: false, moves: path.length - 1 };
+  }
+
+  // ---- Preview playback ----
+  function clearPreviewState(){
+    if(previewTimer){ clearInterval(previewTimer); previewTimer = null; }
+    previewMode = false;
+    previewBanner.style.display = 'none';
+    showOptimalBtn.textContent = 'Show optimal path';
+  }
+
+  function stopPreview(){
+    clearPreviewState();
+    renderCells();
+  }
+
+  function startPreview(){
+    if(!currentLawn) return;
+    winBanner.style.display = 'none';
+    const { blocked, startR, startC, openCount: oc } = currentLawn;
+
+    if(currentLawn.solverResult){
+      showPreviewResult(currentLawn.solverResult);
+      return;
+    }
+
+    showOptimalBtn.disabled = true;
+    showOptimalBtn.textContent = 'Solving…';
+    const lawnAtRequest = currentLawn;
+
+    setTimeout(() => {
+      const result = solvePath(blocked, N, startR, startC, oc);
+      if(lawnAtRequest !== currentLawn) return; // lawn changed while solving
+      lawnAtRequest.solverResult = result;
+      renderBestStat();
+      showOptimalBtn.disabled = false;
+      showPreviewResult(result);
+    }, 30);
+  }
+
+  function showPreviewResult(result){
+    previewPath = result.path;
+    previewStep = 0;
+    previewMode = true;
+    showOptimalBtn.disabled = false;
+    showOptimalBtn.textContent = 'Hide path';
+
+    previewHeadline.textContent = result.exact
+      ? `Optimal path — ${result.moves} moves`
+      : `Best path found — ${result.moves} moves`;
+    previewSub.textContent = result.exact
+      ? `A verified minimum-move route. Watch how it avoids ever backtracking.`
+      : `This board was too large to solve exactly in time, so this is a strong heuristic route, not guaranteed optimal.`;
+    previewBanner.style.display = 'block';
+
+    renderCells();
+    const stepMs = N <= 8 ? 160 : N <= 10 ? 110 : 70;
+    previewTimer = setInterval(() => {
+      previewStep++;
+      if(previewStep >= previewPath.length){
+        clearInterval(previewTimer);
+        previewTimer = null;
+        previewStep = previewPath.length - 1;
+        return;
+      }
+      renderCells();
+    }, stepMs);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const map = {
+      ArrowUp:[-1,0], w:[-1,0], W:[-1,0],
+      ArrowDown:[1,0], s:[1,0], S:[1,0],
+      ArrowLeft:[0,-1], a:[0,-1], A:[0,-1],
+      ArrowRight:[0,1], d:[0,1], D:[0,1],
+    };
+    if(map[e.key]){
+      e.preventDefault();
+      tryMove(map[e.key][0], map[e.key][1]);
+    }
+  });
+
+  document.getElementById('dpad').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-dir]');
+    if(!btn) return;
+    const dir = btn.dataset.dir;
+    const map = { up:[-1,0], down:[1,0], left:[0,-1], right:[0,1] };
+    tryMove(map[dir][0], map[dir][1]);
+  });
+
+  newLawnBtn.addEventListener('click', () => {
+    N = parseInt(sizeSelect.value, 10);
+    newLawn();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    N = parseInt(sizeSelect.value, 10);
+    restartLawn();
+  });
+
+  showOptimalBtn.addEventListener('click', () => {
+    if(previewMode){
+      stopPreview();
+    } else {
+      startPreview();
+    }
+  });
+
+  sizeSelect.addEventListener('change', () => {
+    N = parseInt(sizeSelect.value, 10);
+    newLawn();
+  });
+
+  // init — default to a smaller board on narrow (phone) screens
+  if(window.innerWidth < 480){
+    sizeSelect.value = '6';
+  }
+  N = parseInt(sizeSelect.value, 10);
+  newLawn();
+
+  window.addEventListener('resize', () => {
+    renderBoardStructure();
+    renderCells();
+  });
+})();
+</script>
+</body>
+</html>
