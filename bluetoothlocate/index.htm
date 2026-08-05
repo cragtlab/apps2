@@ -1,1 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>findphone — Bluetooth Finder</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a33;
+      --panel2:#0f1730;
+      --text:#eaf0ff;
+      --muted:#9db0d1;
+      --line:#26345f;
+      --good:#38d996;
+      --warn:#ffcb6b;
+      --bad:#ff6b6b;
+      --accent:#79a6ff;
+      --chip:#1a2447;
+      --shadow:0 18px 50px rgba(0,0,0,.32);
+      --radius:20px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:
+        radial-gradient(1000px 600px at 20% 0%, rgba(121,166,255,.18), transparent 55%),
+        radial-gradient(900px 500px at 90% 10%, rgba(56,217,150,.12), transparent 50%),
+        var(--bg);
+      color:var(--text);
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:22px}
+    .hero{
+      background:linear-gradient(180deg, rgba(18,26,51,.98), rgba(12,18,37,.98));
+      border:1px solid rgba(121,166,255,.18);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:22px;
+      margin-bottom:18px;
+    }
+    h1{margin:0 0 8px;font-size:28px;line-height:1.1}
+    .sub{color:var(--muted);max-width:900px;line-height:1.5;margin:0}
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+      align-items:center;
+    }
+    button{
+      border:0;
+      background:linear-gradient(180deg, rgba(121,166,255,1), rgba(96,134,255,1));
+      color:white;
+      font-weight:700;
+      padding:12px 16px;
+      border-radius:14px;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(96,134,255,.22);
+    }
+    button.secondary{
+      background:linear-gradient(180deg, rgba(26,36,71,1), rgba(20,29,58,1));
+      border:1px solid rgba(121,166,255,.18);
+      box-shadow:none;
+    }
+    button.danger{
+      background:linear-gradient(180deg, rgba(255,107,107,1), rgba(220,84,84,1));
+    }
+    button:disabled{
+      opacity:.55;cursor:not-allowed;
+    }
+    .status{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:8px;
+      color:var(--muted);
+      font-size:14px;
+    }
+    .status code{
+      background:rgba(255,255,255,.05);
+      padding:2px 6px;
+      border-radius:8px;
+      color:#dbe6ff;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+      gap:14px;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(18,26,51,.96), rgba(13,19,40,.96));
+      border:1px solid rgba(121,166,255,.14);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      padding:16px;
+      min-height:120px;
+    }
+    .card h2{
+      margin:0 0 10px;
+      font-size:18px;
+    }
+    .list{
+      display:grid;
+      gap:12px;
+    }
+    .device{
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(121,166,255,.12);
+      border-radius:18px;
+      padding:14px;
+    }
+    .device-top{
+      display:flex;
+      gap:10px;
+      justify-content:space-between;
+      align-items:flex-start;
+      margin-bottom:10px;
+    }
+    .name{
+      font-weight:800;
+      font-size:16px;
+      line-height:1.2;
+      word-break:break-word;
+    }
+    .meta{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:5px;
+      word-break:break-word;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      color:#dbe6ff;
+      white-space:nowrap;
+    }
+    .pill.good{background:rgba(56,217,150,.14);color:#86f0c4}
+    .pill.warn{background:rgba(255,203,107,.14);color:#ffd98a}
+    .pill.bad{background:rgba(255,107,107,.14);color:#ff9c9c}
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+      margin-top:10px;
+    }
+    .stat{
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(121,166,255,.1);
+      border-radius:14px;
+      padding:10px;
+      min-width:0;
+    }
+    .stat .k{
+      color:var(--muted);
+      font-size:11px;
+      margin-bottom:4px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+    .stat .v{
+      font-size:16px;
+      font-weight:800;
+      word-break:break-word;
+    }
+    .bar{
+      margin-top:12px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      overflow:hidden;
+    }
+    .fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg, #ff6b6b, #ffcb6b, #38d996);
+      transition:width .35s ease;
+    }
+    .footer-note{
+      margin-top:12px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.45;
+    }
+    .empty{
+      color:var(--muted);
+      border:1px dashed rgba(121,166,255,.24);
+      border-radius:18px;
+      padding:16px;
+      text-align:center;
+      background:rgba(255,255,255,.02);
+    }
+    .small{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:8px;
+      line-height:1.45;
+    }
+    @media (max-width:520px){
+      h1{font-size:24px}
+      .stats{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>findphone — one-page Bluetooth finder</h1>
+      <p class="sub">
+        Lists Bluetooth devices your browser is already allowed to access, listens for advertisement updates when supported, and shows an estimated distance from signal strength. This is a browser approximation, not a true ranging tool.
+      </p>
 
+      <div class="toolbar">
+        <button id="btnRefresh">Refresh allowed devices</button>
+        <button id="btnAdd" class="secondary">Add / grant a device</button>
+        <button id="btnStop" class="danger">Stop all watchers</button>
+        <button id="btnClear" class="secondary">Clear list</button>
+      </div>
+
+      <div class="status" id="status">
+        <div>Status: <code id="statusText">Idle</code></div>
+        <div>Support: <code id="supportText">Checking…</code></div>
+        <div>Tip: open this page in <code>HTTPS</code> on a browser that supports Web Bluetooth.</div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Devices</h2>
+        <div class="list" id="deviceList">
+          <div class="empty">No devices loaded yet.</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>How it behaves</h2>
+        <div class="small">
+          <p><strong>Nearest first.</strong> Items sort by the strongest recent signal.</p>
+          <p><strong>Distance is estimated.</strong> The page uses a simple path-loss model from RSSI and an assumed transmit reference, so the number is only good for comparing devices in the same room.</p>
+          <p><strong>Live updates.</strong> When the browser supports advertisement watching, the signal bar and distance refresh automatically.</p>
+        </div>
+        <div class="footer-note">
+          If a device disappears, it is kept in the list until you clear it, so you can see which targets were seen recently.
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      devices: new Map(),
+      watchers: new Map(),
+      scanning: false,
+      stopControllers: [],
+    };
+
+    const els = {
+      statusText: document.getElementById('statusText'),
+      supportText: document.getElementById('supportText'),
+      deviceList: document.getElementById('deviceList'),
+      btnRefresh: document.getElementById('btnRefresh'),
+      btnAdd: document.getElementById('btnAdd'),
+      btnStop: document.getElementById('btnStop'),
+      btnClear: document.getElementById('btnClear'),
+    };
+
+    function setStatus(text) {
+      els.statusText.textContent = text;
+    }
+
+    function supportsBluetooth() {
+      return !!(navigator.bluetooth);
+    }
+
+    function supportsGetDevices() {
+      return !!(navigator.bluetooth && navigator.bluetooth.getDevices);
+    }
+
+    function supportsWatchAdvertisements(device) {
+      return device && typeof device.watchAdvertisements === 'function';
+    }
+
+    function supportsLeScan() {
+      return !!(navigator.bluetooth && navigator.bluetooth.requestLEScan);
+    }
+
+    function supportSummary() {
+      const parts = [];
+      parts.push(supportsBluetooth() ? 'Web Bluetooth: yes' : 'Web Bluetooth: no');
+      parts.push(supportsGetDevices() ? 'getDevices(): yes' : 'getDevices(): no');
+      parts.push(supportsLeScan() ? 'requestLEScan(): maybe' : 'requestLEScan(): no');
+      return parts.join(' • ');
+    }
+
+    function nowTime() {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function normalizeName(device) {
+      return device.name || device.alias || 'Unknown device';
+    }
+
+    function deviceKey(device) {
+      return device.id || device.deviceId || normalizeName(device);
+    }
+
+    function rssiToBarPct(rssi) {
+      if (typeof rssi !== 'number' || Number.isNaN(rssi)) return 0;
+      const clamped = Math.max(-100, Math.min(-35, rssi));
+      return Math.round(((clamped + 100) / 65) * 100);
+    }
+
+    function estimateDistanceMeters(rssi, txPower = -59, n = 2.0) {
+      if (typeof rssi !== 'number' || Number.isNaN(rssi)) return null;
+      if (typeof txPower !== 'number' || Number.isNaN(txPower)) txPower = -59;
+      const ratio = (txPower - rssi) / (10 * n);
+      const distance = Math.pow(10, ratio);
+      if (!Number.isFinite(distance)) return null;
+      return Math.max(0.1, distance);
+    }
+
+    function formatDistance(meters) {
+      if (meters === null || meters === undefined || Number.isNaN(meters)) return '—';
+      if (meters < 1) return `${Math.round(meters * 100)} cm`;
+      if (meters < 10) return `${meters.toFixed(1)} m`;
+      return `${Math.round(meters)} m`;
+    }
+
+    function setDeviceData(device, patch) {
+      const key = deviceKey(device);
+      const current = state.devices.get(key) || {
+        key,
+        device,
+        name: normalizeName(device),
+        rssi: null,
+        txPower: null,
+        distance: null,
+        seenAt: null,
+        connecting: false,
+        watching: false,
+        connected: false,
+        events: 0,
+      };
+      Object.assign(current, patch);
+      current.device = device;
+      current.name = normalizeName(device);
+      state.devices.set(key, current);
+      render();
+    }
+
+    function sortDevices() {
+      return [...state.devices.values()].sort((a, b) => {
+        const ar = typeof a.rssi === 'number' ? a.rssi : -999;
+        const br = typeof b.rssi === 'number' ? b.rssi : -999;
+        return br - ar;
+      });
+    }
+
+    function render() {
+      const items = sortDevices();
+
+      if (!items.length) {
+        els.deviceList.innerHTML = '<div class="empty">No devices loaded yet.</div>';
+        return;
+      }
+
+      els.deviceList.innerHTML = items.map(d => {
+        const signal = typeof d.rssi === 'number' ? `${d.rssi} dBm` : '—';
+        const tx = typeof d.txPower === 'number' ? `${d.txPower} dBm` : '—';
+        const dist = formatDistance(d.distance);
+        const pct = rssiToBarPct(d.rssi);
+        const statusClass = d.connected ? 'good' : (d.watching ? 'warn' : 'bad');
+        const statusText = d.connected ? 'connected' : (d.watching ? 'watching' : 'idle');
+        const lastSeen = d.seenAt ? new Date(d.seenAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : '—';
+        return `
+          <article class="device" data-key="${escapeHtml(d.key)}">
+            <div class="device-top">
+              <div>
+                <div class="name">${escapeHtml(d.name)}</div>
+                <div class="meta">${escapeHtml(d.key)}</div>
+              </div>
+              <span class="pill ${statusClass}">${statusText}</span>
+            </div>
+
+            <div class="stats">
+              <div class="stat">
+                <div class="k">RSSI</div>
+                <div class="v">${escapeHtml(signal)}</div>
+              </div>
+              <div class="stat">
+                <div class="k">Distance</div>
+                <div class="v">${escapeHtml(dist)}</div>
+              </div>
+              <div class="stat">
+                <div class="k">TX power</div>
+                <div class="v">${escapeHtml(tx)}</div>
+              </div>
+            </div>
+
+            <div class="bar" aria-hidden="true">
+              <div class="fill" style="width:${pct}%"></div>
+            </div>
+
+            <div class="meta" style="margin-top:10px;">
+              Last seen: ${escapeHtml(lastSeen)} · Events: ${d.events || 0} · Watched: ${d.watching ? 'yes' : 'no'}
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    async function tryWatch(device) {
+      if (!supportsWatchAdvertisements(device)) return false;
+      const key = deviceKey(device);
+      if (state.watchers.has(key)) return true;
+
+      try {
+        const controller = new AbortController();
+        state.stopControllers.push(controller);
+
+        device.addEventListener('advertisementreceived', (event) => {
+          const rssi = typeof event.rssi === 'number' ? event.rssi : null;
+          const txPower = typeof event.txPower === 'number' ? event.txPower : null;
+          const reference = txPower ?? -59;
+          const distance = estimateDistanceMeters(rssi, reference, 2.0);
+
+          setDeviceData(device, {
+            rssi,
+            txPower,
+            distance,
+            seenAt: Date.now(),
+            watching: true,
+            connected: !!device.gatt?.connected,
+            events: (state.devices.get(key)?.events || 0) + 1
+          });
+        });
+
+        const result = device.watchAdvertisements({ signal: controller.signal });
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
+
+        state.watchers.set(key, controller);
+        setDeviceData(device, { watching: true, connected: !!device.gatt?.connected });
+        return true;
+      } catch (err) {
+        console.warn('watchAdvertisements failed for', device, err);
+        setDeviceData(device, { watching: false });
+        return false;
+      }
+    }
+
+    async function loadAllowedDevices() {
+      if (!supportsBluetooth()) {
+        els.supportText.textContent = 'Bluetooth unavailable in this browser.';
+        setStatus('Unsupported');
+        return;
+      }
+
+      els.supportText.textContent = supportSummary();
+      setStatus('Loading allowed devices…');
+
+      try {
+        if (!supportsGetDevices()) {
+          setStatus('getDevices unavailable');
+          return;
+        }
+
+        const devices = await navigator.bluetooth.getDevices();
+        state.devices.clear();
+
+        for (const device of devices) {
+          setDeviceData(device, {
+            watching: false,
+            connected: !!device.gatt?.connected,
+            seenAt: null,
+            events: 0,
+          });
+        }
+
+        for (const device of devices) {
+          await tryWatch(device);
+        }
+
+        setStatus(`Loaded ${devices.length} allowed device(s)`);
+        render();
+      } catch (err) {
+        console.error(err);
+        setStatus(`Error: ${err?.message || err}`);
+      }
+    }
+
+    async function addDevice() {
+      if (!supportsBluetooth()) {
+        setStatus('Bluetooth unavailable in this browser.');
+        return;
+      }
+
+      try {
+        setStatus('Opening chooser…');
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: []
+        });
+
+        setDeviceData(device, {
+          connected: !!device.gatt?.connected,
+          watching: false,
+          seenAt: Date.now(),
+          events: 0,
+        });
+
+        await tryWatch(device);
+        setStatus(`Added ${normalizeName(device)}`);
+      } catch (err) {
+        setStatus(`Chooser closed or failed: ${err?.message || err}`);
+      }
+    }
+
+    async function stopAll() {
+      for (const controller of state.stopControllers) {
+        try { controller.abort(); } catch {}
+      }
+      state.stopControllers = [];
+      state.watchers.clear();
+
+      for (const item of state.devices.values()) {
+        item.watching = false;
+      }
+      render();
+      setStatus('Stopped all watchers');
+    }
+
+    function clearList() {
+      state.devices.clear();
+      state.watchers.clear();
+      state.stopControllers = [];
+      render();
+      setStatus('Cleared');
+    }
+
+    els.btnRefresh.addEventListener('click', loadAllowedDevices);
+    els.btnAdd.addEventListener('click', addDevice);
+    els.btnStop.addEventListener('click', stopAll);
+    els.btnClear.addEventListener('click', clearList);
+
+    els.supportText.textContent = supportSummary();
+    render();
+
+    if (supportsBluetooth() && supportsGetDevices()) {
+      loadAllowedDevices();
+    } else {
+      setStatus('Ready');
+    }
+  </script>
+</body>
+</html>
