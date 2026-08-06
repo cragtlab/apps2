@@ -346,6 +346,10 @@
   let previewStep = 0;
   let previewTimer = null;
 
+  let solverWorker = null;
+  let searchTimer = null;
+  let isOptimalFound = false;
+
   function idx(r,c){ return r*N+c; }
   function inBounds(r,c){ return r>=0 && r<N && c>=0 && c<N; }
 
@@ -419,13 +423,232 @@
   }
 
   function solveInBackground(lawn){
-    setTimeout(() => {
-      if(lawn !== currentLawn) return; // a newer lawn replaced this one
-      const result = solvePath(lawn.blocked, lawn.N, lawn.startR, lawn.startC, lawn.openCount);
+    if(solverWorker) {
+      solverWorker.terminate();
+      solverWorker = null;
+    }
+    if(searchTimer) {
+      clearTimeout(searchTimer);
+      searchTimer = null;
+    }
+
+    isOptimalFound = false;
+    showOptimalBtn.disabled = true;
+    showOptimalBtn.textContent = 'Show optimal path (searching...)';
+
+    // Start 5 second timer to enable the button with fallback
+    searchTimer = setTimeout(() => {
       if(lawn !== currentLawn) return;
-      lawn.solverResult = result;
-      renderBestStat();
-    }, 20);
+      showOptimalBtn.disabled = false;
+      showOptimalBtn.textContent = 'Show optimal path';
+    }, 5000);
+
+    let workerSupported = true;
+    try {
+      const blob = new Blob([`
+        function idx(r, c, N) { return r * N + c; }
+
+        function colorCounts(blocked, N) {
+          let c0 = 0, c1 = 0;
+          for (let r = 0; r < N; r++) {
+            for (let c = 0; c < N; c++) {
+              if (!blocked[r * N + c]) {
+                if ((r + c) % 2 === 0) c0++; else c1++;
+              }
+            }
+          }
+          return [c0, c1];
+        }
+
+        function bipartiteLowerBound(blocked, N, startR, startC) {
+          const [c0, c1] = colorCounts(blocked, N);
+          const startColor = (startR + startC) % 2;
+          const same = (startColor === 0 ? c0 : c1) - 1;
+          const other = (startColor === 0 ? c1 : c0);
+          return Math.max(2 * other - 1, 2 * same, 0);
+        }
+
+        function greedyPath(blocked, N, startR, startC, openCount) {
+          const mowedSet = new Set([startR * N + startC]);
+          const path = [{ r: startR, c: startC }];
+          let cur = { r: startR, c: startC };
+
+          while (mowedSet.size < openCount) {
+            const prev = new Array(N * N).fill(-1);
+            const seen = new Array(N * N).fill(false);
+            const q = [cur.r * N + cur.c];
+            seen[cur.r * N + cur.c] = true;
+            let target = -1;
+            let qi = 0;
+            while (qi < q.length) {
+              const ci = q[qi++];
+              if (!mowedSet.has(ci)) { target = ci; break; }
+              const cr = Math.floor(ci / N), cc = ci % N;
+              const deltas = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+              for (const [dr, dc] of deltas) {
+                const nr = cr + dr, nc = cc + dc;
+                if (nr >= 0 && nr < N && nc >= 0 && nc < N && !blocked[nr * N + nc] && !seen[nr * N + nc]) {
+                  seen[nr * N + nc] = true;
+                  prev[nr * N + nc] = ci;
+                  q.push(nr * N + nc);
+                }
+              }
+            }
+            if (target === -1) break;
+            const steps = [];
+            let t = target;
+            while (t !== cur.r * N + cur.c) { steps.push(t); t = prev[t]; }
+            steps.reverse();
+            for (const s of steps) {
+              const r = Math.floor(s / N), c = s % N;
+              path.push({ r, c });
+              mowedSet.add(s);
+            }
+            cur = path[path.length - 1];
+          }
+          return { path, exact: false, moves: path.length - 1 };
+        }
+
+        function solvePathOptimal(blocked, N, startR, startC, openCount) {
+          const deltas = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+          const total = openCount;
+          const minMoves = bipartiteLowerBound(blocked, N, startR, startC);
+          const [c0, c1] = colorCounts(blocked, N);
+          const startColor = (startR + startC) % 2;
+          const initRemain0 = c0 - (startColor === 0 ? 1 : 0);
+          const initRemain1 = c1 - (startColor === 1 ? 1 : 0);
+
+          function getNeighbors(r, c) {
+            const out = [];
+            for (const [dr, dc] of deltas) {
+              const nr = r + dr, nc = c + dc;
+              if (nr >= 0 && nr < N && nc >= 0 && nc < N && !blocked[nr * N + nc]) {
+                out.push([nr, nc]);
+              }
+            }
+            return out;
+          }
+
+          for (let limit = minMoves; limit <= N * N * 3; limit++) {
+            const visited = new Array(N * N).fill(false);
+            visited[startR * N + startC] = true;
+            const path = [{ r: startR, c: startC }];
+            let found = null;
+
+            function dfs(r, c, movesSoFar, mowedSoFar, remain0, remain1) {
+              if (mowedSoFar === total) {
+                found = path.slice();
+                return true;
+              }
+
+              const curColor = (r + c) % 2;
+              const remainSame = curColor === 0 ? remain0 : remain1;
+              const remainOther = curColor === 0 ? remain1 : remain0;
+              const mMin = Math.max(2 * remainOther - 1, 2 * remainSame, 0);
+              if (movesSoFar + mMin > limit) return false;
+
+              const nbrs = getNeighbors(r, c);
+              nbrs.sort((a, b) => {
+                const av = visited[a[0] * N + a[1]] ? 1 : 0;
+                const bv = visited[b[0] * N + b[1]] ? 1 : 0;
+                if (av !== bv) return av - bv;
+                let countA = 0;
+                for (const [dar, dac] of deltas) {
+                  const nar = a[0] + dar, nac = a[1] + dac;
+                  if (nar >= 0 && nar < N && nac >= 0 && nac < N && !blocked[nar * N + nac] && !visited[nar * N + nac]) {
+                    countA++;
+                  }
+                }
+                let countB = 0;
+                for (const [dbr, dbc] of deltas) {
+                  const nbr = b[0] + dbr, nbc = b[1] + dbc;
+                  if (nbr >= 0 && nbr < N && nbc >= 0 && nbc < N && !blocked[nbr * N + nbc] && !visited[nbr * N + nbc]) {
+                    countB++;
+                  }
+                }
+                return countA - countB;
+              });
+
+              for (const [nr, nc] of nbrs) {
+                const ni = nr * N + nc;
+                const wasVisited = visited[ni];
+                visited[ni] = true;
+                path.push({ r: nr, c: nc });
+                const ncColor = (nr + nc) % 2;
+                const nRemain0 = (!wasVisited && ncColor === 0) ? remain0 - 1 : remain0;
+                const nRemain1 = (!wasVisited && ncColor === 1) ? remain1 - 1 : remain1;
+
+                if (dfs(nr, nc, movesSoFar + 1, wasVisited ? mowedSoFar : mowedSoFar + 1, nRemain0, nRemain1)) return true;
+
+                path.pop();
+                if (!wasVisited) visited[ni] = false;
+              }
+              return false;
+            }
+
+            dfs(startR, startC, 0, 1, initRemain0, initRemain1);
+            if (found) {
+              return { path: found, exact: true, moves: found.length - 1 };
+            }
+          }
+          return null;
+        }
+
+        self.onmessage = function(e) {
+          const { blocked, N, startR, startC, openCount } = e.data;
+          const heuristic = greedyPath(blocked, N, startR, startC, openCount);
+          self.postMessage({ type: 'heuristic', result: heuristic });
+
+          const optimal = solvePathOptimal(blocked, N, startR, startC, openCount);
+          if (optimal) {
+            self.postMessage({ type: 'optimal', result: optimal });
+          }
+        };
+      `], { type: 'application/javascript' });
+
+      solverWorker = new Worker(URL.createObjectURL(blob));
+      solverWorker.onmessage = function(e) {
+        if(lawn !== currentLawn) return;
+        const { type, result } = e.data;
+        if (type === 'heuristic') {
+          if (!isOptimalFound) {
+            lawn.solverResult = result;
+            renderBestStat();
+          }
+        } else if (type === 'optimal') {
+          isOptimalFound = true;
+          lawn.solverResult = result;
+          renderBestStat();
+          if(searchTimer) {
+            clearTimeout(searchTimer);
+            searchTimer = null;
+          }
+          showOptimalBtn.disabled = false;
+          showOptimalBtn.textContent = 'Show optimal path';
+        }
+      };
+      solverWorker.postMessage({
+        blocked: lawn.blocked,
+        N: lawn.N,
+        startR: lawn.startR,
+        startC: lawn.startC,
+        openCount: lawn.openCount
+      });
+    } catch (err) {
+      workerSupported = false;
+    }
+
+    if (!workerSupported) {
+      // fallback to main-thread heuristic/greedy path
+      setTimeout(() => {
+        if(lawn !== currentLawn) return;
+        const result = greedyPath(lawn.blocked, lawn.N, lawn.startR, lawn.startC, lawn.openCount);
+        lawn.solverResult = result;
+        renderBestStat();
+        showOptimalBtn.disabled = false;
+        showOptimalBtn.textContent = 'Show optimal path';
+      }, 50);
+    }
   }
 
   function restartLawn(){
@@ -513,15 +736,19 @@
 
   function renderBestStat(){
     if(!currentLawn) { statBest.textContent = '–'; return; }
+    const open = currentLawn.openCount;
     if(currentLawn.solverResult){
       const r = currentLawn.solverResult;
-      statBest.textContent = (r.exact ? '' : '~') + r.moves;
+      const overlap = Math.max(0, r.moves - (open - 1));
+      statBest.textContent = (r.exact ? '' : '~') + r.moves + '(' + overlap + ' overlap)';
       statBest.title = r.exact
         ? 'Verified minimum — a shortest possible route exists at this length.'
         : 'Best route found so far (board too large to fully verify) — treat as an upper bound.';
     } else {
       // instant estimate shown while the exact solver runs in the background
-      statBest.textContent = '≥' + currentLawn.lowerBound;
+      const lb = currentLawn.lowerBound;
+      const lbOverlap = Math.max(0, lb - (open - 1));
+      statBest.textContent = '≥' + lb + '(' + lbOverlap + ' overlap)';
       statBest.title = 'Provisional lower bound — solving for the exact minimum…';
     }
   }
@@ -585,82 +812,6 @@
     return Math.max(2*other - 1, 2*same, 0);
   }
 
-  // ---- Optimal path solver ----
-  // Iterative-deepening DFS starting from the true bipartite lower bound,
-  // with a dynamic per-node bound (same formula, recomputed from whatever's
-  // left to mow) that prunes far more aggressively than a plain cell-count
-  // check. When it completes in budget the result is a verified optimum.
-  // Otherwise it falls back to a nearest-unmowed greedy heuristic.
-  function solvePath(blocked, N, startR, startC, openCount){
-    const deltas = [[-1,0],[1,0],[0,-1],[0,1]];
-    const total = openCount;
-    const minMoves = bipartiteLowerBound(blocked, N, startR, startC);
-    const deadline = performance.now() + 1400; // time budget
-    const maxExtra = 10;
-    const [c0, c1] = colorCounts(blocked, N);
-
-    function neighborsOpen(r,c){
-      const out = [];
-      for(const [dr,dc] of deltas){
-        const nr=r+dr, nc=c+dc;
-        if(nr>=0&&nr<N&&nc>=0&&nc<N&&!blocked[nr*N+nc]) out.push([nr,nc]);
-      }
-      return out;
-    }
-
-    const startColor = (startR+startC) % 2;
-    const initRemain0 = c0 - (startColor === 0 ? 1 : 0);
-    const initRemain1 = c1 - (startColor === 1 ? 1 : 0);
-
-    for(let extra=0; extra<=maxExtra; extra++){
-      const limit = minMoves + extra;
-      const visited = new Array(N*N).fill(false);
-      visited[startR*N+startC] = true;
-      const path = [{r:startR,c:startC}];
-      let found = null;
-      let overBudget = false;
-
-      function dfs(r,c,movesSoFar,mowedSoFar,remain0,remain1){
-        if(performance.now() > deadline){ overBudget = true; return true; }
-        if(mowedSoFar === total){ found = path.slice(); return true; }
-
-        const curColor = (r+c) % 2;
-        const remainSame = curColor === 0 ? remain0 : remain1;
-        const remainOther = curColor === 0 ? remain1 : remain0;
-        const mMin = Math.max(2*remainOther - 1, 2*remainSame, 0);
-        if(movesSoFar + mMin > limit) return false;
-
-        const nbrs = neighborsOpen(r,c);
-        nbrs.sort((a,b) => {
-          const av = visited[a[0]*N+a[1]] ? 1 : 0;
-          const bv = visited[b[0]*N+b[1]] ? 1 : 0;
-          return av - bv;
-        });
-        for(const [nr,nc] of nbrs){
-          const ni = nr*N+nc;
-          const wasVisited = visited[ni];
-          visited[ni] = true;
-          path.push({r:nr,c:nc});
-          const ncColor = (nr+nc) % 2;
-          const nRemain0 = (!wasVisited && ncColor===0) ? remain0-1 : remain0;
-          const nRemain1 = (!wasVisited && ncColor===1) ? remain1-1 : remain1;
-          if(dfs(nr,nc, movesSoFar+1, wasVisited ? mowedSoFar : mowedSoFar+1, nRemain0, nRemain1)) return true;
-          path.pop();
-          if(!wasVisited) visited[ni] = false;
-          if(overBudget) return true;
-        }
-        return false;
-      }
-
-      dfs(startR,startC,0,1,initRemain0,initRemain1);
-      if(found) return { path: found, exact: true, moves: found.length - 1 };
-      if(overBudget) break;
-    }
-
-    // fallback: greedy nearest-unmowed heuristic
-    return greedyPath(blocked, N, startR, startC, openCount);
-  }
-
   function greedyPath(blocked, N, startR, startC, openCount){
     const mowedSet = new Set([startR*N+startC]);
     const path = [{r:startR,c:startC}];
@@ -707,7 +858,13 @@
     if(previewTimer){ clearInterval(previewTimer); previewTimer = null; }
     previewMode = false;
     previewBanner.style.display = 'none';
-    showOptimalBtn.textContent = 'Show optimal path';
+    if (!isOptimalFound && searchTimer) {
+      showOptimalBtn.disabled = true;
+      showOptimalBtn.textContent = 'Show optimal path (searching...)';
+    } else {
+      showOptimalBtn.disabled = false;
+      showOptimalBtn.textContent = 'Show optimal path';
+    }
   }
 
   function stopPreview(){
@@ -718,25 +875,11 @@
   function startPreview(){
     if(!currentLawn) return;
     winBanner.style.display = 'none';
-    const { blocked, startR, startC, openCount: oc } = currentLawn;
 
     if(currentLawn.solverResult){
       showPreviewResult(currentLawn.solverResult);
       return;
     }
-
-    showOptimalBtn.disabled = true;
-    showOptimalBtn.textContent = 'Solving…';
-    const lawnAtRequest = currentLawn;
-
-    setTimeout(() => {
-      const result = solvePath(blocked, N, startR, startC, oc);
-      if(lawnAtRequest !== currentLawn) return; // lawn changed while solving
-      lawnAtRequest.solverResult = result;
-      renderBestStat();
-      showOptimalBtn.disabled = false;
-      showPreviewResult(result);
-    }, 30);
   }
 
   function showPreviewResult(result){
