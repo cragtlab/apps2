@@ -349,6 +349,8 @@
   let solverWorker = null;
   let searchTimer = null;
   let isOptimalFound = false;
+  let fallbackGenerator = null;
+  let fallbackTimerId = null;
 
   function idx(r,c){ return r*N+c; }
   function inBounds(r,c){ return r>=0 && r<N && c>=0 && c<N; }
@@ -422,6 +424,140 @@
     solveInBackground(currentLawn);
   }
 
+  function* solvePathOptimalGen(blocked, N, startR, startC, openCount) {
+    const deltas = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    const total = openCount;
+    const minMoves = bipartiteLowerBound(blocked, N, startR, startC);
+    const [c0, c1] = colorCounts(blocked, N);
+    const startColor = (startR + startC) % 2;
+    const initRemain0 = c0 - (startColor === 0 ? 1 : 0);
+    const initRemain1 = c1 - (startColor === 1 ? 1 : 0);
+
+    function getNeighbors(r, c) {
+      const out = [];
+      for (const [dr, dc] of deltas) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < N && nc >= 0 && nc < N && !blocked[nr * N + nc]) {
+          out.push([nr, nc]);
+        }
+      }
+      return out;
+    }
+
+    let iterations = 0;
+
+    for (let limit = minMoves; limit <= N * N * 3; limit++) {
+      const visited = new Array(N * N).fill(false);
+      visited[startR * N + startC] = true;
+      const path = [{ r: startR, c: startC }];
+      let found = null;
+
+      function* dfs(r, c, movesSoFar, mowedSoFar, remain0, remain1) {
+        iterations++;
+        if (iterations % 400 === 0) {
+          yield;
+        }
+        if (mowedSoFar === total) {
+          found = path.slice();
+          return true;
+        }
+
+        const curColor = (r + c) % 2;
+        const remainSame = curColor === 0 ? remain0 : remain1;
+        const remainOther = curColor === 0 ? remain1 : remain0;
+        const mMin = Math.max(2 * remainOther - 1, 2 * remainSame, 0);
+        if (movesSoFar + mMin > limit) return false;
+
+        const nbrs = getNeighbors(r, c);
+        nbrs.sort((a, b) => {
+          const av = visited[a[0] * N + a[1]] ? 1 : 0;
+          const bv = visited[b[0] * N + b[1]] ? 1 : 0;
+          if (av !== bv) return av - bv;
+          let countA = 0;
+          for (const [dar, dac] of deltas) {
+            const nar = a[0] + dar, nac = a[1] + dac;
+            if (nar >= 0 && nar < N && nac >= 0 && nac < N && !blocked[nar * N + nac] && !visited[nar * N + nac]) {
+              countA++;
+            }
+          }
+          let countB = 0;
+          for (const [dbr, dbc] of deltas) {
+            const nbr = b[0] + dbr, nbc = b[1] + dbc;
+            if (nbr >= 0 && nbr < N && nbc >= 0 && nbc < N && !blocked[nbr * N + nbc] && !visited[nbr * N + nbc]) {
+              countB++;
+            }
+          }
+          return countA - countB;
+        });
+
+        for (const [nr, nc] of nbrs) {
+          const ni = nr * N + nc;
+          const wasVisited = visited[ni];
+          visited[ni] = true;
+          path.push({ r: nr, c: nc });
+          const ncColor = (nr + nc) % 2;
+          const nRemain0 = (!wasVisited && ncColor === 0) ? remain0 - 1 : remain0;
+          const nRemain1 = (!wasVisited && ncColor === 1) ? remain1 - 1 : remain1;
+
+          if (yield* dfs(nr, nc, movesSoFar + 1, wasVisited ? mowedSoFar : mowedSoFar + 1, nRemain0, nRemain1)) return true;
+
+          path.pop();
+          if (!wasVisited) visited[ni] = false;
+        }
+        return false;
+      }
+
+      yield* dfs(startR, startC, 0, 1, initRemain0, initRemain1);
+      if (found) {
+        return { path: found, exact: true, moves: found.length - 1 };
+      }
+    }
+    return null;
+  }
+
+  function runGeneratorInBackground(lawn, gen) {
+    function step() {
+      if (lawn !== currentLawn) return;
+      const startTime = performance.now();
+      let done = false;
+      let value = undefined;
+      while (performance.now() - startTime < 12) {
+        const res = gen.next();
+        if (res.done) {
+          done = true;
+          value = res.value;
+          break;
+        }
+      }
+      if (done) {
+        if (value) {
+          isOptimalFound = true;
+          lawn.solverResult = value;
+          renderBestStat();
+          if (searchTimer) {
+            clearTimeout(searchTimer);
+            searchTimer = null;
+          }
+          showOptimalBtn.disabled = false;
+          showOptimalBtn.textContent = 'Show optimal path';
+        }
+      } else {
+        fallbackTimerId = setTimeout(step, 0);
+      }
+    }
+    fallbackTimerId = setTimeout(step, 0);
+  }
+
+  function triggerMainThreadFallback(lawn) {
+    if (lawn !== currentLawn) return;
+    const heuristic = greedyPath(lawn.blocked, lawn.N, lawn.startR, lawn.startC, lawn.openCount);
+    lawn.solverResult = heuristic;
+    renderBestStat();
+
+    fallbackGenerator = solvePathOptimalGen(lawn.blocked, lawn.N, lawn.startR, lawn.startC, lawn.openCount);
+    runGeneratorInBackground(lawn, fallbackGenerator);
+  }
+
   function solveInBackground(lawn){
     if(solverWorker) {
       solverWorker.terminate();
@@ -431,6 +567,11 @@
       clearTimeout(searchTimer);
       searchTimer = null;
     }
+    if(fallbackTimerId) {
+      clearTimeout(fallbackTimerId);
+      fallbackTimerId = null;
+    }
+    fallbackGenerator = null;
 
     isOptimalFound = false;
     showOptimalBtn.disabled = true;
@@ -607,6 +748,12 @@
       `], { type: 'application/javascript' });
 
       solverWorker = new Worker(URL.createObjectURL(blob));
+      solverWorker.onerror = function(err) {
+        console.warn('Worker error, falling back to generator:', err);
+        solverWorker.terminate();
+        solverWorker = null;
+        triggerMainThreadFallback(lawn);
+      };
       solverWorker.onmessage = function(e) {
         if(lawn !== currentLawn) return;
         const { type, result } = e.data;
@@ -639,15 +786,7 @@
     }
 
     if (!workerSupported) {
-      // fallback to main-thread heuristic/greedy path
-      setTimeout(() => {
-        if(lawn !== currentLawn) return;
-        const result = greedyPath(lawn.blocked, lawn.N, lawn.startR, lawn.startC, lawn.openCount);
-        lawn.solverResult = result;
-        renderBestStat();
-        showOptimalBtn.disabled = false;
-        showOptimalBtn.textContent = 'Show optimal path';
-      }, 50);
+      triggerMainThreadFallback(lawn);
     }
   }
 
