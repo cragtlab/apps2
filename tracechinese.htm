@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Trace &amp; Learn Chinese</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FFF8EA;
+    --paper-line:#EADFC4;
+    --ink:#2B2A28;
+    --bamboo:#6FA88A;
+    --bamboo-dark:#4C7C63;
+    --red:#E85C4A;
+    --sun:#F2B33D;
+    --sky:#5B9BC7;
+    --plum:#B4629A;
+    --star:#F2B33D;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:
+      repeating-linear-gradient(180deg, transparent, transparent 39px, var(--paper-line) 40px),
+      var(--paper);
+    font-family:'Baloo 2', sans-serif;
+    color:var(--ink);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:18px 14px 40px;
+    overflow-x:hidden;
+  }
+
+  .title-wrap{
+    text-align:center;
+    margin-bottom:14px;
+  }
+  .title-wrap h1{
+    font-size:clamp(28px,7vw,42px);
+    margin:0;
+    font-weight:800;
+    letter-spacing:0.5px;
+    color:var(--bamboo-dark);
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.06);
+  }
+  .title-wrap p{
+    margin:4px 0 0;
+    font-size:14px;
+    color:#8a8172;
+    font-weight:600;
+  }
+  .panda{
+    font-size:34px;
+    display:inline-block;
+    transform: translateY(2px);
+  }
+
+  /* word rail */
+  .rail-wrap{
+    width:100%;
+    max-width:720px;
+    margin-bottom:16px;
+  }
+  .rail{
+    display:flex;
+    gap:10px;
+    overflow-x:auto;
+    padding:6px 4px 12px;
+    scroll-snap-type:x proximity;
+  }
+  .rail::-webkit-scrollbar{height:6px;}
+  .rail::-webkit-scrollbar-thumb{background:var(--paper-line);border-radius:4px;}
+
+  .word-card{
+    flex:0 0 auto;
+    scroll-snap-align:start;
+    width:66px;
+    height:78px;
+    border-radius:14px;
+    border:2px solid var(--paper-line);
+    background:#fffdf7;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+    position:relative;
+  }
+  .word-card .hz{
+    font-family:'ZCOOL KuaiLe', sans-serif;
+    font-size:26px;
+    line-height:1;
+  }
+  .word-card .em{
+    font-size:14px;
+    margin-top:2px;
+  }
+  .word-card.active{
+    border-color: var(--bamboo);
+    background:#EFF7F1;
+    transform:translateY(-3px);
+    box-shadow:0 4px 0 var(--bamboo);
+  }
+  .word-card .star-badge{
+    position:absolute;
+    top:-7px;
+    right:-6px;
+    font-size:14px;
+    filter:drop-shadow(0 1px 0 rgba(0,0,0,0.15));
+  }
+
+  /* main card */
+  .stage{
+    width:100%;
+    max-width:520px;
+    background:#fffdf7;
+    border-radius:26px;
+    border:2px solid var(--paper-line);
+    box-shadow:0 10px 0 rgba(0,0,0,0.05), 0 14px 30px rgba(0,0,0,0.06);
+    padding:20px 20px 22px;
+    position:relative;
+  }
+
+  .word-info{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .word-info .meta{
+    display:flex;
+    flex-direction:column;
+  }
+  .pinyin{
+    font-size:22px;
+    font-weight:700;
+    color:var(--sky);
+  }
+  .english{
+    font-size:15px;
+    color:#8a8172;
+    font-weight:600;
+  }
+  .say-btn{
+    width:52px;height:52px;
+    border-radius:50%;
+    border:none;
+    background:var(--sun);
+    font-size:22px;
+    cursor:pointer;
+    box-shadow:0 4px 0 #c98f22;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .08s ease;
+  }
+  .say-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #c98f22;}
+
+  .canvas-wrap{
+    position:relative;
+    width:100%;
+    aspect-ratio:1/1;
+    border-radius:18px;
+    background:
+      linear-gradient(#fbf3df 1px, transparent 1px) 0 0/100% 50%,
+      linear-gradient(90deg, #fbf3df 1px, transparent 1px) 0 0/50% 100%,
+      #fffefb;
+    border:2px dashed #E4D6B0;
+    touch-action:none;
+    overflow:hidden;
+  }
+  canvas{
+    position:absolute;
+    top:0;left:0;
+    width:100%;
+    height:100%;
+  }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    margin-top:16px;
+  }
+  .btn{
+    flex:1;
+    border:none;
+    border-radius:14px;
+    padding:13px 10px;
+    font-family:'Baloo 2',sans-serif;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    color:#fff;
+    transition:transform .08s ease;
+  }
+  .btn:active{transform:translateY(3px);}
+  .btn-clear{
+    background:#C9C1AE;
+    box-shadow:0 4px 0 #a89f8c;
+  }
+  .btn-next{
+    background:var(--bamboo);
+    box-shadow:0 4px 0 var(--bamboo-dark);
+  }
+
+  .stars-row{
+    display:flex;
+    justify-content:center;
+    gap:6px;
+    margin-top:14px;
+    font-size:22px;
+    min-height:26px;
+  }
+
+  .score-badge{
+    position:absolute;
+    top:16px;
+    right:16px;
+    background:#EADFC4;
+    color:#8a8172;
+    font-weight:800;
+    font-size:15px;
+    padding:6px 12px;
+    border-radius:20px;
+    transition:background .15s ease, color .15s ease, transform .15s ease;
+  }
+  .score-badge.positive{
+    background:#DEF2E4;
+    color:var(--bamboo-dark);
+  }
+  .score-badge.negative{
+    background:#FBDFDA;
+    color:var(--red);
+  }
+  .score-badge.pulse{
+    transform:scale(1.12);
+  }
+
+  .toast{
+    position:fixed;
+    bottom:26px;
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--bamboo-dark);
+    color:#fff;
+    padding:12px 22px;
+    border-radius:30px;
+    font-weight:700;
+    font-size:16px;
+    opacity:0;
+    transition:opacity .25s ease, transform .25s ease;
+    pointer-events:none;
+    white-space:nowrap;
+  }
+  .toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+
+  .progress-wrap{
+    width:100%;
+    max-width:520px;
+    margin-top:14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .progress-track{
+    flex:1;
+    height:10px;
+    background:#EADFC4;
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--sun), var(--red));
+    border-radius:6px;
+    transition:width .3s ease;
+  }
+  .progress-label{
+    font-size:13px;
+    font-weight:700;
+    color:#8a8172;
+    white-space:nowrap;
+  }
+
+  @media (max-width:400px){
+    .word-card{width:58px;height:70px;}
+    .word-card .hz{font-size:22px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="title-wrap">
+    <h1><span class="panda">🐼</span> Trace &amp; Learn</h1>
+    <p>Chinese words for little writers</p>
+  </div>
+
+  <div class="rail-wrap">
+    <div class="rail" id="rail"></div>
+  </div>
+
+  <div class="stage">
+    <div class="score-badge" id="scoreBadge">0</div>
+    <div class="word-info">
+      <div class="meta">
+        <div class="pinyin" id="pinyin">dà</div>
+        <div class="english" id="english">big · 🐘</div>
+      </div>
+      <button class="say-btn" id="sayBtn" title="Hear it">🔊</button>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="guideCanvas"></canvas>
+      <canvas id="drawCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-clear" id="clearBtn">↺ Clear</button>
+      <button class="btn btn-next" id="nextBtn">Next word →</button>
+    </div>
+
+    <div class="stars-row" id="starsRow"></div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label" id="progressLabel">0 / 0 traced</div>
+  </div>
+
+  <div class="toast" id="toast">Great job! ⭐</div>
+
+<script>
+const WORDS = [
+  {hz:'大', py:'dà',  en:'big',    em:'🐘'},
+  {hz:'小', py:'xiǎo',en:'small',  em:'🐭'},
+  {hz:'人', py:'rén', en:'person', em:'🧍'},
+  {hz:'山', py:'shān',en:'mountain', em:'⛰️'},
+  {hz:'水', py:'shuǐ',en:'water',  em:'💧'},
+  {hz:'火', py:'huǒ', en:'fire',   em:'🔥'},
+  {hz:'日', py:'rì',  en:'sun',    em:'☀️'},
+  {hz:'月', py:'yuè', en:'moon',   em:'🌙'},
+  {hz:'红', py:'hóng',en:'red',    em:'🔴'},
+  {hz:'蓝', py:'lán', en:'blue',   em:'🔵'},
+  {hz:'爸爸', py:'bàba', en:'dad', em:'👨'},
+  {hz:'妈妈', py:'māma', en:'mom', em:'👩'},
+  {hz:'哥哥', py:'gēge', en:'older brother', em:'🧑'},
+  {hz:'猫', py:'māo', en:'cat',    em:'🐱'},
+  {hz:'狗', py:'gǒu', en:'dog',    em:'🐶'},
+  {hz:'吃', py:'chī', en:'eat',    em:'🍚'},
+  {hz:'看', py:'kàn', en:'look',   em:'👀'},
+  {hz:'好', py:'hǎo', en:'good',   em:'👍'}
+];
+
+const INK_COLORS = ['#E85C4A','#5B9BC7','#6FA88A','#B4629A','#F2B33D','#3E7C8C'];
+
+let current = 0;
+let traced = new Set(); // indices the child has traced at least a bit
+let strokeColor = INK_COLORS[0];
+
+const rail = document.getElementById('rail');
+const guideCanvas = document.getElementById('guideCanvas');
+const drawCanvas = document.getElementById('drawCanvas');
+const gctx = guideCanvas.getContext('2d');
+const dctx = drawCanvas.getContext('2d');
+const canvasWrap = document.getElementById('canvasWrap');
+const pinyinEl = document.getElementById('pinyin');
+const englishEl = document.getElementById('english');
+const starsRow = document.getElementById('starsRow');
+const toast = document.getElementById('toast');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+const scoreBadge = document.getElementById('scoreBadge');
+
+const maskCanvas = document.createElement('canvas');
+const maskCtx = maskCanvas.getContext('2d');
+let maskData = null;
+let maskW = 0, maskH = 0;
+let maskInsideCount = 0;
+
+const covCanvas = document.createElement('canvas');
+const covCtx = covCanvas.getContext('2d');
+
+let score = 0;
+let sampleCount = 0;
+let drawing = false;
+let lastPoint = null;
+let advanceTimer = null;
+
+const MIN_SAMPLES_TO_JUDGE = 40;
+const STEP_PX = 3; // sample spacing along a stroke segment
+const REQUIRED_COVERAGE = 0.66;
+
+function buildRail(){
+  rail.innerHTML = '';
+  WORDS.forEach((w, i) => {
+    const card = document.createElement('div');
+    card.className = 'word-card' + (i === current ? ' active' : '');
+    card.innerHTML = `<div class="hz">${w.hz}</div><div class="em">${w.em}</div>` +
+      (traced.has(i) ? '<div class="star-badge">⭐</div>' : '');
+    card.addEventListener('click', () => selectWord(i));
+    rail.appendChild(card);
+  });
+}
+
+function sizeCanvases(){
+  const rect = canvasWrap.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  [guideCanvas, drawCanvas].forEach(c => {
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+  });
+  gctx.setTransform(dpr,0,0,dpr,0,0);
+  dctx.setTransform(dpr,0,0,dpr,0,0);
+  drawGuide();
+}
+
+function drawGuide(){
+  const rect = canvasWrap.getBoundingClientRect();
+  const w = rect.width, h = rect.height;
+  gctx.clearRect(0,0,w,h);
+  const word = WORDS[current];
+  gctx.textAlign = 'center';
+  gctx.textBaseline = 'middle';
+
+  let fontSize = Math.floor(h*0.72);
+  gctx.font = `${fontSize}px 'Noto Sans SC', sans-serif`;
+  const maxWidth = w*0.86;
+  const textWidth = gctx.measureText(word.hz).width;
+  if(textWidth > maxWidth){
+    fontSize = Math.floor(fontSize * (maxWidth / textWidth));
+    gctx.font = `${fontSize}px 'Noto Sans SC', sans-serif`;
+  }
+
+  gctx.fillStyle = 'rgba(43,42,40,0.16)';
+  gctx.fillText(word.hz, w/2, h/2 + h*0.02);
+
+  // starting dot hint (top-left-ish of the character box) as a friendly nudge
+  gctx.fillStyle = 'rgba(232,92,74,0.55)';
+  gctx.beginPath();
+  gctx.arc(w*0.30, h*0.26, 5, 0, Math.PI*2);
+  gctx.fill();
+
+  buildMask(word, w, h, fontSize);
+}
+
+function buildMask(word, w, h, fontSize){
+  maskCanvas.width = Math.max(1, Math.round(w));
+  maskCanvas.height = Math.max(1, Math.round(h));
+  maskW = maskCanvas.width;
+  maskH = maskCanvas.height;
+  maskCtx.clearRect(0,0,maskW,maskH);
+  maskCtx.font = `${fontSize}px 'Noto Sans SC', sans-serif`;
+  maskCtx.textAlign = 'center';
+  maskCtx.textBaseline = 'middle';
+  maskCtx.fillStyle = '#000';
+  maskCtx.fillText(word.hz, maskW/2, maskH/2 + maskH*0.02);
+  // pad the mask slightly so pixels right on the character's edge still count as "inside"
+  maskCtx.lineWidth = 6;
+  maskCtx.strokeStyle = '#000';
+  maskCtx.strokeText(word.hz, maskW/2, maskH/2 + maskH*0.02);
+  maskData = maskCtx.getImageData(0,0,maskW,maskH).data;
+
+  maskInsideCount = 0;
+  for(let i = 3; i < maskData.length; i += 4){
+    if(maskData[i] > 60) maskInsideCount++;
+  }
+
+  covCanvas.width = maskW;
+  covCanvas.height = maskH;
+  covCtx.clearRect(0,0,maskW,maskH);
+}
+
+function isInsideMask(x,y){
+  const px = Math.round(x), py = Math.round(y);
+  if(px < 0 || py < 0 || px >= maskW || py >= maskH || !maskData) return false;
+  const idx = (py*maskW + px) * 4 + 3; // alpha channel
+  return maskData[idx] > 60;
+}
+
+function clearDrawing(){
+  const rect = canvasWrap.getBoundingClientRect();
+  dctx.clearRect(0,0,rect.width, rect.height);
+  covCtx.clearRect(0,0,covCanvas.width, covCanvas.height);
+  score = 0;
+  sampleCount = 0;
+  clearTimeout(advanceTimer);
+  renderScore();
+}
+
+function renderScore(){
+  scoreBadge.textContent = (score > 0 ? '+' : '') + score;
+  scoreBadge.classList.remove('positive','negative','pulse');
+  if(score > 0) scoreBadge.classList.add('positive');
+  else if(score < 0) scoreBadge.classList.add('negative');
+  // trigger a little pulse
+  void scoreBadge.offsetWidth;
+  scoreBadge.classList.add('pulse');
+  setTimeout(() => scoreBadge.classList.remove('pulse'), 140);
+}
+
+function selectWord(i){
+  current = i;
+  const word = WORDS[i];
+  pinyinEl.textContent = word.py;
+  englishEl.textContent = `${word.en} · ${word.em}`;
+  strokeColor = INK_COLORS[i % INK_COLORS.length];
+  clearTimeout(advanceTimer);
+  drawGuide();
+  clearDrawing();
+  buildRail();
+  centerRailOnActive();
+  renderStars();
+}
+
+function centerRailOnActive(){
+  const active = rail.querySelector('.word-card.active');
+  if(active){
+    active.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+  }
+}
+
+function renderStars(){
+  starsRow.textContent = traced.has(current) ? '⭐ You traced this one! ⭐' : '';
+  const count = traced.size;
+  progressFill.style.width = `${(count / WORDS.length) * 100}%`;
+  progressLabel.textContent = `${count} / ${WORDS.length} traced`;
+}
+
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 1400);
+}
+
+function getPos(evt){
+  const rect = drawCanvas.getBoundingClientRect();
+  const point = evt.touches ? evt.touches[0] : evt;
+  return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+}
+
+function startDraw(evt){
+  evt.preventDefault();
+  drawing = true;
+  lastPoint = getPos(evt);
+}
+
+function moveDraw(evt){
+  if(!drawing) return;
+  evt.preventDefault();
+  const pos = getPos(evt);
+
+  dctx.strokeStyle = strokeColor;
+  dctx.lineWidth = 16;
+  dctx.lineCap = 'round';
+  dctx.lineJoin = 'round';
+  dctx.beginPath();
+  dctx.moveTo(lastPoint.x, lastPoint.y);
+  dctx.lineTo(pos.x, pos.y);
+  dctx.stroke();
+
+  covCtx.strokeStyle = '#000';
+  covCtx.lineWidth = 16;
+  covCtx.lineCap = 'round';
+  covCtx.lineJoin = 'round';
+  covCtx.beginPath();
+  covCtx.moveTo(lastPoint.x, lastPoint.y);
+  covCtx.lineTo(pos.x, pos.y);
+  covCtx.stroke();
+
+  scoreSegment(lastPoint, pos);
+  renderScore();
+
+  lastPoint = pos;
+}
+
+function scoreSegment(from, to){
+  const dist = Math.hypot(to.x - from.x, to.y - from.y);
+  const steps = Math.max(1, Math.round(dist / STEP_PX));
+  for(let s = 1; s <= steps; s++){
+    const t = s / steps;
+    const x = from.x + (to.x - from.x) * t;
+    const y = from.y + (to.y - from.y) * t;
+    score += isInsideMask(x, y) ? 1 : -1;
+    sampleCount++;
+  }
+}
+
+function endDraw(){
+  if(drawing) judgeAttempt();
+  drawing = false;
+  lastPoint = null;
+}
+
+function getCoverageFraction(){
+  if(maskInsideCount === 0) return 0;
+  const covData = covCtx.getImageData(0,0,covCanvas.width, covCanvas.height).data;
+  let coveredInside = 0;
+  for(let i = 3; i < maskData.length; i += 4){
+    if(maskData[i] > 60 && covData[i] > 0) coveredInside++;
+  }
+  return coveredInside / maskInsideCount;
+}
+
+function judgeAttempt(){
+  if(sampleCount < MIN_SAMPLES_TO_JUDGE) return;
+
+  const coverage = getCoverageFraction();
+
+  if(score > 0 && coverage >= REQUIRED_COVERAGE){
+    if(!traced.has(current)){
+      traced.add(current);
+    }
+    renderStars();
+    buildRail();
+    centerRailOnActive();
+    showToast(`Great job! ${'+' + score} ⭐`);
+    clearTimeout(advanceTimer);
+    advanceTimer = setTimeout(() => {
+      selectWord((current + 1) % WORDS.length);
+    }, 1000);
+  } else if(score > 0){
+    showToast(`Almost there — trace a bit more! ${Math.round(coverage*100)}%`);
+  } else {
+    showToast('Try to stay inside the lines! 💪');
+  }
+}
+
+drawCanvas.addEventListener('mousedown', startDraw);
+drawCanvas.addEventListener('mousemove', moveDraw);
+window.addEventListener('mouseup', endDraw);
+drawCanvas.addEventListener('touchstart', startDraw, {passive:false});
+drawCanvas.addEventListener('touchmove', moveDraw, {passive:false});
+drawCanvas.addEventListener('touchend', endDraw);
+
+document.getElementById('clearBtn').addEventListener('click', clearDrawing);
+document.getElementById('nextBtn').addEventListener('click', () => {
+  selectWord((current + 1) % WORDS.length);
+});
+document.getElementById('sayBtn').addEventListener('click', () => {
+  const word = WORDS[current];
+  if('speechSynthesis' in window){
+    const utter = new SpeechSynthesisUtterance(word.hz);
+    utter.lang = 'zh-CN';
+    utter.rate = 0.8;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utter);
+  }
+});
+
+window.addEventListener('resize', sizeCanvases);
+
+buildRail();
+selectWord(0);
+sizeCanvases();
+</script>
+</body>
+</html>
