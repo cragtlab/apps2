@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -94,13 +95,13 @@
 
 <div id="startScreen">
   <h1>SQUARE SLOT AR</h1>
-  <p>No 3D scene, no hand tracking — just point your back camera at <b>any square</b> (a sticky note, a card, a book cover) and a slot machine locks onto it. Tap it to pull.</p>
+  <p>No 3D scene, no hand tracking — just point your back camera at <b>any rectangle</b> (a phone, a card, a book, a doorway) and a slot machine locks onto it. Tap it to pull.</p>
   <button id="startBtn">Start Camera</button>
   <div id="loadingNote">loading vision engine…</div>
 </div>
 
 <div id="winFlash"></div>
-<div id="hint" style="display:none;"><span id="hintText">Looking for a square…</span></div>
+<div id="hint" style="display:none;"><span id="hintText">Looking for a rectangle…</span></div>
 
 <video id="video" autoplay playsinline muted></video>
 <canvas id="proc" style="display:none;"></canvas>
@@ -218,7 +219,7 @@ function findSquare(){
         const area = rect.width*rect.height;
         const aspect = rect.width / rect.height;
         const minArea = PROC_W*PROC_H*0.03;
-        if(area > minArea && area > bestArea && aspect > 0.6 && aspect < 1.6){
+        if(area > minArea && area > bestArea && aspect > 0.25 && aspect < 4){
           bestArea = area;
           best = {x:rect.x/PROC_W, y:rect.y/PROC_H, w:rect.width/PROC_W, h:rect.height/PROC_H};
         }
@@ -269,7 +270,7 @@ function loop(){
       missCount++;
       if(missCount > 12){
         machine.classList.add('stale');
-        hintText.textContent = 'Looking for a square…';
+        hintText.textContent = 'Looking for a rectangle…';
         if(missCount > 40){ machine.style.display='none'; smoothed=null; }
       }
     }
