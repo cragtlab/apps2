@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>The One-Armed Bandit</title>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wood-dark:#2c1810;
+    --wood:#5a3825;
+    --wood-light:#8a5a3a;
+    --brass:#c9a227;
+    --brass-light:#f0d878;
+    --cream:#f3e6c8;
+    --red:#b3252a;
+    --red-dark:#7a1a1e;
+    --shadow:#150c07;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--shadow);
+    font-family:'Space Mono',monospace; overflow:hidden; color:var(--cream);}
+
+  #stage{position:fixed; inset:0; display:flex; align-items:center; justify-content:center;}
+
+  #cabinet{
+    position:relative; width:min(94vw,420px); aspect-ratio:3/4.6;
+    background:linear-gradient(160deg,var(--wood-light),var(--wood) 55%,var(--wood-dark));
+    border:6px solid var(--wood-dark);
+    border-radius:14px;
+    box-shadow:0 20px 50px rgba(0,0,0,.6), inset 0 0 0 3px var(--brass);
+    padding:14px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+
+  #marquee{
+    text-align:center; font-family:'Bungee',cursive; color:var(--brass-light);
+    font-size:clamp(18px,5vw,26px); letter-spacing:.03em;
+    text-shadow:0 0 8px rgba(240,216,120,.5), 0 2px 0 var(--shadow);
+    padding:6px 0 2px;
+  }
+
+  #camWindow{
+    position:relative; width:64px; height:48px; border-radius:6px;
+    overflow:hidden; border:2px solid var(--brass); align-self:center;
+    opacity:.85;
+  }
+  #camWindow video, #camWindow canvas{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1);
+  }
+  #camLabel{
+    position:absolute; bottom:0; left:0; right:0; font-size:7px; text-align:center;
+    background:rgba(0,0,0,.5); color:var(--brass-light); letter-spacing:.08em;
+  }
+
+  #reelWindow{
+    background:var(--shadow); border:4px solid var(--brass);
+    border-radius:8px; padding:8px; display:flex; gap:6px;
+    box-shadow: inset 0 6px 14px rgba(0,0,0,.6);
+    flex:1;
+  }
+  .reel{
+    flex:1; background:var(--cream); border-radius:4px; overflow:hidden;
+    position:relative; display:flex; align-items:center; justify-content:center;
+  }
+  .reelStrip{
+    display:flex; flex-direction:column; align-items:center;
+    will-change:transform;
+  }
+  .sym{ font-size:clamp(28px,9vw,40px); line-height:1.4; height:1.4em; display:flex; align-items:center; }
+
+  #payline{
+    position:absolute; left:4px; right:4px; top:50%; height:2px;
+    background:var(--red); opacity:.8; transform:translateY(-1px);
+    box-shadow:0 0 6px var(--red);
+  }
+
+  #status{
+    text-align:center; font-size:12px; letter-spacing:.08em; min-height:16px;
+    color:var(--brass-light);
+  }
+
+  #credits{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12px; letter-spacing:.05em; padding:0 4px;
+  }
+  #credits b{ color:var(--brass-light); font-size:15px; }
+
+  /* lever assembly, right side */
+  #leverTrack{
+    position:absolute; right:-30px; top:16px; bottom:60px; width:26px;
+    display:flex; justify-content:center;
+  }
+  #leverRail{
+    width:6px; height:100%; background:var(--wood-dark); border-radius:4px;
+    box-shadow:inset 0 0 4px #000;
+  }
+  #leverKnob{
+    position:absolute; left:50%; top:0; transform:translate(-50%,0);
+    width:34px; height:34px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #e04a4f, var(--red) 55%, var(--red-dark));
+    border:3px solid var(--wood-dark);
+    box-shadow:0 4px 8px rgba(0,0,0,.5);
+    transition:transform .05s linear;
+  }
+  #leverArm{
+    position:absolute; left:50%; bottom:-8px; width:4px; background:var(--brass);
+    transform:translateX(-50%); border-radius:2px;
+  }
+
+  #startScreen{
+    position:fixed; inset:0; z-index:20; background:var(--shadow);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px;
+  }
+  #startScreen h1{
+    font-family:'Bungee',cursive; color:var(--brass-light); font-size:22px;
+    text-shadow:0 0 10px rgba(240,216,120,.4);
+  }
+  #startScreen p{ max-width:320px; font-size:12px; line-height:1.6; color:var(--cream); opacity:.85;}
+  #startBtn{
+    margin-top:18px; background:var(--red); color:var(--cream); border:2px solid var(--brass);
+    padding:12px 26px; font-family:'Space Mono',monospace; font-weight:700;
+    letter-spacing:.08em; text-transform:uppercase; cursor:pointer; border-radius:4px;
+  }
+  #startBtn:active{ background:var(--red-dark); }
+
+  #winFlash{
+    position:fixed; inset:0; pointer-events:none; z-index:15;
+    background:radial-gradient(circle,rgba(240,216,120,.35),transparent 60%);
+    opacity:0; transition:opacity .2s;
+  }
+  #winFlash.show{ opacity:1; animation:flick .5s ease-in-out 2; }
+  @keyframes flick{ 0%,100%{opacity:.15;} 50%{opacity:.8;} }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>THE ONE-ARMED BANDIT</h1>
+  <p>Raise your hand near the top of frame, then <b>pull it sharply downward</b> like gripping a lever. That's the spin.</p>
+  <button id="startBtn">Step Up To The Machine</button>
+</div>
+
+<div id="winFlash"></div>
+
+<div id="stage">
+  <div id="cabinet">
+    <div id="marquee">★ LUCKY PULL ★</div>
+
+    <div id="camWindow">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div id="camLabel">LEVER CAM</div>
+    </div>
+
+    <div id="reelWindow" style="position:relative;">
+      <div id="payline"></div>
+      <div class="reel"><div class="reelStrip" id="r0"></div></div>
+      <div class="reel"><div class="reelStrip" id="r1"></div></div>
+      <div class="reel"><div class="reelStrip" id="r2"></div></div>
+    </div>
+
+    <div id="status">GRAB &amp; PULL DOWN TO PLAY</div>
+
+    <div id="credits">
+      <span>CREDITS</span><b id="creditVal">10</b>
+    </div>
+
+    <div id="leverTrack">
+      <div id="leverRail"></div>
+      <div id="leverArm" style="height:0px;"></div>
+      <div id="leverKnob"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SYMS = ['🍒','🍋','🔔','⭐','7️⃣','🍇','💎'];
+const REEL_LEN = 24; // symbols per strip loop
+const SYM_H_EM = 1.4;
+
+function buildStrip(el, finalSym){
+  el.innerHTML = '';
+  const seq = [];
+  for(let i=0;i<REEL_LEN;i++) seq.push(SYMS[Math.floor(Math.random()*SYMS.length)]);
+  seq[seq.length-1] = finalSym; // land on this
+  seq.forEach(s=>{
+    const d = document.createElement('div');
+    d.className='sym'; d.textContent = s;
+    el.appendChild(d);
+  });
+  return seq;
+}
+
+let credits = 10;
+const creditVal = document.getElementById('creditVal');
+const statusEl = document.getElementById('status');
+const winFlash = document.getElementById('winFlash');
+let spinning = false;
+
+function setCredits(v){ credits = v; creditVal.textContent = credits; }
+
+function spinReel(el, finalSym, duration){
+  return new Promise(resolve=>{
+    buildStrip(el, finalSym);
+    const fontPx = parseFloat(getComputedStyle(el.firstChild).fontSize);
+    const stepH = fontPx * SYM_H_EM;
+    const targetY = -(REEL_LEN-1) * stepH + stepH*0; // land last item at center-ish
+    el.style.transition = 'none';
+    el.style.transform = 'translateY(0px)';
+    // force reflow
+    void el.offsetHeight;
+    el.style.transition = `transform ${duration}ms cubic-bezier(.12,.72,.25,1)`;
+    requestAnimationFrame(()=>{
+      el.style.transform = `translateY(${targetY - stepH*1.2}px)`;
+    });
+    setTimeout(resolve, duration);
+  });
+}
+
+async function pullLever(){
+  if(spinning) return;
+  if(credits<=0){ statusEl.textContent = "OUT OF CREDITS — WALK AWAY, STRANGER"; return; }
+  spinning = true;
+  setCredits(credits-1);
+  statusEl.textContent = 'SPINNING...';
+  const final = [0,1,2].map(()=> SYMS[Math.floor(Math.random()*SYMS.length)]);
+  await Promise.all([
+    spinReel(document.getElementById('r0'), final[0], 1400),
+    spinReel(document.getElementById('r1'), final[1], 1900),
+    spinReel(document.getElementById('r2'), final[2], 2400),
+  ]);
+  const win = final[0]===final[1] && final[1]===final[2];
+  if(win){
+    const payout = final[0]==='7️⃣' ? 50 : final[0]==='💎' ? 30 : 10;
+    setCredits(credits+payout);
+    statusEl.textContent = `JACKPOT! ${final[0]} x3 — +${payout} CREDITS`;
+    winFlash.classList.add('show');
+    setTimeout(()=>winFlash.classList.remove('show'), 1000);
+  } else {
+    statusEl.textContent = 'NO MATCH — PULL AGAIN';
+  }
+  spinning = false;
+}
+
+// --- lever visual + hand tracking ---
+const leverTrack = document.getElementById('leverTrack');
+const leverKnob = document.getElementById('leverKnob');
+const leverArm = document.getElementById('leverArm');
+
+function positionLever(t){ // t in [0,1], 0 = top, 1 = bottom
+  const trackH = leverTrack.clientHeight - 34;
+  const y = Math.max(0, Math.min(1,t)) * trackH;
+  leverKnob.style.transform = `translate(-50%, ${y}px)`;
+  leverArm.style.height = `${y+17}px`;
+}
+positionLever(0);
+
+let human, video, canvas, ctx;
+let lastY = null, pulling = false, cooldown = false;
+
+async function initHuman(){
+  video = document.getElementById('video');
+  canvas = document.getElementById('overlay');
+  ctx = canvas.getContext('2d');
+
+  const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:false});
+  video.srcObject = stream;
+  await new Promise(r=> video.onloadedmetadata = r);
+  video.play();
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+
+  human = new Human.Human({
+    modelBasePath:'https://cdn.jsdelivr.net/npm/@vladmandic/human/models/',
+    face:{enabled:false}, body:{enabled:false}, object:{enabled:false},
+    hand:{enabled:true, maxDetected:1}, gesture:{enabled:false},
+    filter:{enabled:true}
+  });
+  await human.load();
+  loop();
+}
+
+async function loop(){
+  const res = await human.detect(video);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(res.hand && res.hand.length>0){
+    const h = res.hand[0];
+    const box = h.boxRaw; // [x,y,w,h] normalized 0-1
+    const cx = box[0]+box[2]/2;
+    const cy = box[1]+box[3]/2;
+
+    // draw a simple marker
+    ctx.beginPath();
+    ctx.arc((1-cx)*canvas.width, cy*canvas.height, 8, 0, Math.PI*2);
+    ctx.strokeStyle = '#f0d878'; ctx.lineWidth=2; ctx.stroke();
+
+    // map hand vertical position -> lever position
+    // treat top third of frame as "grip zone", bottom two-thirds as pull range
+    const t = Math.max(0, Math.min(1, (cy - 0.15) / 0.6));
+    positionLever(t);
+
+    if(lastY !== null){
+      const dy = cy - lastY;
+      if(!pulling && cy > 0.15 && cy < 0.35) pulling = true; // hand near top = ready
+      if(pulling && t > 0.85 && !cooldown){
+        cooldown = true;
+        pullLever();
+        setTimeout(()=>{ cooldown=false; pulling=false; }, 1200);
+      }
+    }
+    lastY = cy;
+  } else {
+    lastY = null;
+  }
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('startBtn').addEventListener('click', async ()=>{
+  document.getElementById('startScreen').style.display='none';
+  statusEl.textContent = 'STARTING CAMERA...';
+  try{
+    await initHuman();
+    statusEl.textContent = 'RAISE HAND, THEN PULL DOWN';
+  }catch(e){
+    statusEl.textContent = 'NO CAMERA — TAP REELS TO PULL';
+    document.getElementById('reelWindow').style.cursor='pointer';
+    document.getElementById('reelWindow').addEventListener('click', pullLever);
+  }
+});
+
+// initial reel fill (idle)
+['r0','r1','r2'].forEach(id=> buildStrip(document.getElementById(id), SYMS[0]));
+</script>
+</body>
+</html>
+
