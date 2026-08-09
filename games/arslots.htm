@@ -3,30 +3,37 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Slot Machine AR</title>
+<title>Slot Machine AR — Object Tracking</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 <style>
   :root{
     --wood-dark:#2c1810; --wood:#5a3825; --wood-light:#8a5a3a;
     --brass:#c9a227; --brass-light:#f0d878; --cream:#f3e6c8;
     --red:#b3252a; --red-dark:#7a1a1e; --shadow:#150c07;
+    --scan:#5ecbf0;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Space Mono',monospace; touch-action:none;}
 
-  #video{ position:fixed; inset:0; width:100%; height:100%; object-fit:cover; background:#000; }
+  #video{ position:fixed; inset:0; width:100%; height:100%; object-fit:contain; background:#000; }
+  #overlay{ position:fixed; inset:0; width:100%; height:100%; z-index:4; }
 
   #hint{
     position:fixed; left:0; right:0; top:14px; text-align:center; z-index:5; pointer-events:none;
   }
   #hint span{
-    background:rgba(21,12,7,.75); color:var(--brass-light); border:1px solid var(--brass);
-    padding:6px 12px; font-size:11px; letter-spacing:.06em; border-radius:20px;
+    background:rgba(21,12,7,.8); color:var(--brass-light); border:1px solid var(--brass);
+    padding:6px 12px; font-size:11px; letter-spacing:.05em; border-radius:20px;
   }
 
-  #placeTap{
-    position:fixed; inset:0; z-index:4;
+  #rescanBtn{
+    position:fixed; right:14px; top:14px; z-index:8;
+    background:rgba(21,12,7,.85); color:var(--brass-light); border:1px solid var(--brass);
+    padding:8px 12px; font-size:10px; letter-spacing:.06em; border-radius:20px;
+    font-family:'Space Mono',monospace; display:none;
   }
 
   #machine{
@@ -36,19 +43,18 @@
     border:4px solid var(--wood-dark); border-radius:10px;
     box-shadow:0 10px 24px rgba(0,0,0,.5), inset 0 0 0 2px var(--brass);
     padding:8px; display:none; z-index:6; flex-direction:column; gap:6px;
-    cursor:grab;
+    transition:opacity .25s;
   }
   #machine.placed{ display:flex; }
-  #machine.dragging{ cursor:grabbing; box-shadow:0 4px 14px rgba(0,0,0,.7), 0 0 0 3px var(--brass-light); }
+  #machine.stale{ opacity:.35; }
 
   #marquee{
     text-align:center; font-family:'Bungee',cursive; color:var(--brass-light);
     font-size:12px; letter-spacing:.02em; text-shadow:0 0 6px rgba(240,216,120,.5);
-    pointer-events:none;
   }
   #reelWindow{
     background:var(--shadow); border:3px solid var(--brass); border-radius:6px;
-    padding:5px; display:flex; gap:4px; position:relative; pointer-events:none;
+    padding:5px; display:flex; gap:4px; position:relative;
   }
   #payline{
     position:absolute; left:3px; right:3px; top:50%; height:2px; background:var(--red);
@@ -58,8 +64,8 @@
   .reelStrip{ display:flex; flex-direction:column; align-items:center; }
   .sym{ font-size:18px; line-height:1.4; height:1.4em; display:flex; align-items:center; justify-content:center;}
 
-  #status{ text-align:center; font-size:8px; letter-spacing:.05em; color:var(--brass-light); min-height:10px; pointer-events:none; }
-  #credits{ display:flex; justify-content:space-between; font-size:8px; letter-spacing:.04em; padding:0 2px; pointer-events:none; }
+  #status{ text-align:center; font-size:8px; letter-spacing:.05em; color:var(--brass-light); min-height:10px; }
+  #credits{ display:flex; justify-content:space-between; font-size:8px; letter-spacing:.04em; padding:0 2px; }
   #credits b{ color:var(--brass-light); font-size:11px; }
   #tapBtn{
     background:var(--red); border:2px solid var(--brass); color:var(--cream);
@@ -67,19 +73,6 @@
     letter-spacing:.08em; text-transform:uppercase; padding:6px; border-radius:4px;
   }
   #tapBtn:active{ background:var(--red-dark); }
-
-  #resizeHandle{
-    position:absolute; right:-10px; bottom:-10px; width:26px; height:26px;
-    background:var(--brass-light); border:2px solid var(--wood-dark); border-radius:50%;
-    display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--wood-dark);
-    cursor:nwse-resize;
-  }
-  #removeHandle{
-    position:absolute; left:-10px; top:-10px; width:22px; height:22px;
-    background:var(--red); border:2px solid var(--wood-dark); border-radius:50%;
-    display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--cream);
-    line-height:1;
-  }
 
   #startScreen{
     position:fixed; inset:0; z-index:20; background:var(--shadow); color:var(--cream);
@@ -93,6 +86,7 @@
     padding:12px 24px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
     cursor:pointer; border-radius:4px; font-family:'Space Mono',monospace;
   }
+  #loadingNote{ font-size:10px; opacity:.6; margin-top:10px; }
 
   #winFlash{
     position:fixed; inset:0; pointer-events:none; z-index:15;
@@ -107,18 +101,19 @@
 
 <div id="startScreen">
   <h1>SLOT MACHINE AR</h1>
-  <p>Point your camera at anything. Tap once to <b>drop the machine</b> on it, drag it into place, and use the corner handle to resize. Tap the button to pull.</p>
+  <p>Point your camera around. Anything the model recognizes gets outlined and labeled — <b>tap the label</b> to lock the machine onto that object and track it.</p>
   <button id="startBtn">Start Camera</button>
+  <div id="loadingNote">loading object recognizer…</div>
 </div>
 
 <div id="winFlash"></div>
-<div id="hint" style="display:none;"><span id="hintText">Tap anywhere to place the machine</span></div>
+<div id="hint" style="display:none;"><span id="hintText">Scanning for objects…</span></div>
+<button id="rescanBtn">↻ Rescan / pick new object</button>
 
 <video id="video" autoplay playsinline muted></video>
-<div id="placeTap"></div>
+<canvas id="overlay"></canvas>
 
 <div id="machine">
-  <div id="removeHandle">✕</div>
   <div id="marquee">★ LUCKY PULL ★</div>
   <div id="reelWindow">
     <div id="payline"></div>
@@ -126,13 +121,13 @@
     <div class="reel"><div class="reelStrip" id="r1"></div></div>
     <div class="reel"><div class="reelStrip" id="r2"></div></div>
   </div>
-  <div id="status">DROPPED — DRAG TO POSITION</div>
+  <div id="status">LOCKED ON</div>
   <div id="credits"><span>CREDITS</span><b id="creditVal">10</b></div>
   <button id="tapBtn">Tap To Pull</button>
-  <div id="resizeHandle">↔</div>
 </div>
 
 <script>
+/* ---------- slot machine logic ---------- */
 const SYMS = ['🍒','🍋','🔔','⭐','7️⃣','🍇','💎'];
 const REEL_LEN = 18;
 function buildStrip(el, finalSym){
@@ -161,7 +156,6 @@ function spinReel(el, finalSym, duration){
     setTimeout(resolve, duration);
   });
 }
-
 async function pullLever(){
   if(spinning) return;
   if(credits<=0){ statusEl.textContent='OUT OF CREDITS'; return; }
@@ -187,85 +181,153 @@ async function pullLever(){
   spinning=false;
 }
 ['r0','r1','r2'].forEach(id=>buildStrip(document.getElementById(id), SYMS[0]));
+document.getElementById('tapBtn').addEventListener('click', (e)=>{ e.stopPropagation(); pullLever(); });
 
-// --- placement / drag / resize (screen-space, no tracking) ---
+/* ---------- video + detection setup ---------- */
 const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const octx = overlay.getContext('2d');
 const machine = document.getElementById('machine');
-const placeTap = document.getElementById('placeTap');
 const hint = document.getElementById('hint');
 const hintText = document.getElementById('hintText');
-const tapBtn = document.getElementById('tapBtn');
-const resizeHandle = document.getElementById('resizeHandle');
-const removeHandle = document.getElementById('removeHandle');
+const rescanBtn = document.getElementById('rescanBtn');
 
-let state = { x:0, y:0, scale:1 };
-let placed = false;
+let model = null;
+let mode = 'idle'; // 'scanning' | 'tracking'
+let detections = []; // last raw detections, in video-native pixel coords
+let tracked = null; // {class, box:{x,y,w,h} normalized}, box in fractional video coords
+let missCount = 0;
 
-function applyTransform(){
-  machine.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+function resizeOverlay(){
+  overlay.width = overlay.clientWidth;
+  overlay.height = overlay.clientHeight;
+}
+window.addEventListener('resize', resizeOverlay);
+
+// map native video pixel bbox -> displayed (object-fit:contain) screen box
+function videoBoxToScreen(bx, by, bw, bh){
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const dw = video.clientWidth, dh = video.clientHeight;
+  const scale = Math.min(dw/vw, dh/vh);
+  const rw = vw*scale, rh = vh*scale;
+  const offX = (dw-rw)/2, offY = (dh-rh)/2;
+  return { x: offX + bx*scale, y: offY + by*scale, w: bw*scale, h: bh*scale };
 }
 
-function placeAt(clientX, clientY){
-  const baseW = 220, baseH = machine.offsetHeight || 180;
-  state.x = clientX - (baseW*state.scale)/2;
-  state.y = clientY - (baseH*state.scale)/2;
-  applyTransform();
-  if(!placed){
-    placed = true;
-    machine.classList.add('placed');
-    hintText.textContent = 'Drag to move · corner handle to resize · ✕ to remove';
-  }
+function normalizedFromPixel(bx,by,bw,bh){
+  return { x: bx/video.videoWidth, y: by/video.videoHeight, w: bw/video.videoWidth, h: bh/video.videoHeight };
 }
 
-placeTap.addEventListener('click', (e)=>{
-  placeAt(e.clientX, e.clientY);
-});
+function drawScanningOverlay(){
+  octx.clearRect(0,0,overlay.width,overlay.height);
+  detections.forEach(d=>{
+    const [bx,by,bw,bh] = d.bbox;
+    const s = videoBoxToScreen(bx,by,bw,bh);
+    octx.strokeStyle = 'rgba(94,203,240,0.9)';
+    octx.lineWidth = 2;
+    octx.strokeRect(s.x, s.y, s.w, s.h);
+    const label = `${d.class} ${Math.round(d.score*100)}%`;
+    octx.font = '600 12px "Space Mono", monospace';
+    const tw = octx.measureText(label).width + 10;
+    octx.fillStyle = 'rgba(21,12,7,0.85)';
+    octx.fillRect(s.x, Math.max(0,s.y-20), tw, 20);
+    octx.fillStyle = '#5ecbf0';
+    octx.fillText(label, s.x+5, Math.max(14,s.y-6));
+  });
+}
 
-// drag machine body (ignore handles/button)
-let dragging = false, dragOffset = {x:0,y:0};
-machine.addEventListener('pointerdown', (e)=>{
-  if(e.target === resizeHandle || e.target === tapBtn || e.target === removeHandle) return;
-  dragging = true;
-  machine.classList.add('dragging');
-  dragOffset.x = e.clientX - state.x;
-  dragOffset.y = e.clientY - state.y;
-  machine.setPointerCapture(e.pointerId);
-});
-machine.addEventListener('pointermove', (e)=>{
-  if(!dragging) return;
-  state.x = e.clientX - dragOffset.x;
-  state.y = e.clientY - dragOffset.y;
-  applyTransform();
-});
-machine.addEventListener('pointerup', ()=>{ dragging=false; machine.classList.remove('dragging'); });
-machine.addEventListener('pointercancel', ()=>{ dragging=false; machine.classList.remove('dragging'); });
+function iou(a,b){
+  const ax2=a.x+a.w, ay2=a.y+a.h, bx2=b.x+b.w, by2=b.y+b.h;
+  const ix1=Math.max(a.x,b.x), iy1=Math.max(a.y,b.y);
+  const ix2=Math.min(ax2,bx2), iy2=Math.min(ay2,by2);
+  const iw=Math.max(0,ix2-ix1), ih=Math.max(0,iy2-iy1);
+  const inter = iw*ih;
+  const union = a.w*a.h + b.w*b.h - inter;
+  return union<=0 ? 0 : inter/union;
+}
 
-// resize
-let resizing = false, resizeStart = {x:0, scale:1};
-resizeHandle.addEventListener('pointerdown', (e)=>{
-  e.stopPropagation();
-  resizing = true;
-  resizeStart.x = e.clientX;
-  resizeStart.scale = state.scale;
-  resizeHandle.setPointerCapture(e.pointerId);
-});
-resizeHandle.addEventListener('pointermove', (e)=>{
-  if(!resizing) return;
-  const delta = (e.clientX - resizeStart.x) / 220;
-  state.scale = Math.max(0.4, Math.min(2.5, resizeStart.scale + delta));
-  applyTransform();
-});
-resizeHandle.addEventListener('pointerup', ()=>{ resizing=false; });
-resizeHandle.addEventListener('pointercancel', ()=>{ resizing=false; });
+function updateMachinePosition(normBox){
+  const s = videoBoxToScreen(normBox.x*video.videoWidth, normBox.y*video.videoHeight, normBox.w*video.videoWidth, normBox.h*video.videoHeight);
+  const baseW = 220;
+  const scale = Math.max(0.35, Math.min(2.2, s.w/baseW));
+  machine.style.transform = `translate(${s.x}px, ${s.y}px) scale(${scale})`;
+}
 
-removeHandle.addEventListener('click', (e)=>{
-  e.stopPropagation();
-  placed = false;
+function enterScanning(){
+  mode = 'scanning';
+  tracked = null;
   machine.classList.remove('placed');
-  hintText.textContent = 'Tap anywhere to place the machine';
+  rescanBtn.style.display = 'none';
+  hintText.textContent = 'Scanning for objects… tap a label to track it';
+}
+
+function enterTracking(det){
+  mode = 'tracking';
+  tracked = { class: det.class, box: normalizedFromPixel(...det.bbox) };
+  machine.classList.add('placed');
+  machine.classList.remove('stale');
+  rescanBtn.style.display = 'block';
+  hintText.textContent = `Tracking: ${det.class}`;
+  updateMachinePosition(tracked.box);
+  octx.clearRect(0,0,overlay.width,overlay.height);
+}
+
+overlay.addEventListener('click', (e)=>{
+  if(mode !== 'scanning') return;
+  const rect = overlay.getBoundingClientRect();
+  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+  for(const d of detections){
+    const [bx,by,bw,bh] = d.bbox;
+    const s = videoBoxToScreen(bx,by,bw,bh);
+    if(cx>=s.x && cx<=s.x+s.w && cy>=s.y-20 && cy<=s.y+s.h){
+      enterTracking(d);
+      return;
+    }
+  }
 });
 
-tapBtn.addEventListener('click', (e)=>{ e.stopPropagation(); pullLever(); });
+rescanBtn.addEventListener('click', enterScanning);
+
+async function detectLoop(){
+  if(model && video.videoWidth){
+    try{
+      detections = await model.detect(video);
+    }catch(err){ detections = []; }
+
+    if(mode === 'scanning'){
+      drawScanningOverlay();
+    } else if(mode === 'tracking' && tracked){
+      // find best match: same class, highest IoU with last box
+      let best=null, bestScore=0;
+      for(const d of detections){
+        if(d.class !== tracked.class) continue;
+        const nb = normalizedFromPixel(...d.bbox);
+        const score = iou(nb, tracked.box);
+        if(score > bestScore){ bestScore = score; best = nb; }
+      }
+      if(best && bestScore > 0.05){
+        missCount = 0;
+        tracked.box = {
+          x: tracked.box.x*0.5+best.x*0.5, y: tracked.box.y*0.5+best.y*0.5,
+          w: tracked.box.w*0.5+best.w*0.5, h: tracked.box.h*0.5+best.h*0.5
+        };
+        updateMachinePosition(tracked.box);
+        machine.classList.remove('stale');
+        hintText.textContent = `Tracking: ${tracked.class}`;
+      } else {
+        missCount++;
+        if(missCount > 6){
+          machine.classList.add('stale');
+          hintText.textContent = `Lost "${tracked.class}" — hold still, or rescan`;
+        }
+        if(missCount > 30){
+          enterScanning();
+        }
+      }
+    }
+  }
+  requestAnimationFrame(detectLoop);
+}
 
 document.getElementById('startBtn').addEventListener('click', async ()=>{
   try{
@@ -273,10 +335,15 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
     video.srcObject = stream;
     await new Promise(r=>video.onloadedmetadata=r);
     video.play();
+    resizeOverlay();
+    document.getElementById('loadingNote').textContent = 'loading object recognizer…';
+    model = await cocoSsd.load({base:'lite_mobilenet_v2'});
     document.getElementById('startScreen').style.display='none';
     hint.style.display='block';
+    enterScanning();
+    detectLoop();
   }catch(e){
-    alert('Camera access failed: '+e.message);
+    alert('Camera or model failed to start: '+e.message);
   }
 });
 </script>
