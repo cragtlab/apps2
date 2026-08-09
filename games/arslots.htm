@@ -1,33 +1,32 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Square Slot AR</title>
+<title>Slot Machine AR</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="cvReady()"></script>
 <style>
   :root{
     --wood-dark:#2c1810; --wood:#5a3825; --wood-light:#8a5a3a;
     --brass:#c9a227; --brass-light:#f0d878; --cream:#f3e6c8;
     --red:#b3252a; --red-dark:#7a1a1e; --shadow:#150c07;
   }
-  *{box-sizing:border-box;}
-  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Space Mono',monospace;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Space Mono',monospace; touch-action:none;}
 
-  #video{
-    position:fixed; inset:0; width:100%; height:100%; object-fit:contain; background:#000;
-  }
+  #video{ position:fixed; inset:0; width:100%; height:100%; object-fit:cover; background:#000; }
 
   #hint{
-    position:fixed; left:0; right:0; top:14px; text-align:center; z-index:5;
-    pointer-events:none;
+    position:fixed; left:0; right:0; top:14px; text-align:center; z-index:5; pointer-events:none;
   }
   #hint span{
     background:rgba(21,12,7,.75); color:var(--brass-light); border:1px solid var(--brass);
     padding:6px 12px; font-size:11px; letter-spacing:.06em; border-radius:20px;
+  }
+
+  #placeTap{
+    position:fixed; inset:0; z-index:4;
   }
 
   #machine{
@@ -36,19 +35,20 @@
     background:linear-gradient(160deg,var(--wood-light),var(--wood) 55%,var(--wood-dark));
     border:4px solid var(--wood-dark); border-radius:10px;
     box-shadow:0 10px 24px rgba(0,0,0,.5), inset 0 0 0 2px var(--brass);
-    padding:8px; display:none; z-index:6;
-    transition:transform .12s linear, opacity .2s;
+    padding:8px; display:none; z-index:6; flex-direction:column; gap:6px;
+    cursor:grab;
   }
-  #machine.locked{ display:flex; flex-direction:column; gap:6px; }
-  #machine.stale{ opacity:.35; }
+  #machine.placed{ display:flex; }
+  #machine.dragging{ cursor:grabbing; box-shadow:0 4px 14px rgba(0,0,0,.7), 0 0 0 3px var(--brass-light); }
 
   #marquee{
     text-align:center; font-family:'Bungee',cursive; color:var(--brass-light);
     font-size:12px; letter-spacing:.02em; text-shadow:0 0 6px rgba(240,216,120,.5);
+    pointer-events:none;
   }
   #reelWindow{
     background:var(--shadow); border:3px solid var(--brass); border-radius:6px;
-    padding:5px; display:flex; gap:4px; position:relative;
+    padding:5px; display:flex; gap:4px; position:relative; pointer-events:none;
   }
   #payline{
     position:absolute; left:3px; right:3px; top:50%; height:2px; background:var(--red);
@@ -58,15 +58,28 @@
   .reelStrip{ display:flex; flex-direction:column; align-items:center; }
   .sym{ font-size:18px; line-height:1.4; height:1.4em; display:flex; align-items:center; justify-content:center;}
 
-  #status{ text-align:center; font-size:8px; letter-spacing:.05em; color:var(--brass-light); min-height:10px; }
-  #credits{ display:flex; justify-content:space-between; font-size:8px; letter-spacing:.04em; padding:0 2px; }
+  #status{ text-align:center; font-size:8px; letter-spacing:.05em; color:var(--brass-light); min-height:10px; pointer-events:none; }
+  #credits{ display:flex; justify-content:space-between; font-size:8px; letter-spacing:.04em; padding:0 2px; pointer-events:none; }
   #credits b{ color:var(--brass-light); font-size:11px; }
   #tapBtn{
     background:var(--red); border:2px solid var(--brass); color:var(--cream);
     font-family:'Space Mono',monospace; font-weight:700; font-size:9px;
-    letter-spacing:.08em; text-transform:uppercase; padding:5px; border-radius:4px;
+    letter-spacing:.08em; text-transform:uppercase; padding:6px; border-radius:4px;
   }
   #tapBtn:active{ background:var(--red-dark); }
+
+  #resizeHandle{
+    position:absolute; right:-10px; bottom:-10px; width:26px; height:26px;
+    background:var(--brass-light); border:2px solid var(--wood-dark); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--wood-dark);
+    cursor:nwse-resize;
+  }
+  #removeHandle{
+    position:absolute; left:-10px; top:-10px; width:22px; height:22px;
+    background:var(--red); border:2px solid var(--wood-dark); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--cream);
+    line-height:1;
+  }
 
   #startScreen{
     position:fixed; inset:0; z-index:20; background:var(--shadow); color:var(--cream);
@@ -80,7 +93,6 @@
     padding:12px 24px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
     cursor:pointer; border-radius:4px; font-family:'Space Mono',monospace;
   }
-  #loadingNote{ font-size:10px; opacity:.6; margin-top:10px; }
 
   #winFlash{
     position:fixed; inset:0; pointer-events:none; z-index:15;
@@ -94,19 +106,19 @@
 <body>
 
 <div id="startScreen">
-  <h1>SQUARE SLOT AR</h1>
-  <p>No 3D scene, no hand tracking — just point your back camera at <b>any rectangle</b> (a phone, a card, a book, a doorway) and a slot machine locks onto it. Tap it to pull.</p>
+  <h1>SLOT MACHINE AR</h1>
+  <p>Point your camera at anything. Tap once to <b>drop the machine</b> on it, drag it into place, and use the corner handle to resize. Tap the button to pull.</p>
   <button id="startBtn">Start Camera</button>
-  <div id="loadingNote">loading vision engine…</div>
 </div>
 
 <div id="winFlash"></div>
-<div id="hint" style="display:none;"><span id="hintText">Looking for a rectangle…</span></div>
+<div id="hint" style="display:none;"><span id="hintText">Tap anywhere to place the machine</span></div>
 
 <video id="video" autoplay playsinline muted></video>
-<canvas id="proc" style="display:none;"></canvas>
+<div id="placeTap"></div>
 
 <div id="machine">
+  <div id="removeHandle">✕</div>
   <div id="marquee">★ LUCKY PULL ★</div>
   <div id="reelWindow">
     <div id="payline"></div>
@@ -114,15 +126,13 @@
     <div class="reel"><div class="reelStrip" id="r1"></div></div>
     <div class="reel"><div class="reelStrip" id="r2"></div></div>
   </div>
-  <div id="status">LOCKED ON</div>
+  <div id="status">DROPPED — DRAG TO POSITION</div>
   <div id="credits"><span>CREDITS</span><b id="creditVal">10</b></div>
   <button id="tapBtn">Tap To Pull</button>
+  <div id="resizeHandle">↔</div>
 </div>
 
 <script>
-let cvLoaded = false;
-function cvReady(){ cvLoaded = true; }
-
 const SYMS = ['🍒','🍋','🔔','⭐','7️⃣','🍇','💎'];
 const REEL_LEN = 18;
 function buildStrip(el, finalSym){
@@ -176,107 +186,86 @@ async function pullLever(){
   }
   spinning=false;
 }
-document.getElementById('tapBtn').addEventListener('click', (e)=>{ e.stopPropagation(); pullLever(); });
-document.getElementById('machine').addEventListener('click', pullLever);
 ['r0','r1','r2'].forEach(id=>buildStrip(document.getElementById(id), SYMS[0]));
 
-// --- square detection ---
+// --- placement / drag / resize (screen-space, no tracking) ---
 const video = document.getElementById('video');
-const proc = document.getElementById('proc');
 const machine = document.getElementById('machine');
+const placeTap = document.getElementById('placeTap');
 const hint = document.getElementById('hint');
 const hintText = document.getElementById('hintText');
+const tapBtn = document.getElementById('tapBtn');
+const resizeHandle = document.getElementById('resizeHandle');
+const removeHandle = document.getElementById('removeHandle');
 
-const PROC_W = 240;
-let PROC_H = 180;
-let smoothed = null; // {x,y,w,h} in proc-canvas fractional coords (0-1)
-let missCount = 0;
+let state = { x:0, y:0, scale:1 };
+let placed = false;
 
-function findSquare(){
-  const ctx = proc.getContext('2d', {willReadFrequently:true});
-  ctx.drawImage(video, 0, 0, PROC_W, PROC_H);
-  let src, gray, edges, contours, hierarchy;
-  try{
-    src = cv.imread(proc);
-    gray = new cv.Mat();
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    cv.GaussianBlur(gray, gray, new cv.Size(5,5), 0);
-    edges = new cv.Mat();
-    cv.Canny(gray, edges, 50, 150);
-    cv.dilate(edges, edges, cv.Mat.ones(3,3,cv.CV_8U));
-    contours = new cv.MatVector();
-    hierarchy = new cv.Mat();
-    cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+function applyTransform(){
+  machine.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+}
 
-    let best = null, bestArea = 0;
-    for(let i=0;i<contours.size();i++){
-      const cnt = contours.get(i);
-      const peri = cv.arcLength(cnt, true);
-      const approx = new cv.Mat();
-      cv.approxPolyDP(cnt, approx, 0.03*peri, true);
-      if(approx.rows === 4 && cv.isContourConvex(approx)){
-        const rect = cv.boundingRect(approx);
-        const area = rect.width*rect.height;
-        const aspect = rect.width / rect.height;
-        const minArea = PROC_W*PROC_H*0.03;
-        if(area > minArea && area > bestArea && aspect > 0.25 && aspect < 4){
-          bestArea = area;
-          best = {x:rect.x/PROC_W, y:rect.y/PROC_H, w:rect.width/PROC_W, h:rect.height/PROC_H};
-        }
-      }
-      approx.delete(); cnt.delete();
-    }
-    return best;
-  } finally {
-    src&&src.delete(); gray&&gray.delete(); edges&&edges.delete();
-    contours&&contours.delete(); hierarchy&&hierarchy.delete();
+function placeAt(clientX, clientY){
+  const baseW = 220, baseH = machine.offsetHeight || 180;
+  state.x = clientX - (baseW*state.scale)/2;
+  state.y = clientY - (baseH*state.scale)/2;
+  applyTransform();
+  if(!placed){
+    placed = true;
+    machine.classList.add('placed');
+    hintText.textContent = 'Drag to move · corner handle to resize · ✕ to remove';
   }
 }
 
-function updateMachinePosition(box){
-  // map proc-canvas fractional coords -> displayed video element box (object-fit:contain)
-  const vw = video.videoWidth, vh = video.videoHeight;
-  const dw = video.clientWidth, dh = video.clientHeight;
-  const scale = Math.min(dw/vw, dh/vh);
-  const rw = vw*scale, rh = vh*scale;
-  const offX = (dw-rw)/2, offY = (dh-rh)/2;
+placeTap.addEventListener('click', (e)=>{
+  placeAt(e.clientX, e.clientY);
+});
 
-  const px = offX + box.x*rw;
-  const py = offY + box.y*rh;
-  const pw = box.w*rw;
-  const ph = box.h*rh;
+// drag machine body (ignore handles/button)
+let dragging = false, dragOffset = {x:0,y:0};
+machine.addEventListener('pointerdown', (e)=>{
+  if(e.target === resizeHandle || e.target === tapBtn || e.target === removeHandle) return;
+  dragging = true;
+  machine.classList.add('dragging');
+  dragOffset.x = e.clientX - state.x;
+  dragOffset.y = e.clientY - state.y;
+  machine.setPointerCapture(e.pointerId);
+});
+machine.addEventListener('pointermove', (e)=>{
+  if(!dragging) return;
+  state.x = e.clientX - dragOffset.x;
+  state.y = e.clientY - dragOffset.y;
+  applyTransform();
+});
+machine.addEventListener('pointerup', ()=>{ dragging=false; machine.classList.remove('dragging'); });
+machine.addEventListener('pointercancel', ()=>{ dragging=false; machine.classList.remove('dragging'); });
 
-  const baseW = 220; // machine's design width
-  const s = Math.max(0.35, Math.min(2.2, pw/baseW));
+// resize
+let resizing = false, resizeStart = {x:0, scale:1};
+resizeHandle.addEventListener('pointerdown', (e)=>{
+  e.stopPropagation();
+  resizing = true;
+  resizeStart.x = e.clientX;
+  resizeStart.scale = state.scale;
+  resizeHandle.setPointerCapture(e.pointerId);
+});
+resizeHandle.addEventListener('pointermove', (e)=>{
+  if(!resizing) return;
+  const delta = (e.clientX - resizeStart.x) / 220;
+  state.scale = Math.max(0.4, Math.min(2.5, resizeStart.scale + delta));
+  applyTransform();
+});
+resizeHandle.addEventListener('pointerup', ()=>{ resizing=false; });
+resizeHandle.addEventListener('pointercancel', ()=>{ resizing=false; });
 
-  machine.style.transform = `translate(${px}px, ${py}px) scale(${s})`;
-}
+removeHandle.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  placed = false;
+  machine.classList.remove('placed');
+  hintText.textContent = 'Tap anywhere to place the machine';
+});
 
-function loop(){
-  if(video.videoWidth){
-    if(proc.width !== PROC_W){ proc.width = PROC_W; PROC_H = Math.round(PROC_W*video.videoHeight/video.videoWidth); proc.height = PROC_H; }
-    const box = cvLoaded ? findSquare() : null;
-    if(box){
-      missCount = 0;
-      smoothed = smoothed ? {
-        x: smoothed.x*0.6+box.x*0.4, y: smoothed.y*0.6+box.y*0.4,
-        w: smoothed.w*0.6+box.w*0.4, h: smoothed.h*0.6+box.h*0.4
-      } : box;
-      updateMachinePosition(smoothed);
-      machine.classList.add('locked'); machine.classList.remove('stale');
-      machine.style.display='flex';
-      hintText.textContent = 'Locked on';
-    } else {
-      missCount++;
-      if(missCount > 12){
-        machine.classList.add('stale');
-        hintText.textContent = 'Looking for a rectangle…';
-        if(missCount > 40){ machine.style.display='none'; smoothed=null; }
-      }
-    }
-  }
-  requestAnimationFrame(loop);
-}
+tapBtn.addEventListener('click', (e)=>{ e.stopPropagation(); pullLever(); });
 
 document.getElementById('startBtn').addEventListener('click', async ()=>{
   try{
@@ -286,8 +275,6 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
     video.play();
     document.getElementById('startScreen').style.display='none';
     hint.style.display='block';
-    const waitForCv = setInterval(()=>{ if(cvLoaded){ clearInterval(waitForCv); } }, 200);
-    loop();
   }catch(e){
     alert('Camera access failed: '+e.message);
   }
