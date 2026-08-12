@@ -8,12 +8,20 @@ button{padding:5px 10px} .good{color:#6f6}.bad{color:#f66}
 pre{white-space:pre-wrap}
 </style></head><body>
 <h2>LayerZero OFT Scanner</h2>
-<button onclick="scan()">Scan</button>
+<div style="margin-bottom:12px;">
+  <label for="min2Input">Min 2: </label>
+  <input type="text" id="min2Input" value="ethereum,base,arbitrum,bsc,solana,robinhood,avalanche,monad,optimism,polygon" style="width: 500px; background: #222; color: #eee; border: 1px solid #444; padding: 4px; margin-right: 10px;">
+  <button onclick="scan()">Scan</button>
+</div>
 <div id="status"></div>
 <table><thead><tr><th>Symbol</th><th>Chains</th><th>Deployments</th><th>Prices</th></tr></thead><tbody id="tbody"></tbody></table>
 <script>
-const SUPPORTED=["ethereum","base","arbitrum","optimism","robinhood"];
 const grouped={};
+
+function getActiveChains(){
+  const val = document.getElementById("min2Input").value || "";
+  return val.split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
+}
 
 async function getAllTokens(){
  let all=[],next=null;
@@ -38,7 +46,12 @@ async function scan(){
    grouped[s].push({chain:(t.chainKey||t.chain||t.chainName||"").toLowerCase(),
                     address:t.address||t.tokenAddress});
  }
- for(const [sym,list] of Object.entries(grouped).filter(e=>e[1].length>1)){
+ const activeChains = getActiveChains();
+ const filteredEntries = Object.entries(grouped).filter(([sym, list]) => {
+   const matchCount = list.filter(x => activeChains.includes(x.chain)).length;
+   return matchCount >= 2;
+ });
+ for(const [sym,list] of filteredEntries){
    const tr=document.createElement("tr");
    tr.innerHTML=`<td>${sym}</td><td>${list.map(x=>x.chain).join(", ")}</td>
    <td>${list.length}</td>
@@ -61,7 +74,8 @@ async function dex(chain,address){
 async function checkPrices(sym){
  const out=document.getElementById("r_"+sym);
  out.textContent="Loading...";
- const rows=grouped[sym].filter(x=>SUPPORTED.includes(x.chain));
+ const activeChains = getActiveChains();
+ const rows=grouped[sym].filter(x=>activeChains.includes(x.chain));
  const res=(await Promise.all(rows.map(async r=>{
    const p=await dex(r.chain,r.address);
    return p?{chain:r.chain,price:+p.priceUsd,liq:p.liquidity?.usd||0}:null;
