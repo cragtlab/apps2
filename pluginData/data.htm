@@ -93,7 +93,7 @@
   <script>
     let globalRootHandle = null;
     let dataJSFolderHandle = null;
-    let pluginScripts = {}; // name -> { text, evaluated, div }
+    let pluginScripts = {}; // name -> { handle, text, evaluated, promise }
     let pluginHandlers = {}; // name -> { onActivated }
     let dataCache = {}; // type -> rows[]
 
@@ -219,7 +219,7 @@
     };
 
     let currentActiveTabId = "tab_Catalogue";
-    function showTab(id) {
+    async function showTab(id) {
       currentActiveTabId = id;
       document.querySelectorAll(".tabButton").forEach(btn => {
         btn.classList.remove("active");
@@ -231,16 +231,26 @@
       // On-demand load
       // Find the name in pluginScripts that maps to this tabId
       const pluginName = Object.keys(pluginScripts).find(name => ("tab_" + name.replace(/\s+/g, "_")) === id);
-      if (pluginScripts[pluginName] && !pluginScripts[pluginName].evaluated) {
-        console.log(`Loading plugin on demand: ${pluginName}`);
-        try {
-          eval(pluginScripts[pluginName].text);
-          pluginScripts[pluginName].evaluated = true;
-        } catch (err) {
-          console.error(`Failed to evaluate plugin ${pluginName}:`, err);
-          // Only show error if the div was already there
-          const errDiv = document.getElementById(id);
-          if (errDiv) errDiv.innerHTML = `<div style="color:red">Error loading plugin: ${err.message}</div>`;
+      if (pluginName && pluginScripts[pluginName]) {
+        if (!pluginScripts[pluginName].text && pluginScripts[pluginName].promise) {
+          try {
+            await pluginScripts[pluginName].promise;
+          } catch (err) {
+            console.error(`Failed to load background text for plugin ${pluginName}:`, err);
+          }
+        }
+
+        if (pluginScripts[pluginName].text && !pluginScripts[pluginName].evaluated) {
+          console.log(`Loading plugin on demand: ${pluginName}`);
+          try {
+            eval(pluginScripts[pluginName].text);
+            pluginScripts[pluginName].evaluated = true;
+          } catch (err) {
+            console.error(`Failed to evaluate plugin ${pluginName}:`, err);
+            // Only show error if the div was already there
+            const errDiv = document.getElementById(id);
+            if (errDiv) errDiv.innerHTML = `<div style="color:red">Error loading plugin: ${err.message}</div>`;
+          }
         }
       }
 
@@ -252,6 +262,24 @@
           pluginHandlers[pluginName].onActivated();
         }
       }
+    }
+
+    async function loadPluginFile(name) {
+      const scriptObj = pluginScripts[name];
+      if (!scriptObj || scriptObj.text !== null) return;
+      if (scriptObj.promise) return scriptObj.promise;
+
+      scriptObj.promise = (async () => {
+        try {
+          const file = await scriptObj.handle.getFile();
+          const text = await file.text();
+          scriptObj.text = text;
+        } catch (err) {
+          console.error(`Error loading plugin file ${name}:`, err);
+          throw err;
+        }
+      })();
+      return scriptObj.promise;
     }
 
     async function scanDataJS() {
@@ -270,28 +298,40 @@
         catBtn.onclick = () => showTab("tab_Catalogue");
         tabsContainer.appendChild(catBtn);
 
+        const entries = [];
         for await (const entry of dataJSFolderHandle.values()) {
           if (entry.kind === 'file' && entry.name.endsWith('.txt')) {
-            const name = entry.name.replace('.txt', '');
-            const file = await entry.getFile();
-            const text = await file.text();
-
-            pluginScripts[name] = { text, evaluated: false };
-
-            const tabId = "tab_" + name.replace(/\s+/g, "_");
-            const btn = document.createElement("button");
-            btn.className = "tabButton";
-            btn.innerText = name;
-            btn.setAttribute("data-tab-id", tabId);
-            btn.onclick = () => showTab(tabId);
-            tabsContainer.appendChild(btn);
-
-            // Pre-create div
-            const div = document.createElement("div");
-            div.id = tabId;
-            document.getElementById("contentArea").appendChild(div);
+            entries.push(entry);
           }
         }
+
+        // Create all tabs immediately
+        for (const entry of entries) {
+          const name = entry.name.replace('.txt', '');
+          pluginScripts[name] = { handle: entry, text: null, evaluated: false, promise: null };
+
+          const tabId = "tab_" + name.replace(/\s+/g, "_");
+          const btn = document.createElement("button");
+          btn.className = "tabButton";
+          btn.innerText = name;
+          btn.setAttribute("data-tab-id", tabId);
+          btn.onclick = () => showTab(tabId);
+          tabsContainer.appendChild(btn);
+
+          // Pre-create div
+          const div = document.createElement("div");
+          div.id = tabId;
+          document.getElementById("contentArea").appendChild(div);
+        }
+
+        // Kick off background concurrent loading of all plugin files
+        for (const entry of entries) {
+          const name = entry.name.replace('.txt', '');
+          loadPluginFile(name).catch(err => {
+            console.error(`Background load failed for ${name}:`, err);
+          });
+        }
+
       } catch (err) {
         console.error("Failed to scan dataJS:", err);
       }
