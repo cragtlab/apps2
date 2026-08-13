@@ -82,9 +82,8 @@
 <body>
   <div id="tabBar">
     <font color=white>Alt-L: Load, Alt-R: Refresh</font><br/>
-    <button id="passBtn" class="controlBtn">Alt-P: Pass mode</button>
     <div id="passIndicator" style="color: yellow; margin: 5px 0; font-weight: bold; min-height: 20px; font-size: 16px;"></div>
-    <div id="passLabelsList" style="color: white; font-size: 14px; margin-bottom: 10px; display: none; background: #444; padding: 5px; border-radius: 4px;"></div>
+    <div id="passLabelsList" style="color: white; font-size: 14px; margin-bottom: 10px; display: block; background: #444; padding: 5px; border-radius: 4px;"></div>
     <button id="loadBtn" class="controlBtn">Load Plugins</button>
     <button id="refreshBtn" class="controlBtn">Refresh Plugins</button>
     <font color=white>Press Alt-1 to go 1st</font><br/>
@@ -96,7 +95,6 @@
   <script>
     let globalRootHandle = null;
     let toolsFiles = [];
-    let isPassActive = false;
     let passBuffer = "";
     let lastCopiedText = "";
     const passData = [
@@ -134,7 +132,6 @@
     function handleLabelClick(label, value) {
       copyText(value);
       lastCopiedText = label;
-      isPassActive = false;
       passBuffer = "";
       updatePassUI();
     }
@@ -142,31 +139,35 @@
     function updatePassUI() {
       const indicator = document.getElementById("passIndicator");
       const labelsList = document.getElementById("passLabelsList");
-      if (isPassActive) {
+
+      if (passBuffer) {
         indicator.textContent = `Pass for [${passBuffer}]`;
         indicator.style.color = "lightgreen";
-
-        // Find matching or remaining items
-        const candidates = passData.filter(item =>
-          item.label.toLowerCase().startsWith(passBuffer.toLowerCase())
-        );
-        labelsList.style.display = "block";
-        labelsList.innerHTML = "";
-        candidates.forEach(item => {
-          const itemDiv = document.createElement("div");
-          itemDiv.style.cursor = "pointer";
-          itemDiv.style.padding = "2px 0";
-          itemDiv.textContent = `• ${item.label}`;
-          itemDiv.onclick = () => handleLabelClick(item.label, item.value);
-          labelsList.appendChild(itemDiv);
-        });
       } else {
         indicator.textContent = lastCopiedText ? `Copied: ${lastCopiedText}` : "";
         indicator.style.color = "yellow";
-        labelsList.style.display = "none";
-        labelsList.innerHTML = "";
       }
+
+      // Find matching or remaining items
+      const candidates = passData.filter(item =>
+        item.label.toLowerCase().startsWith(passBuffer.toLowerCase())
+      );
+
+      labelsList.innerHTML = "";
+      candidates.forEach(item => {
+        const itemDiv = document.createElement("div");
+        itemDiv.style.cursor = "pointer";
+        itemDiv.style.padding = "2px 0";
+        itemDiv.textContent = `• ${item.label}`;
+        itemDiv.onclick = () => handleLabelClick(item.label, item.value);
+        labelsList.appendChild(itemDiv);
+      });
     }
+
+    // Call updatePassUI() on load to render the password list immediately
+    window.addEventListener("DOMContentLoaded", () => {
+      updatePassUI();
+    });
 
     const PluginAPI = {
       add: function(title) {
@@ -311,31 +312,24 @@ async function ensureWritePermission(handle) {
   if ((await handle.requestPermission(opts)) === 'granted') return true;
   return false;
 }
-    function activatePassMode() {
-      isPassActive = true;
-      passBuffer = "";
-      if (document.activeElement) {
-        document.activeElement.blur();
-      }
-      updatePassUI();
-    }
-
-    document.getElementById("passBtn").onmouseover = () => {
-      activatePassMode();
-    };
-
 document.addEventListener("keydown", (e) => {
-  // If pass mode is active, intercept standard keys (letters) for matching
-  if (isPassActive) {
-    if (e.key === "Escape") {
+  // Check if user is currently typing in an input or editable element
+  const activeEl = document.activeElement;
+  const isInputFocused = activeEl && (
+    activeEl.tagName === "INPUT" ||
+    activeEl.tagName === "TEXTAREA" ||
+    activeEl.isContentEditable
+  );
+
+  if (!isInputFocused) {
+    if (e.key === "Escape" && !e.ctrlKey && !e.altKey && !e.metaKey) {
       e.preventDefault();
-      isPassActive = false;
       passBuffer = "";
       lastCopiedText = ""; // reset the last copied text to empty / initial state
       updatePassUI();
       return;
     }
-    if (e.key === "Backspace") {
+    if (e.key === "Backspace" && !e.ctrlKey && !e.altKey && !e.metaKey) {
       e.preventDefault();
       if (passBuffer.length > 0) {
         passBuffer = passBuffer.slice(0, -1);
@@ -359,13 +353,10 @@ document.addEventListener("keydown", (e) => {
         const matched = candidates[0];
         copyText(matched.value);
         lastCopiedText = matched.label;
-        isPassActive = false;
         passBuffer = "";
         updatePassUI();
       } else if (candidates.length === 0) {
-        // No match found - reset buffer or do nothing?
-        // Typically, we reset or stay. Let's keep it but maybe flash or just reset.
-        // We'll reset the buffer to empty to allow starting fresh if user typed a non-matching key.
+        // No match found - reset the buffer so user can type again
         passBuffer = "";
         updatePassUI();
       }
@@ -375,11 +366,6 @@ document.addEventListener("keydown", (e) => {
 
   if (!e.altKey) return;
 
-  if (e.code === 'KeyP') {
-    e.preventDefault();
-    activatePassMode();
-    return;
-  }
   if (e.code === 'KeyL') {
     e.preventDefault();
     document.getElementById('loadBtn').click();
