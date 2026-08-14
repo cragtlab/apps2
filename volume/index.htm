@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decibel Meter</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #14171c;
+    --line: #2a2f37;
+    --text: #e8e6df;
+    --muted: #8a8f98;
+    --safe: #5ec98f;
+    --caution: #e0b84a;
+    --danger: #e05a4a;
+    --mono: 'Courier New', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .device {
+    width: 100%;
+    max-width: 420px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 28px 24px 24px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  .brand {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 18px;
+  }
+
+  .brand h1 {
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: inline-block;
+    margin-right: 6px;
+    transition: background 0.2s;
+  }
+  .status-dot.live { background: var(--safe); box-shadow: 0 0 8px var(--safe); }
+
+  .status-label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .readout {
+    text-align: center;
+    padding: 22px 0 26px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 20px;
+  }
+
+  .db-value {
+    font-family: var(--mono);
+    font-size: 76px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    transition: color 0.15s;
+  }
+
+  .db-unit {
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .db-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 10px;
+    min-height: 16px;
+  }
+
+  .meter-track {
+    position: relative;
+    height: 10px;
+    background: #1c2026;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  .meter-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--safe), var(--caution) 65%, var(--danger));
+    transition: width 0.08s linear;
+  }
+
+  .meter-scale {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 22px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .stat {
+    background: #101317;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+  }
+
+  button {
+    flex: 1;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 13px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #1a1e24;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  button:hover { background: #21262e; }
+  button:active { transform: translateY(1px); }
+
+  #startBtn {
+    background: var(--text);
+    color: #0b0d10;
+    border-color: var(--text);
+  }
+  #startBtn:hover { background: #cfcdc6; }
+
+  #startBtn.active {
+    background: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
+  }
+
+  .note {
+    margin-top: 18px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .error {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--danger);
+    text-align: center;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="device">
+  <div class="brand">
+    <h1>Decibel Meter</h1>
+    <span><span class="status-dot" id="statusDot"></span><span class="status-label" id="statusLabel">Idle</span></span>
+  </div>
+
+  <div class="readout">
+    <div class="db-value" id="dbValue">—</div>
+    <div class="db-unit">dB SPL (approx., relative)</div>
+    <div class="db-desc" id="dbDesc">Tap Start and allow microphone access</div>
+  </div>
+
+  <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+  <div class="meter-scale"><span>0</span><span>40</span><span>60</span><span>80</span><span>100</span><span>120</span></div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Peak</div>
+      <div class="stat-value" id="peakValue">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Average</div>
+      <div class="stat-value" id="avgValue">—</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="startBtn">Start</button>
+    <button id="resetBtn">Reset</button>
+  </div>
+
+  <div class="error" id="errorMsg"></div>
+  <div class="note">Uses your device microphone. Values are relative sound-pressure estimates, not calibrated to a reference — treat as a rough guide, not an exact SPL measurement.</div>
+</div>
+
+<script>
+(() => {
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const dbValue = document.getElementById('dbValue');
+  const dbDesc = document.getElementById('dbDesc');
+  const meterFill = document.getElementById('meterFill');
+  const peakValue = document.getElementById('peakValue');
+  const avgValue = document.getElementById('avgValue');
+  const statusDot = document.getElementById('statusDot');
+  const statusLabel = document.getElementById('statusLabel');
+  const errorMsg = document.getElementById('errorMsg');
+
+  let audioCtx, analyser, source, stream, rafId;
+  let running = false;
+  let peak = -Infinity;
+  let sum = 0, count = 0;
+
+  const MIN_DB = 0;
+  const MAX_DB = 120;
+
+  function describe(db) {
+    if (db < 30) return 'Very quiet — like a whisper';
+    if (db < 50) return 'Quiet — like a library';
+    if (db < 65) return 'Moderate — normal conversation';
+    if (db < 80) return 'Loud — busy traffic';
+    if (db < 95) return 'Very loud — power tools';
+    return 'Extreme — hearing risk with prolonged exposure';
+  }
+
+  function colorFor(db) {
+    if (db < 65) return 'var(--safe)';
+    if (db < 85) return 'var(--caution)';
+    return 'var(--danger)';
+  }
+
+  function setIdleUI() {
+    dbValue.textContent = '—';
+    dbValue.style.color = 'var(--text)';
+    dbDesc.textContent = 'Tap Start and allow microphone access';
+    meterFill.style.width = '0%';
+    statusDot.classList.remove('live');
+    statusLabel.textContent = 'Idle';
+    startBtn.textContent = 'Start';
+    startBtn.classList.remove('active');
+  }
+
+  function resetStats() {
+    peak = -Infinity;
+    sum = 0;
+    count = 0;
+    peakValue.textContent = '—';
+    avgValue.textContent = '—';
+  }
+
+  function update() {
+    const bufferLength = analyser.fftSize;
+    const dataArray = new Float32Array(bufferLength);
+    analyser.getFloatTimeDomainData(dataArray);
+
+    let sumSquares = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      sumSquares += dataArray[i] * dataArray[i];
+    }
+    const rms = Math.sqrt(sumSquares / bufferLength);
+
+    // Convert RMS (0-1) to an approximate dB SPL scale.
+    // Reference calibrated so typical room noise lands in a plausible range.
+    let db = 20 * Math.log10(rms) + 100;
+    db = Math.max(MIN_DB, Math.min(MAX_DB, db));
+
+    if (rms > 0.00001) {
+      dbValue.textContent = Math.round(db);
+      dbValue.style.color = colorFor(db);
+      dbDesc.textContent = describe(db);
+      meterFill.style.width = ((db - MIN_DB) / (MAX_DB - MIN_DB) * 100) + '%';
+
+      if (db > peak) {
+        peak = db;
+        peakValue.textContent = Math.round(peak);
+      }
+      sum += db;
+      count++;
+      avgValue.textContent = Math.round(sum / count);
+    } else {
+      dbValue.textContent = MIN_DB;
+      dbDesc.textContent = describe(MIN_DB);
+      meterFill.style.width = '0%';
+    }
+
+    rafId = requestAnimationFrame(update);
+  }
+
+  async function start() {
+    errorMsg.style.display = 'none';
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      }});
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      source = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.4;
+      source.connect(analyser);
+
+      running = true;
+      statusDot.classList.add('live');
+      statusLabel.textContent = 'Listening';
+      startBtn.textContent = 'Stop';
+      startBtn.classList.add('active');
+      update();
+    } catch (err) {
+      errorMsg.textContent = 'Microphone access failed: ' + (err.message || err.name);
+      errorMsg.style.display = 'block';
+      setIdleUI();
+    }
+  }
+
+  function stop() {
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    if (source) source.disconnect();
+    if (audioCtx) audioCtx.close();
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    setIdleUI();
+  }
+
+  startBtn.addEventListener('click', () => {
+    if (running) stop(); else start();
+  });
+
+  resetBtn.addEventListener('click', resetStats);
+
+  setIdleUI();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fogged // wipe to see</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Manrope:wght@300;500&display=swap');
+
+  :root{
+    --glass-a: #dff1f5;
+    --ink: #08111a;
+    --cyan: #6fd8e0;
+    --amber: #ffd28a;
+    --line: rgba(223,241,245,0.22);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%; width:100%;
+    background:var(--ink); overflow:hidden;
+    font-family:'Manrope',sans-serif; color:var(--glass-a);
+    -webkit-user-select:none; user-select:none;
+  }
+  #stage{
+    position:fixed; inset:0; width:100%; height:100%;
+    display:block; touch-action:none; cursor:crosshair;
+    background:#000;
+  }
+  video{display:none;}
+
+  .hud{
+    position:fixed; left:0; right:0; top:0;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:22px 22px 0 22px; pointer-events:none;
+    z-index:5;
+  }
+  .brand{
+    font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.18em;
+    text-transform:uppercase; opacity:.85;
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .brand b{font-size:13px; letter-spacing:.14em; color:var(--cyan);}
+  .brand span{opacity:.6;}
+  .clock{
+    font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.12em; opacity:.7;
+    text-align:right;
+  }
+
+  #startScreen{
+    position:fixed; inset:0; z-index:20;
+    background:radial-gradient(120% 120% at 50% 20%, #16242c 0%, #060b0f 70%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:32px;
+  }
+  #startScreen h1{
+    font-family:'Space Mono',monospace; font-weight:700; font-size:clamp(22px,5vw,34px);
+    letter-spacing:.02em; margin:0 0 10px; color:var(--glass-a);
+  }
+  #startScreen h1 em{color:var(--cyan); font-style:normal;}
+  #startScreen p{
+    max-width:420px; font-weight:300; line-height:1.5; opacity:.7; margin:0 0 30px; font-size:14.5px;
+  }
+  .btn{
+    font-family:'Space Mono',monospace; letter-spacing:.08em; font-size:13px;
+    background:var(--cyan); color:#04181c; border:none; padding:14px 26px;
+    border-radius:2px; cursor:pointer; text-transform:uppercase;
+    box-shadow:0 0 0 1px rgba(111,216,224,.4), 0 12px 30px -10px rgba(111,216,224,.5);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn.ghost{
+    background:transparent; color:var(--glass-a); margin-top:12px;
+    box-shadow:inset 0 0 0 1px var(--line);
+  }
+  #err{color:var(--amber); font-size:12.5px; margin-top:16px; max-width:380px; font-family:'Space Mono',monospace; display:none;}
+
+  .footer-hud{
+    position:fixed; left:0; right:0; bottom:0; z-index:5;
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding:0 22px 20px 22px; pointer-events:none;
+  }
+  .status{
+    font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.1em;
+    display:flex; align-items:center; gap:8px; opacity:.85;
+  }
+  .dot{width:7px;height:7px;border-radius:50%; background:#ff6b6b; box-shadow:0 0 8px #ff6b6b;}
+  .dot.live{background:var(--cyan); box-shadow:0 0 8px var(--cyan);}
+  .hint{
+    font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.08em; opacity:.55;
+    max-width:220px; text-align:right;
+  }
+  #resetBtn{
+    pointer-events:auto; align-self:flex-end;
+    font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.12em;
+    background:rgba(8,17,26,.55); color:var(--glass-a);
+    border:1px solid var(--line); padding:10px 16px; border-radius:2px;
+    cursor:pointer; backdrop-filter:blur(6px); text-transform:uppercase;
+  }
+  #resetBtn:hover{border-color:var(--cyan); color:var(--cyan);}
+
+  .vignette{
+    position:fixed; inset:0; pointer-events:none; z-index:4;
+    box-shadow: inset 0 0 160px 40px rgba(0,0,0,0.55);
+  }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>The glass is <em>fogged</em>.</h1>
+  <p>Turn on the camera, hold your hand up, and trace a line with your fingertip to wipe the condensation away — like clearing a bathroom mirror after a hot shower.</p>
+  <button class="btn" id="startBtn">Step up to the mirror</button>
+  <button class="btn ghost" id="skipBtn">Skip camera — just fog my screen</button>
+  <div id="err"></div>
+</div>
+
+<div class="hud">
+  <div class="brand"><b>FOGGED GLASS</b><span>ar condensation / v1</span></div>
+</div>
+
+<canvas id="stage"></canvas>
+<div class="vignette"></div>
+
+<div class="footer-hud">
+  <div class="status"><div class="dot" id="handDot"></div><span id="handLabel">no hand detected</span></div>
+  <button id="resetBtn" title="Re-fog the whole screen">re-fog glass</button>
+</div>
+
+<video id="video" playsinline autoplay muted></video>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+
+<script>
+(function(){
+  const video = document.getElementById('video');
+  const stage = document.getElementById('stage');
+  const ctx = stage.getContext('2d');
+  const startScreen = document.getElementById('startScreen');
+  const startBtn = document.getElementById('startBtn');
+  const skipBtn = document.getElementById('skipBtn');
+  const errBox = document.getElementById('err');
+  const handDot = document.getElementById('handDot');
+  const handLabel = document.getElementById('handLabel');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let hasVideo = false;
+  let vw = 1280, vh = 720; // native video res once known
+
+  // ---- offscreen layers ----
+  const blurCanvas = document.createElement('canvas');
+  const blurCtx = blurCanvas.getContext('2d');
+  const sharpCanvas = document.createElement('canvas');
+  const sharpCtx = sharpCanvas.getContext('2d');
+
+  // mask: black = fogged, white = clear. Lower-res for perf.
+  const MASK_SCALE = 0.35;
+  const maskCanvas = document.createElement('canvas');
+  const maskCtx = maskCanvas.getContext('2d');
+
+  // static condensation texture (droplets), generated once
+  let texCanvas = null;
+  function buildTexture(w,h){
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const tc = c.getContext('2d');
+    tc.fillStyle = 'rgba(0,0,0,0)';
+    tc.clearRect(0,0,w,h);
+    const n = Math.floor((w*h)/650);
+    for(let i=0;i<n;i++){
+      const x = Math.random()*w, y = Math.random()*h;
+      const r = Math.random()*3.2 + 0.6;
+      const a = Math.random()*0.5 + 0.15;
+      const grad = tc.createRadialGradient(x,y,0,x,y,r*6);
+      grad.addColorStop(0, `rgba(255,255,255,${a})`);
+      grad.addColorStop(1, `rgba(255,255,255,0)`);
+      tc.fillStyle = grad;
+      tc.beginPath(); tc.arc(x,y,r*6,0,Math.PI*2); tc.fill();
+      // occasional drip streak
+      if(Math.random() < 0.1){
+        const len = Math.random()*140 + 60;
+        tc.strokeStyle = `rgba(255,255,255,${a*0.7})`;
+        tc.lineWidth = r*1.8;
+        tc.beginPath();
+        tc.moveTo(x,y);
+        let cx = x, cy = y;
+        for(let s=0;s<len;s+=10){
+          cx += (Math.random()-0.5)*3;
+          cy += 4;
+          tc.lineTo(cx,cy);
+        }
+        tc.stroke();
+      }
+    }
+    return c;
+  }
+
+  function resize(){
+    W = window.innerWidth; H = window.innerHeight;
+    stage.width = W * DPR; stage.height = H * DPR;
+    stage.style.width = W+'px'; stage.style.height = H+'px';
+
+    blurCanvas.width = W; blurCanvas.height = H;
+    sharpCanvas.width = W; sharpCanvas.height = H;
+
+    maskCanvas.width = Math.max(1, Math.floor(W*MASK_SCALE));
+    maskCanvas.height = Math.max(1, Math.floor(H*MASK_SCALE));
+    maskCtx.fillStyle = '#000';
+    maskCtx.fillRect(0,0,maskCanvas.width, maskCanvas.height);
+
+    texCanvas = buildTexture(W,H);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---- draw video (or fallback noise) with "cover" cropping, mirrored ----
+  function drawCover(targetCtx, w, h){
+    targetCtx.save();
+    targetCtx.translate(w,0);
+    targetCtx.scale(-1,1);
+    if(hasVideo){
+      const srcAR = vw/vh, dstAR = w/h;
+      let sx,sy,sw,sh;
+      if(srcAR > dstAR){ sh = vh; sw = vh*dstAR; sx=(vw-sw)/2; sy=0; }
+      else { sw = vw; sh = vw/dstAR; sx=0; sy=(vh-sh)/2; }
+      targetCtx.drawImage(video, sx,sy,sw,sh, 0,0,w,h);
+    } else {
+      // ambient fallback gradient if no camera
+      const g = targetCtx.createLinearGradient(0,0,w,h);
+      g.addColorStop(0,'#12232b'); g.addColorStop(1,'#03080b');
+      targetCtx.fillStyle = g;
+      targetCtx.fillRect(0,0,w,h);
+    }
+    targetCtx.restore();
+  }
+
+  function renderFrame(){
+    // sharp layer
+    drawCover(sharpCtx, W, H);
+
+    // blurred/misty layer
+    blurCtx.save();
+    blurCtx.filter = 'blur(64px) saturate(1.05) brightness(1.08)';
+    drawCover(blurCtx, W, H);
+    blurCtx.restore();
+    blurCtx.filter = 'none';
+    blurCtx.fillStyle = 'rgba(223,241,245,0.42)';
+    blurCtx.fillRect(0,0,W,H);
+    blurCtx.globalCompositeOperation = 'overlay';
+    blurCtx.drawImage(texCanvas,0,0,W,H);
+    blurCtx.drawImage(texCanvas,0,0,W,H);
+    blurCtx.globalCompositeOperation = 'source-over';
+
+    // slowly re-fog the mask (mist creeping back)
+    maskCtx.globalCompositeOperation = 'source-over';
+    maskCtx.fillStyle = 'rgba(0,0,0,0.010)';
+    maskCtx.fillRect(0,0,maskCanvas.width, maskCanvas.height);
+
+    // apply mask to sharp layer: keep only clear (white-mask) regions
+    sharpCtx.globalCompositeOperation = 'destination-in';
+    sharpCtx.drawImage(maskCanvas, 0,0,W,H);
+    sharpCtx.globalCompositeOperation = 'source-over';
+
+    // composite to visible stage
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.clearRect(0,0,W,H);
+    ctx.drawImage(blurCanvas,0,0,W,H);
+    ctx.drawImage(sharpCanvas,0,0,W,H);
+  }
+
+  // ---- wiping (mask update) ----
+  function wipeAt(xCss, yCss, radiusCss){
+    const mx = xCss * MASK_SCALE, my = yCss * MASK_SCALE, mr = radiusCss * MASK_SCALE;
+    maskCtx.globalCompositeOperation = 'source-over';
+    const grad = maskCtx.createRadialGradient(mx,my,0, mx,my,mr);
+    grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    grad.addColorStop(0.7, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    maskCtx.fillStyle = grad;
+    maskCtx.beginPath();
+    maskCtx.arc(mx,my,mr,0,Math.PI*2);
+    maskCtx.fill();
+  }
+  function wipeLine(x0,y0,x1,y1,radius){
+    const dist = Math.hypot(x1-x0, y1-y0);
+    const steps = Math.max(1, Math.floor(dist / (radius*0.35)));
+    for(let i=0;i<=steps;i++){
+      const t = i/steps;
+      wipeAt(x0+(x1-x0)*t, y0+(y1-y0)*t, radius);
+    }
+  }
+
+  function resetFog(){
+    maskCtx.globalCompositeOperation = 'source-over';
+    maskCtx.fillStyle = '#000';
+    maskCtx.fillRect(0,0,maskCanvas.width, maskCanvas.height);
+  }
+  resetBtn.addEventListener('click', resetFog);
+
+  // ---- pointer (mouse/touch) fallback wiping directly on screen ----
+  let pointerDown = false, lastPX = null, lastPY = null;
+  function toCanvasXY(clientX, clientY){
+    const rect = stage.getBoundingClientRect();
+    return [clientX - rect.left, clientY - rect.top];
+  }
+  stage.addEventListener('pointerdown', e=>{
+    pointerDown = true;
+    const [x,y] = toCanvasXY(e.clientX, e.clientY);
+    lastPX = x; lastPY = y;
+    wipeAt(x,y,55);
+  });
+  window.addEventListener('pointermove', e=>{
+    if(!pointerDown) return;
+    const [x,y] = toCanvasXY(e.clientX, e.clientY);
+    wipeLine(lastPX,lastPY,x,y,55);
+    lastPX = x; lastPY = y;
+  });
+  window.addEventListener('pointerup', ()=>{ pointerDown=false; lastPX=null; lastPY=null; });
+
+  // ---- fingertip cursor visual (from hand tracking) ----
+  let fingerPt = null; // {x,y} in css px, mirrored space
+  let lastFingerPt = null;
+  let handSeenAt = 0;
+
+  function drawFingerCursor(){
+    if(!fingerPt) return;
+    const age = performance.now() - handSeenAt;
+    if(age > 600) return;
+    ctx.save();
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    const alpha = Math.max(0, 1 - age/600);
+    ctx.strokeStyle = `rgba(111,216,224,${0.9*alpha})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(fingerPt.x, fingerPt.y, 16, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.fillStyle = `rgba(111,216,224,${0.5*alpha})`;
+    ctx.beginPath();
+    ctx.arc(fingerPt.x, fingerPt.y, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ---- MediaPipe Hands setup ----
+  let handsReady = false;
+  let mpHands = null, mpCamera = null;
+
+  function setHandStatus(live, label){
+    handDot.classList.toggle('live', live);
+    handLabel.textContent = label;
+  }
+
+  function onHandsResults(results){
+    if(results.multiHandLandmarks && results.multiHandLandmarks.length > 0){
+      const lm = results.multiHandLandmarks[0][8]; // index fingertip
+      const x = W - (lm.x * W);
+      const y = lm.y * H;
+      handSeenAt = performance.now();
+      if(lastFingerPt){
+        wipeLine(lastFingerPt.x, lastFingerPt.y, x, y, 46);
+      } else {
+        wipeAt(x,y,46);
+      }
+      fingerPt = {x,y};
+      lastFingerPt = {x,y};
+      setHandStatus(true, 'tracking fingertip');
+    } else {
+      lastFingerPt = null;
+      setHandStatus(false, 'no hand detected');
+    }
+  }
+
+  async function initHandTracking(){
+    try{
+      mpHands = new Hands({locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}`});
+      mpHands.setOptions({
+        maxNumHands:1,
+        modelComplexity:1,
+        minDetectionConfidence:0.6,
+        minTrackingConfidence:0.5
+      });
+      mpHands.onResults(onHandsResults);
+      mpCamera = new Camera(video, {
+        onFrame: async ()=>{ await mpHands.send({image:video}); },
+        width: 640, height: 480
+      });
+      await mpCamera.start();
+      handsReady = true;
+    }catch(e){
+      console.warn('Hand tracking unavailable, using touch/mouse only.', e);
+      setHandStatus(false, 'hand tracking unavailable — use finger on screen');
+    }
+  }
+
+  // ---- camera ----
+  async function startCamera(){
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} },
+        audio:false
+      });
+      video.srcObject = stream;
+      await new Promise(res=>{ video.onloadedmetadata = ()=>{ video.play(); res(); }; });
+      vw = video.videoWidth || 1280; vh = video.videoHeight || 720;
+      hasVideo = true;
+      initHandTracking();
+    }catch(e){
+      console.warn('Camera unavailable', e);
+      errBox.style.display='block';
+      errBox.textContent = 'Camera access was blocked or unavailable — you can still wipe the mist with your finger or mouse.';
+      hasVideo = false;
+    }
+  }
+
+  startBtn.addEventListener('click', async ()=>{
+    startScreen.style.display='none';
+    await startCamera();
+  });
+  skipBtn.addEventListener('click', ()=>{
+    startScreen.style.display='none';
+    hasVideo = false;
+    setHandStatus(false, 'no camera — wipe with your finger');
+  });
+
+  // ---- main loop ----
+  function loop(){
+    renderFrame();
+    drawFingerCursor();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
