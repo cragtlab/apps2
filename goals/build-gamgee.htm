@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>Build the Singapore version of Gamgee | One-year go / stop plan</title>
+  <style>
+    :root {
+      --ink: #f6f8fb;
+      --muted: #aab8ca;
+      --dim: #7f90a7;
+      --bg: #07111f;
+      --panel: #0d1b2c;
+      --panel-2: #10243a;
+      --line: rgba(190, 215, 241, .15);
+      --cyan: #67e8f9;
+      --green: #7bf0b0;
+      --amber: #ffd38a;
+      --red: #ff9c9c;
+      --purple: #c9b6ff;
+      --max: 1180px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% -5%, rgba(28, 115, 161, .36), transparent 34rem),
+        radial-gradient(circle at 90% 10%, rgba(88, 43, 142, .24), transparent 30rem),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { width: min(calc(100% - 40px), var(--max)); margin: 0 auto; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: rgba(7, 17, 31, .84);
+      backdrop-filter: blur(16px);
+    }
+    .nav { min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { color: var(--ink); font-weight: 800; letter-spacing: -.03em; }
+    .brand span { color: var(--cyan); }
+    .navlinks { display: flex; flex-wrap: wrap; gap: 16px; font-size: .84rem; color: var(--muted); }
+    .navlinks a { color: var(--muted); }
+    .hero { padding: 92px 0 64px; }
+    .eyebrow { color: var(--cyan); text-transform: uppercase; letter-spacing: .17em; font-size: .72rem; font-weight: 800; }
+    h1, h2, h3 { margin: 0; line-height: 1.08; letter-spacing: -.045em; }
+    h1 { max-width: 900px; margin-top: 14px; font-size: clamp(2.7rem, 7vw, 6.7rem); }
+    h2 { font-size: clamp(1.8rem, 4vw, 3.3rem); }
+    h3 { font-size: 1.15rem; letter-spacing: -.025em; }
+    .lede { max-width: 720px; margin: 24px 0 0; color: #d8e3ee; font-size: clamp(1.04rem, 1.7vw, 1.3rem); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .button { display: inline-flex; align-items: center; min-height: 44px; padding: 0 17px; border-radius: 999px; font-weight: 800; font-size: .9rem; }
+    .button.primary { color: #04121b; background: var(--cyan); }
+    .button.secondary { color: var(--ink); border: 1px solid var(--line); background: rgba(255,255,255,.04); }
+    .signal {
+      display: grid; grid-template-columns: 1.15fr 1fr; gap: 1px; margin-top: 56px;
+      border: 1px solid var(--line); border-radius: 22px; overflow: hidden; background: var(--line);
+    }
+    .signal > div { padding: 24px; background: rgba(13, 27, 44, .94); }
+    .signal strong { display: block; margin-top: 5px; font-size: 1.2rem; }
+    .signal .risk { background: linear-gradient(135deg, rgba(255, 211, 138, .15), rgba(13, 27, 44, .94)); }
+    .label { color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-size: .68rem; font-weight: 800; }
+    main { padding-bottom: 90px; }
+    section { padding: 76px 0 0; }
+    .section-head { display: grid; grid-template-columns: minmax(230px, .72fr) 1.28fr; gap: 40px; align-items: end; margin-bottom: 27px; }
+    .section-head p { margin: 0; color: var(--muted); max-width: 620px; }
+    .grid { display: grid; gap: 14px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .card {
+      padding: 23px; border: 1px solid var(--line); border-radius: 18px;
+      background: linear-gradient(145deg, rgba(16, 36, 58, .92), rgba(10, 24, 40, .87));
+    }
+    .card p { margin: 10px 0 0; color: var(--muted); }
+    .card .mini { margin-top: 16px; color: var(--dim); font-size: .84rem; }
+    .accent-cyan { border-top: 3px solid var(--cyan); }
+    .accent-green { border-top: 3px solid var(--green); }
+    .accent-amber { border-top: 3px solid var(--amber); }
+    .accent-purple { border-top: 3px solid var(--purple); }
+    .accent-red { border-top: 3px solid var(--red); }
+    .quote {
+      margin-top: 14px; padding: 20px 23px; border-left: 3px solid var(--cyan);
+      border-radius: 0 14px 14px 0; background: rgba(103, 232, 249, .07); color: #dceaf4;
+    }
+    .quote b { color: var(--cyan); }
+    .process { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 19px; }
+    .step { min-height: 164px; padding: 17px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,.035); }
+    .step-number { color: var(--cyan); font-size: .72rem; font-weight: 900; letter-spacing: .12em; }
+    .step h3 { margin-top: 15px; font-size: 1rem; }
+    .step p { margin: 8px 0 0; color: var(--muted); font-size: .85rem; }
+    .wedge { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .wedge .card { min-height: 205px; }
+    .tagrow { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 15px; }
+    .tag { display: inline-flex; padding: 5px 9px; border-radius: 999px; color: #c8f8ff; border: 1px solid rgba(103,232,249,.26); background: rgba(103,232,249,.08); font-size: .75rem; }
+    .stack { display: grid; gap: 10px; }
+    .layer { display: grid; grid-template-columns: 155px 1fr; gap: 18px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.035); }
+    .layer strong { color: var(--cyan); }
+    .layer p { margin: 0; color: var(--muted); }
+    .layer small { display: block; margin-top: 6px; color: var(--dim); }
+    .matrix { overflow-x: auto; border: 1px solid var(--line); border-radius: 17px; }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th, td { padding: 16px 18px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { color: var(--dim); background: rgba(255,255,255,.035); text-transform: uppercase; letter-spacing: .1em; font-size: .68rem; }
+    td { color: var(--muted); font-size: .9rem; }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { color: var(--ink); font-weight: 750; }
+    .timeline { position: relative; display: grid; gap: 10px; }
+    .month { display: grid; grid-template-columns: 92px 1fr 145px; gap: 16px; align-items: start; padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.035); }
+    .month .when { color: var(--cyan); font-weight: 900; }
+    .month p { margin: 0; color: var(--muted); }
+    .gate { justify-self: end; padding: 5px 9px; border: 1px solid rgba(123,240,176,.28); border-radius: 999px; color: var(--green); background: rgba(123,240,176,.07); font-size: .74rem; font-weight: 800; text-align: center; }
+    .gate.stop { color: var(--red); border-color: rgba(255,156,156,.28); background: rgba(255,156,156,.07); }
+    .money { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; }
+    .big-number { margin-top: 9px; color: var(--green); font-size: clamp(2.4rem, 5vw, 4.8rem); font-weight: 900; letter-spacing: -.07em; line-height: 1; }
+    .budget-row { display: flex; justify-content: space-between; gap: 15px; padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+    .budget-row:last-child { border-bottom: 0; }
+    .budget-row b { color: var(--ink); white-space: nowrap; }
+    .scorecard { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .score { min-height: 185px; padding: 19px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,.035); }
+    .score .metric { color: var(--green); font-size: 1.45rem; font-weight: 900; }
+    .score h3 { margin-top: 12px; font-size: 1rem; }
+    .score p { margin: 8px 0 0; color: var(--muted); font-size: .86rem; }
+    .stopbox { margin-top: 14px; padding: 24px; border: 1px solid rgba(255,156,156,.3); border-radius: 18px; background: linear-gradient(120deg, rgba(255,156,156,.11), rgba(255,156,156,.03)); }
+    .stopbox h3 { color: var(--red); }
+    .stopbox p { margin: 10px 0 0; color: #e7c9cc; }
+    .sources { columns: 2; column-gap: 40px; padding-left: 20px; color: var(--muted); }
+    .sources li { break-inside: avoid; margin: 0 0 10px; }
+    .footer { padding: 45px 0 70px; color: var(--dim); border-top: 1px solid var(--line); font-size: .84rem; }
+    .note { color: var(--dim); font-size: .8rem; }
+    @media (max-width: 900px) {
+      .section-head, .signal, .money { grid-template-columns: 1fr; }
+      .process { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .scorecard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 650px) {
+      .wrap { width: min(calc(100% - 26px), var(--max)); }
+      .hero { padding-top: 58px; }
+      .nav { align-items: flex-start; padding: 14px 0; flex-direction: column; }
+      .navlinks { gap: 10px; }
+      .grid.two, .grid.three, .wedge { grid-template-columns: 1fr; }
+      .process { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .layer, .month { grid-template-columns: 1fr; gap: 7px; }
+      .gate { justify-self: start; }
+      .scorecard { grid-template-columns: 1fr; }
+      .sources { columns: 1; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap nav">
+      <a class="brand" href="../index.htm">BUILD<span>/</span>GAMGEE</a>
+      <nav class="navlinks" aria-label="Page sections">
+        <a href="#wedge">Wedge</a>
+        <a href="#technology">Technology</a>
+        <a href="#capital">Capital</a>
+        <a href="#year">12 months</a>
+        <a href="#gates">Go / stop</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <section class="hero">
+        <div class="eyebrow">Singapore / canine oncology / decision plan · 13 Aug 2026</div>
+        <h1>Build the regional operating system for personalised cancer care in dogs.</h1>
+        <p class="lede">A one-year plan for a Singapore-based Gamgee competitor: prove that vets, owners, genomic partners and a regulated manufacturing partner can move one eligible dog from tumour sample to monitored personalised treatment.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="gamgee-mvp.htm">Open the working MVP</a>
+          <a class="button secondary" href="#year">See the 12-month test</a>
+          <a class="button secondary" href="gamgee-investor-pack.htm">Open investor pack</a>
+          <a class="button secondary" href="canopy-pilot-brief.md">Pilot brief</a>
+          <a class="button secondary" href="canopy-partner-rfp.md">Partner RFP</a>
+          <a class="button secondary" href="CANOPY-READINESS.md">Readiness pack</a>
+          <a class="button secondary" href="CANOPY-ARCHITECTURE.md">Architecture</a>
+          <a class="button secondary" href="#capital">Investor map</a>
+        </div>
+        <div class="signal">
+          <div>
+            <div class="label">Recommended company thesis</div>
+            <strong>Orchestrate the workflow first; outsource the wet lab.</strong>
+            <span class="note">Own the intake, consent, data, variant-to-vaccine decision layer, quality record and veterinary coordination.</span>
+          </div>
+          <div class="risk">
+            <div class="label">Hard truth</div>
+            <strong>“Commercial vaccine in 12 months” is not the right promise.</strong>
+            <span class="note">The credible year-one outcome is a regulator-aligned feasibility pilot, not an unapproved product sold directly to owners.</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="brief">
+        <div class="section-head">
+          <div><div class="eyebrow">01 / the brief</div><h2>Copy the outcome, not the org chart.</h2></div>
+          <p>Gamgee presents itself as a software-led, end-to-end platform: it receives a dog’s case, coordinates tissue and healthy-DNA sequencing, identifies mutations, designs a personalised mRNA vaccine, manages production and supports veterinary treatment and response monitoring. Its public site lists UNSW and University of Queensland collaborators and backers including YC, Founders Fund, Golden Gate Ventures, Atypical Ventures and Doogood Foundation.</p>
+        </div>
+        <div class="grid two">
+          <article class="card accent-cyan">
+            <h3>What is worth competing with</h3>
+            <p>The integrated case-to-treatment workflow: clinician intake, pathology and sample logistics, tumour/normal analysis, candidate ranking, manufacturing hand-off, treatment records and response data.</p>
+            <div class="tagrow"><span class="tag">case orchestration</span><span class="tag">data moat</span><span class="tag">vet trust</span><span class="tag">repeatable QA</span></div>
+          </article>
+          <article class="card accent-amber">
+            <h3>What not to pretend yet</h3>
+            <p>Do not claim that a single case proves efficacy, that AI alone makes a safe medicine, or that a Singapore company can skip AVS, licensed veterinary care, ethics review, manufacturing quality or owner consent.</p>
+            <div class="mini">Gamgee’s public claims about tumour reduction, turnaround and cost are company claims; use them as hypotheses to test, not as validated benchmarks.</div>
+          </article>
+          <article class="card accent-purple">
+            <h3>Current public benchmark</h3>
+            <p>Gamgee now names its first product <b>ze-ets-001</b> and says it is enrolling an Australian 2026 clinical trial. Its veterinary page describes whole-exome sequencing, AI neoantigen analysis, GMP manufacturing, cold-chain delivery and outcome monitoring, with an indicative four-week timeline based on its first case.</p>
+            <div class="mini">These are Gamgee’s public descriptions and indicative claims, not independently verified clinical performance.</div>
+          </article>
+        </div>
+        <div class="quote"><b>Positioning:</b> “The Singapore and Southeast Asia partner layer for personalised canine cancer treatment.” Start with dogs because the clinical workflow is narrower and the emotional buyer is clear; keep the data and platform architecture extensible, but do not expand into human medicine in year one.</div>
+        <div class="process" aria-label="Gamgee-like workflow">
+          <div class="step"><div class="step-number">01</div><h3>Intake</h3><p>Vet and owner consent, diagnosis, staging and eligibility.</p></div>
+          <div class="step"><div class="step-number">02</div><h3>Collect</h3><p>Tumour and matched healthy sample with chain of custody.</p></div>
+          <div class="step"><div class="step-number">03</div><h3>Analyse</h3><p>Sequence, call variants and separate tumour signal from noise.</p></div>
+          <div class="step"><div class="step-number">04</div><h3>Design</h3><p>Rank neoantigen candidates and prepare a reviewable construct.</p></div>
+          <div class="step"><div class="step-number">05</div><h3>Make</h3><p>Qualified partner manufactures, tests and releases the material.</p></div>
+          <div class="step"><div class="step-number">06</div><h3>Monitor</h3><p>Licensed vet administers care and records safety and response.</p></div>
+        </div>
+      </section>
+
+      <section id="wedge">
+        <div class="section-head">
+          <div><div class="eyebrow">02 / Singapore wedge</div><h2>Win the coordination gap.</h2></div>
+          <p>Singapore is a strong regional base for biotech partnerships and capital, but the local dog population alone may not provide enough eligible cases for a fast learning loop. Design for Singapore headquarters plus regional referral and trial partners from day one.</p>
+        </div>
+        <div class="wedge">
+          <article class="card accent-green">
+            <h3>Beachhead customer</h3>
+            <p>Veterinary oncology and referral clinics that want a structured route for difficult, treatment-resistant cases—without creating their own bioinformatics, manufacturing and regulatory operations.</p>
+            <div class="tagrow"><span class="tag">oncology referral</span><span class="tag">case review</span><span class="tag">owner updates</span></div>
+          </article>
+          <article class="card accent-purple">
+            <h3>Regional advantage</h3>
+            <p>Singapore provides a compact partner network, trusted biomedical infrastructure and investor access. Australia can be a clinical or manufacturing bridge while Singapore approvals and case volume are built.</p>
+            <div class="tagrow"><span class="tag">Singapore HQ</span><span class="tag">SEA referrals</span><span class="tag">Australia bridge</span></div>
+          </article>
+          <article class="card accent-cyan">
+            <h3>First paid product</h3>
+            <p>A clinic-facing case workflow and review service: eligibility, sample logistics, analysis report, manufacturing coordination and longitudinal outcome record. Charge clinics or a partnered programme—not unapproved direct-to-consumer treatment.</p>
+          </article>
+          <article class="card accent-amber">
+            <h3>First moat</h3>
+            <p>Consent-backed, standardised longitudinal data linking pathology, mutations, candidate selection, treatment, safety and response. A prettier dashboard is not a moat; a reliable clinical evidence loop is.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="technology">
+        <div class="section-head">
+          <div><div class="eyebrow">03 / technology</div><h2>The minimum credible stack.</h2></div>
+          <p>Build the parts that create repeatability and trust. Keep experimental protocols, administration and regulated release with qualified partners. This is a product architecture, not a wet-lab recipe.</p>
+        </div>
+        <div class="stack">
+          <div class="layer"><strong>1. Case + consent</strong><p>Owner and vet portal, pathology upload, eligibility checklist, consent versioning, privacy preferences and an audit trail.<small>Output: a complete, reviewable case packet before any sample is sent.</small></p></div>
+          <div class="layer"><strong>2. Sample chain</strong><p>Barcode/identity, collection instructions owned by the clinic, courier status, temperature and receipt records, tumour/normal matching and sample rejection rules.<small>Output: no “mystery tube” enters the analysis pipeline.</small></p></div>
+          <div class="layer"><strong>3. Genomics</strong><p>Partner-run sequencing and a reproducible pipeline for quality control, alignment, variant calling, annotation and tumour-versus-normal interpretation. Start with a narrow, validated assay choice.<small>Output: versioned mutation evidence with provenance, not an opaque AI score.</small></p></div>
+          <div class="layer"><strong>4. Candidate ranking</strong><p>Neoantigen and immunogenicity ranking with canine biology assumptions, confidence scores, human-readable evidence and clinician review. Treat model output as decision support.<small>Output: ranked candidates plus a signed review decision.</small></p></div>
+          <div class="layer"><strong>5. Design hand-off</strong><p>Construct/version management, codon-optimisation and formulation specifications owned by the qualified manufacturing partner; release criteria and deviations recorded in the case file.<small>Output: a controlled manufacturing package—not a “generate and ship” button.</small></p></div>
+          <div class="layer"><strong>6. Clinical record</strong><p>Licensed-vet treatment schedule, adverse-event capture, imaging/pathology timepoints, response criteria, owner-reported outcomes and consented research export.<small>Output: evidence that can support the next financing and regulatory conversation.</small></p></div>
+          <div class="layer"><strong>7. Security + ops</strong><p>Singapore-hosted or appropriately governed data environment, least-privilege access, encryption, backups, model/data lineage, vendor contracts and incident response.<small>Output: an investor- and clinic-ready quality system from the first case.</small></p></div>
+        </div>
+      </section>
+
+      <section id="partners">
+        <div class="section-head">
+          <div><div class="eyebrow">04 / partner design</div><h2>Four partner types before four hires.</h2></div>
+          <p>The fastest route is a coordinated network. Make each partner’s responsibility explicit in a memorandum of understanding, then convert the critical relationships into contracts before enrolling cases.</p>
+        </div>
+        <div class="matrix">
+          <table>
+            <thead><tr><th>Partner</th><th>What they own</th><th>Your proof in year one</th><th>Singapore route</th></tr></thead>
+            <tbody>
+              <tr><td>Veterinary oncology</td><td>Diagnosis, eligibility, consent conversation, treatment and clinical safety.</td><td>Named clinical champion; signed referral workflow; first eligible cases.</td><td>Approach referral hospitals such as VES; it states it has Singapore’s only veterinary oncologist.</td></tr>
+              <tr><td>Genomics / pathology</td><td>Sample receipt, sequencing, QC, variant analysis and reportable results.</td><td>Turnaround, failure rate, reproducibility and data-transfer agreement.</td><td>Start capability conversations with <a href="https://www.a-star.edu.sg/icore/icore-platforms/core-platforms/icore-genomics---sequencing" target="_blank" rel="noreferrer">A*STAR iCORE/GIS</a> and <a href="https://www.rsc.a-star.edu.sg/technologyplatforms/scientific-side-menu/scientific-information/national-shared-platform/translational-pathlogy-consortium" target="_blank" rel="noreferrer">AMPL/TPC</a>; canine scope and access remain unconfirmed.</td></tr>
+              <tr><td>mRNA / formulation / QC</td><td>Manufacturing, release testing, storage and shipment under the required quality framework.</td><td>Written feasibility quote, batch/release plan, cold-chain responsibility and scale-up path.</td><td>Discuss <a href="https://www.a-star.edu.sg/bti/programmes-in-bti" target="_blank" rel="noreferrer">A*STAR BTI/NATi</a>, <a href="https://hilleman-labs.org/platforms/" target="_blank" rel="noreferrer">Hilleman Laboratories</a> and, as a higher-bar route, <a href="https://www.biontech.com/int/en/home/mediaroom/news/press-releases/2022/11/biontech-expands-global-footprint-acquiring-gmp-manufacturing.html" target="_blank" rel="noreferrer">BioNTech Singapore</a>; none implies access or approval.</td></tr>
+              <tr><td>Regulatory + ethics</td><td>Classification, AVS pathway, trial/field-study design, IACUC and owner-facing materials.</td><td>Written pre-consultation record and a permitted pilot protocol.</td><td>Start with AVS; involve HSA and counsel if the intended classification or human use triggers it.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="quote"><b>Founder profile:</b> CEO/product + ML/data, scientific cofounder in cancer immunology or RNA therapeutics, licensed veterinary oncology lead, and a fractional QA/regulatory lead. Add wet-lab staff only after a partner proves that internal capability is the bottleneck.</div>
+      </section>
+
+      <section id="regulatory">
+        <div class="section-head">
+          <div><div class="eyebrow">05 / regulatory reality</div><h2>Regulatory is a product requirement.</h2></div>
+          <p>Singapore’s route depends on how the product, trial and activity are classified. Get the answer in writing before taking a dog’s sample or promising treatment. The following is a planning map, not legal or veterinary advice.</p>
+        </div>
+        <div class="grid three">
+          <article class="card accent-amber"><h3>AVS first</h3><p>AVS states that veterinary biologics require a licence to possess/import, and imported veterinary vaccines are evaluated and registered before import. Its published fees include S$45 for a licence to possess veterinary biologics and S$210 for registration, before other costs.</p><div class="mini">Confirm whether the proposed personalised product, sample, trial and manufacturing arrangement fall within these routes.</div></article>
+          <article class="card accent-red"><h3>Ethics before animals</h3><p>For scientific use of animals, AVS points to NACLAR requirements and institutional animal-care committees. A scientific pilot should have the right written approval before enrolling or treating animals.</p><div class="mini">Do not use “owner consent” as a substitute for institutional or regulatory approval.</div></article>
+          <article class="card accent-purple"><h3>Licensed care</h3><p>Veterinary treatment must sit with licensed veterinary professionals and an appropriate clinic. The company can provide software and coordination; it should not present itself as the care provider unless it has the required structure.</p><div class="mini">Ask counsel and AVS about every cross-border step, including sample export, data transfer and product import.</div></article>
+        </div>
+      </section>
+
+      <section id="capital">
+        <div class="section-head">
+          <div><div class="eyebrow">06 / capital</div><h2>Raise against de-risking milestones.</h2></div>
+          <p>Do not pitch “a dog cancer cure.” Pitch a controlled platform that creates clinical evidence, owns workflow/data/IP and can later expand into additional species or indications after proof.</p>
+        </div>
+        <div class="grid two">
+          <article class="card accent-green">
+            <h3>Primary Singapore routes</h3>
+            <p><a href="https://www.startupsg.gov.sg/programmes/4895/startup-sg-equity" target="_blank" rel="noreferrer">Startup SG Equity</a> can co-invest alongside qualified third-party investors in Singapore-based deep-tech companies with research-driven IP and global potential. <a href="https://www.sginnovate.com/startup-growth-funding" target="_blank" rel="noreferrer">SGInnovate</a> is relevant to early deep tech and biotech. <a href="https://edbi.com/about/" target="_blank" rel="noreferrer">EDBI</a>, <a href="https://www.clavystbio.com/partnerships" target="_blank" rel="noreferrer">ClavystBio/65LAB</a>, <a href="https://vertexholdings.com/" target="_blank" rel="noreferrer">Vertex Ventures HC via Vertex Holdings</a> and <a href="https://novoholdings.dk/investment-regions/asia" target="_blank" rel="noreferrer">Novo Holdings Asia</a> are strategic life-science routes, generally after credible scientific, clinical and partner evidence.</p>
+            <div class="mini">Ask for: a warm introduction, partner validation, regulatory navigation and a milestone-linked pre-seed—not only cash.</div>
+          </article>
+          <article class="card accent-cyan">
+            <h3>Infrastructure + non-dilutive routes</h3>
+            <p><a href="https://nsgbio.com/about-nsg-bio-tomorrow/" target="_blank" rel="noreferrer">NSG Bio Tomorrow</a> describes early-stage biotech support with lab access, mentorship, grants or lab credits and investor-network opportunities. Enterprise Singapore’s Startup SG programmes and university translational programmes are worth screening once the entity and technical lead exist.</p>
+            <div class="mini">Previous NSG Bio/Amgen Golden Ticket calls had deadlines; verify the next intake rather than presenting a closed call as available funding.</div>
+          </article>
+        </div>
+        <div class="grid three" style="margin-top:14px">
+          <article class="card"><h3>Pre-seed ask</h3><p>Raise a planning target of <b>S$1.5–2.5m</b> for 12 months of partner-led feasibility work, product, QA/regulatory and first cases. This is an internal planning range, not a market quote.</p></article>
+          <article class="card"><h3>Investor story</h3><p>“We make personalised veterinary oncology repeatable across Asia by turning fragmented case, genomic and treatment data into a regulated workflow.”</p></article>
+          <article class="card"><h3>Proof before a big round</h3><p>Get one oncology champion, one genomics partner, one manufacturing feasibility quote, an AVS pathway memo and 10+ qualified case leads before a broad investor process.</p></article>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>Illustrative year-one use of funds</h3>
+          <div class="budget-row"><span>Founding team, scientific and clinical leadership</span><b>S$600k–1.0m</b></div>
+          <div class="budget-row"><span>Sequencing, pathology, bioinformatics and case services</span><b>S$250k–600k</b></div>
+          <div class="budget-row"><span>Manufacturing feasibility, QC, cold chain and pilot work</span><b>S$300k–1.0m</b></div>
+          <div class="budget-row"><span>Regulatory, QA, legal, IP, insurance and security</span><b>S$100k–250k</b></div>
+          <div class="budget-row"><span>Operations, partner travel and contingency</span><b>S$100k–250k</b></div>
+          <p class="note">Validate every line with Singapore and partner quotes. Keep a reserve; bespoke manufacturing and failed samples can move the range quickly.</p>
+        </div>
+      </section>
+
+      <section id="year">
+        <div class="section-head">
+          <div><div class="eyebrow">07 / the year</div><h2>12 months, four gates.</h2></div>
+          <p>Each phase must buy down a different risk. A demo is not a clinical result; a signed MOU is not a usable partnership; and investor interest is not financing.</p>
+        </div>
+        <div class="timeline">
+          <div class="month"><div class="when">M0–1</div><p><b>Frame the company.</b> Incorporate Singapore entity; choose the first indication; recruit scientific and veterinary leads; map IP ownership; ask AVS for a classification/pathway meeting; interview 10 vets and 20 owners.</p><div class="gate">Gate 1: path + champion</div></div>
+          <div class="month"><div class="when">M2–3</div><p><b>Make the workflow real.</b> Sign a clinic/referral MOU, genomics partner and manufacturing feasibility partner; build consent, sample tracking and case review; write the pilot protocol and quality plan.</p><div class="gate">Gate 2: partners + protocol</div></div>
+          <div class="month"><div class="when">M4–6</div><p><b>Run dry cases.</b> Process de-identified or historical cases where permitted; measure sample failure, analysis turnaround, candidate-review agreement and cost; collect 10+ qualified live leads; secure pre-seed or a funded pilot.</p><div class="gate stop">Stop if no financing</div></div>
+          <div class="month"><div class="when">M7–9</div><p><b>Run the permitted feasibility pilot.</b> Enrol only under the approved route; deliver the first partner-led cases if allowed; record safety, turnaround, deviations, owner experience and clinic workload.</p><div class="gate">Gate 3: evidence</div></div>
+          <div class="month"><div class="when">M10–12</div><p><b>Decide scale or stop.</b> Compare actual unit economics and response/safety data against the pre-declared scorecard; renew only if clinics, regulators, manufacturing and investors all support the next indication or geography.</p><div class="gate stop">Gate 4: go / stop</div></div>
+        </div>
+      </section>
+
+      <section id="gates">
+        <div class="section-head">
+          <div><div class="eyebrow">08 / scorecard</div><h2>Define “works” before the first sample.</h2></div>
+          <p>This is the decision contract with yourself, cofounders and investors. Adjust the numbers with advisors, but do not remove the gates because the story feels promising.</p>
+        </div>
+        <div class="scorecard">
+          <div class="score"><div class="metric">1</div><h3>Clinical champion</h3><p>A named, licensed veterinary oncology lead actively owns eligibility, safety and clinic workflow.</p></div>
+          <div class="score"><div class="metric">3+</div><h3>Critical partners</h3><p>Clinic, genomics and manufacturing/QC relationships have written scopes, owners and commercial terms.</p></div>
+          <div class="score"><div class="metric">10+</div><h3>Qualified leads</h3><p>Cases fit the first indication and have a clear referral path; not merely social-media followers.</p></div>
+          <div class="score"><div class="metric">&lt; 4 wk</div><h3>Initial workflow target</h3><p>From accepted sample to a reviewable design package, measured end to end and revised from real data.</p></div>
+          <div class="score"><div class="metric">≥ 3</div><h3>Permitted pilot cases</h3><p>Only if the regulator, ethics process, clinic and manufacturing partner allow them; safety and operations are recorded.</p></div>
+          <div class="score"><div class="metric">S$1.5m+</div><h3>Committed runway</h3><p>Cash or signed funding sufficient to reach the next evidence milestone, not verbal investor enthusiasm.</p></div>
+          <div class="score"><div class="metric">100%</div><h3>Traceable cases</h3><p>Consent, sample, model version, review decision, batch/QC, treatment and outcome records are linked.</p></div>
+          <div class="score"><div class="metric">1</div><h3>Repeatable playbook</h3><p>A second clinic can follow the workflow without the founder manually rescuing every hand-off.</p></div>
+        </div>
+        <div class="stopbox">
+          <h3>Stop or pivot when these fail</h3>
+          <p>Stop the therapeutic build if there is no credible regulatory path by month 3, no clinical champion by month 2, no partner-led manufacturing route by month 4, no qualified cases by month 6, or no committed runway by month 6. Preserve the software/data workflow and consider a veterinary oncology decision-support or research-services company only if the science, safety and economics support that narrower business.</p>
+        </div>
+      </section>
+
+      <section id="next">
+        <div class="section-head">
+          <div><div class="eyebrow">09 / next 14 days</div><h2>Earn the next meeting.</h2></div>
+          <p>The first two weeks should produce evidence, not a large deck.</p>
+        </div>
+        <div class="grid two">
+          <article class="card accent-cyan"><h3>Founder sprint</h3><p>Write a one-page indication brief; interview Singapore oncology/referral vets; ask AVS the classification questions; map tumour/normal sample and data requirements; request two genomics quotes and two manufacturing feasibility calls.</p></article>
+          <article class="card accent-green"><h3>Investor sprint</h3><p>Prepare a 10-slide evidence deck and a one-page data room. Seek warm introductions to SGInnovate, Startup SG Equity ecosystem partners, ClavystBio, EDBI and NSG Bio Tomorrow; ask for partner validation before asking for a cheque.</p></article>
+        </div>
+        <div class="quote"><b>Next concrete deliverable:</b> a signed clinical-partner letter plus a regulator-informed pilot brief. If those two documents cannot be obtained, do not spend the year building the platform.</div>
+      </section>
+
+      <section id="sources">
+        <div class="section-head">
+          <div><div class="eyebrow">Sources</div><h2>Read the primary pages.</h2></div>
+          <p>Checked 13 August 2026. Company claims are labelled as claims; fees, timelines and programmes can change and must be reconfirmed before acting.</p>
+        </div>
+        <ol class="sources">
+          <li><a href="https://www.gamgee.io/" target="_blank" rel="noreferrer">Gamgee homepage</a> — product workflow, collaborators and backers.</li>
+          <li><a href="https://www.gamgee.io/vet/" target="_blank" rel="noreferrer">Gamgee for vets</a> — public technical and turnaround claims.</li>
+          <li><a href="https://www.gamgee.io/story/" target="_blank" rel="noreferrer">Gamgee story</a> — company account of Rosie’s case.</li>
+          <li><a href="https://www.ycombinator.com/companies/gamgee" target="_blank" rel="noreferrer">YC company profile</a> — company description and team context.</li>
+          <li><a href="https://avs.nparks.gov.sg/businesses/general-licences-services/licence-possess-veterinary-biologics/licence-possess-veterinary-biologics/" target="_blank" rel="noreferrer">AVS: licence to possess veterinary biologics</a>.</li>
+          <li><a href="https://avs.nparks.gov.sg/businesses/general-licences-services/licence-possess-veterinary-biologics/importing-veterinary-vaccines/" target="_blank" rel="noreferrer">AVS: importing veterinary vaccines</a>.</li>
+          <li><a href="https://avs.nparks.gov.sg/businesses/other-businesses/animal-researchers/naclar-guidelines/" target="_blank" rel="noreferrer">AVS: NACLAR animal-research guidelines</a>.</li>
+          <li><a href="https://avs.nparks.gov.sg/businesses/veterinarians/veterinary-licensing/licence-to-treat-animals-and-birds/" target="_blank" rel="noreferrer">AVS: licence to treat animals and birds</a>.</li>
+          <li><a href="https://www.startupsg.gov.sg/programmes/4895/startup-sg-equity" target="_blank" rel="noreferrer">Startup SG Equity</a> — co-investment route.</li>
+          <li><a href="https://www.sginnovate.com/" target="_blank" rel="noreferrer">SGInnovate</a> — deep-tech and biotech ecosystem.</li>
+          <li><a href="https://www.clavystbio.com/company" target="_blank" rel="noreferrer">ClavystBio</a> — life-science investor and venture builder.</li>
+          <li><a href="https://edbi.com/about/" target="_blank" rel="noreferrer">EDBI</a> — strategic investment and ecosystem access.</li>
+          <li><a href="https://nsgbio.com/about-nsg-bio-tomorrow/" target="_blank" rel="noreferrer">NSG Bio Tomorrow</a> — early-stage biotech support.</li>
+          <li><a href="https://www.veshospital.com.sg/services/cancer-care/" target="_blank" rel="noreferrer">VES Hospital cancer care</a> — Singapore oncology partner lead.</li>
+          <li><a href="https://www.a-star.edu.sg/icore/icore-platforms/core-platforms/icore-genomics---sequencing" target="_blank" rel="noreferrer">A*STAR iCORE Genomics</a> — WES and genomic analytics capability page.</li>
+          <li><a href="https://www.rsc.a-star.edu.sg/technologyplatforms/scientific-side-menu/scientific-information/national-shared-platform/translational-pathlogy-consortium" target="_blank" rel="noreferrer">A*STAR AMPL / Translational Pathology Consortium</a> — veterinary pathology capability page.</li>
+          <li><a href="https://www.a-star.edu.sg/bti/programmes-in-bti" target="_blank" rel="noreferrer">A*STAR BTI programmes</a> — mRNA BioFoundry process-development page.</li>
+          <li><a href="https://hilleman-labs.org/platforms/" target="_blank" rel="noreferrer">Hilleman Laboratories platforms</a> — Singapore RNA/biologics platform page.</li>
+          <li><a href="https://www.biontech.com/int/en/home/mediaroom/news/press-releases/2022/11/biontech-expands-global-footprint-acquiring-gmp-manufacturing.html" target="_blank" rel="noreferrer">BioNTech Singapore manufacturing announcement</a> — strategic mRNA manufacturing reference.</li>
+        </ol>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer"><div class="wrap">Internal decision page · Build the Singapore version of personalised canine cancer care · Reconfirm regulatory, clinical and funding details with qualified local advisors before execution.</div></footer>
+</body>
+</html>

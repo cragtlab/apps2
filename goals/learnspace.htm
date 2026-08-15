@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LearnSpace — A Journey to the Edge of the Observable Universe</title>
+  <meta name="description" content="An immersive, scroll-driven journey from our Solar System outward to the very edge of the Observable Universe. Learn astronomy through stunning visuals." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --void: #000005;
+      --star-white: #e8f4ff;
+      --gold: #ffd700;
+      --neon-blue: #00d4ff;
+      --neon-cyan: #00ffee;
+      --neon-purple: #bf5fff;
+      --neon-pink: #ff2d78;
+      --font-title: 'Orbitron', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'Space Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--void); color: var(--star-white); font-family: var(--font-body); overflow-x: hidden; line-height: 1.7; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--void); }
+    ::-webkit-scrollbar-thumb { background: var(--neon-blue); border-radius: 2px; }
+
+    #starCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+    #progressBar { position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue), var(--neon-cyan)); z-index: 1000; transition: width 0.1s ease; box-shadow: 0 0 10px var(--neon-cyan); }
+
+    nav { position: fixed; top: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 6px; }
+    .nav-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); cursor: pointer; transition: all 0.3s ease; background: transparent; position: relative; }
+    .nav-dot:hover, .nav-dot.active { background: var(--neon-cyan); border-color: var(--neon-cyan); box-shadow: 0 0 8px var(--neon-cyan); }
+    .nav-dot::before { content: attr(title); position: absolute; right: 16px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.85); color: var(--neon-cyan); font-family: var(--font-mono); font-size: 9px; padding: 3px 8px; border-radius: 4px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; border: 1px solid rgba(0,212,255,0.2); }
+    .nav-dot:hover::before { opacity: 1; }
+
+    #distLabel { position: fixed; left: 18px; bottom: 30px; z-index: 998; font-family: var(--font-mono); font-size: 9px; color: var(--neon-blue); letter-spacing: 1px; transition: opacity 0.4s; writing-mode: vertical-rl; transform: rotate(180deg); }
+
+    section { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 40px; overflow: hidden; }
+
+    /* HERO */
+    #hero { background: radial-gradient(ellipse at center, #0a0520 0%, #000005 70%); text-align: center; }
+    .hero-tagline { font-family: var(--font-mono); font-size: 12px; letter-spacing: 5px; color: var(--neon-cyan); text-transform: uppercase; margin-bottom: 20px; opacity: 0; animation: fadeUp 1s 0.5s forwards; }
+    .hero-title { font-family: var(--font-title); font-size: clamp(3rem, 8vw, 7rem); font-weight: 900; line-height: 1.1; background: linear-gradient(135deg, #ffffff, #00d4ff, #bf5fff, #ffd700); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 24px; opacity: 0; animation: fadeUp 1s 0.8s forwards; }
+    .hero-sub { font-size: 1.15rem; color: rgba(255,255,255,0.6); max-width: 620px; margin: 0 auto 48px; opacity: 0; animation: fadeUp 1s 1.1s forwards; }
+    .scroll-cta { display: flex; flex-direction: column; align-items: center; gap: 10px; opacity: 0; animation: fadeUp 1s 1.5s forwards; }
+    .scroll-cta span { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; color: var(--neon-blue); }
+    .scroll-arrow { width: 24px; height: 24px; border-right: 2px solid var(--neon-blue); border-bottom: 2px solid var(--neon-blue); transform: rotate(45deg); animation: bounce 1.5s infinite; }
+
+    /* SECTION HEADERS */
+    .slabel { font-family: var(--font-mono); font-size: 10px; letter-spacing: 4px; color: var(--neon-cyan); text-transform: uppercase; margin-bottom: 12px; opacity: 0; transform: translateY(20px); transition: all 0.7s ease; }
+    .slabel.vis { opacity: 1; transform: translateY(0); }
+    .stitle { font-family: var(--font-title); font-size: clamp(1.8rem, 4vw, 3.2rem); font-weight: 900; margin-bottom: 20px; opacity: 0; transform: translateY(30px); transition: all 0.8s 0.2s ease; }
+    .stitle.vis { opacity: 1; transform: translateY(0); }
+    .sdesc { font-size: 1rem; color: rgba(255,255,255,0.65); max-width: 720px; text-align: center; margin-bottom: 50px; opacity: 0; transform: translateY(20px); transition: all 0.8s 0.4s ease; }
+    .sdesc.vis { opacity: 1; transform: translateY(0); }
+
+    /* FACT CARDS */
+    .fact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 18px; width: 100%; max-width: 1000px; margin-top: 30px; }
+    .fact-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 22px 18px; backdrop-filter: blur(10px); opacity: 0; transform: translateY(40px); transition: all 0.6s ease; position: relative; overflow: hidden; }
+    .fact-card::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 30% 30%, rgba(0,212,255,0.06), transparent 60%); opacity: 0; transition: opacity 0.3s; }
+    .fact-card:hover::before { opacity: 1; }
+    .fact-card:hover { border-color: rgba(0,212,255,0.25); transform: translateY(-5px) !important; box-shadow: 0 12px 40px rgba(0,212,255,0.1); }
+    .fact-card.vis { opacity: 1; transform: translateY(0); }
+    .fc-icon { font-size: 1.8rem; margin-bottom: 10px; }
+    .fc-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; color: var(--neon-cyan); text-transform: uppercase; margin-bottom: 6px; }
+    .fc-value { font-family: var(--font-title); font-size: 1.2rem; font-weight: 700; color: white; margin-bottom: 8px; }
+    .fc-detail { font-size: 0.82rem; color: rgba(255,255,255,0.5); line-height: 1.5; }
+
+    /* SUN */
+    #sun-sec { background: radial-gradient(ellipse at top, #1a0500 0%, #000005 60%); }
+    .sun-wrap { position: relative; width: 260px; height: 260px; margin: 0 auto 50px; opacity: 0; transform: scale(0.5); transition: all 1s ease; }
+    .sun-wrap.vis { opacity: 1; transform: scale(1); }
+    .sun-core { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, #fff7e6 0%, #ffcc44 30%, #ff8800 65%, #ff4400 100%); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 30px #ff8800, 0 0 70px #ff6600, 0 0 120px rgba(255,100,0,0.4); animation: sunPulse 4s ease-in-out infinite; }
+    .corona { position: absolute; top: 50%; left: 50%; border-radius: 50%; border: 2px solid rgba(255,200,50,0.2); transform: translate(-50%, -50%); animation: coronaExp 4s ease-in-out infinite; }
+    .corona:nth-child(1) { width: 200px; height: 200px; }
+    .corona:nth-child(2) { width: 220px; height: 220px; animation-delay: 0.5s; opacity: 0.7; }
+    .corona:nth-child(3) { width: 240px; height: 240px; animation-delay: 1s; opacity: 0.4; }
+    .corona:nth-child(4) { width: 260px; height: 260px; animation-delay: 1.5s; opacity: 0.2; }
+    .flare { position: absolute; width: 14px; height: 50px; background: linear-gradient(to top, #ff8800, transparent); border-radius: 50%; top: 50%; left: 50%; transform-origin: bottom center; }
+    .flare:nth-child(6)  { transform: translate(-50%,-100%) rotate(0deg)   translateY(-90px); animation: flareAnim 3s 0s infinite; }
+    .flare:nth-child(7)  { transform: translate(-50%,-100%) rotate(72deg)  translateY(-90px); animation: flareAnim 3s 0.6s infinite; }
+    .flare:nth-child(8)  { transform: translate(-50%,-100%) rotate(144deg) translateY(-90px); animation: flareAnim 3s 1.2s infinite; }
+    .flare:nth-child(9)  { transform: translate(-50%,-100%) rotate(216deg) translateY(-90px); animation: flareAnim 3s 1.8s infinite; }
+    .flare:nth-child(10) { transform: translate(-50%,-100%) rotate(288deg) translateY(-90px); animation: flareAnim 3s 2.4s infinite; }
+
+    /* ORRERY */
+    #solar-sec { background: linear-gradient(180deg, #000005 0%, #04091a 50%, #000005 100%); }
+    .orrery-wrap { position: relative; width: min(660px, 88vw); height: min(660px, 88vw); margin: 0 auto 40px; opacity: 0; transition: opacity 1s ease; }
+    .orrery-wrap.vis { opacity: 1; }
+    .orbit-svg { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+    .orbit-ring { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 1; }
+    .orrery-sun-dot { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 36px; height: 36px; border-radius: 50%; background: radial-gradient(circle, #fff 0%, #ffd700 40%, #ff8800 100%); box-shadow: 0 0 20px #ffd700, 0 0 40px #ff8800; z-index: 10; }
+    .p-orbit { position: absolute; top: 50%; left: 50%; transform-origin: center; }
+    .p-dot { position: absolute; border-radius: 50%; cursor: pointer; transition: transform 0.2s; }
+    .p-dot:hover { transform: scale(2) !important; }
+    .p-dot::after { content: attr(data-name); position: absolute; bottom: calc(100% + 5px); left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: var(--neon-cyan); font-family: var(--font-mono); font-size: 9px; padding: 3px 8px; border-radius: 20px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; border: 1px solid rgba(0,212,255,0.3); }
+    .p-dot:hover::after { opacity: 1; }
+
+    /* PLANET FLIP CARDS */
+    .planets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 14px; max-width: 1000px; width: 100%; perspective: 1000px; }
+    .p-card { height: 165px; position: relative; cursor: pointer; opacity: 0; transform: translateY(30px); transition: opacity 0.5s ease, transform 0.5s ease; }
+    .p-card.vis { opacity: 1; transform: translateY(0); }
+    .p-card-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.7s ease; border-radius: 14px; }
+    .p-card:hover .p-card-inner { transform: rotateY(180deg); }
+    .p-face, .p-back { position: absolute; inset: 0; border-radius: 14px; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; }
+    .p-face { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); }
+    .p-back { background: rgba(0,15,35,0.92); border: 1px solid rgba(0,212,255,0.2); transform: rotateY(180deg); text-align: left; align-items: flex-start; }
+    .p-icon { width: 52px; height: 52px; border-radius: 50%; margin-bottom: 8px; }
+    .p-name { font-family: var(--font-title); font-size: 0.7rem; font-weight: 700; color: white; letter-spacing: 1px; }
+    .p-dist { font-family: var(--font-mono); font-size: 0.6rem; color: var(--neon-cyan); margin-top: 3px; }
+    .p-stat { font-family: var(--font-mono); font-size: 0.6rem; color: rgba(255,255,255,0.45); margin-bottom: 2px; }
+    .p-stat span { color: var(--neon-cyan); }
+    .p-fun { margin-top: 6px; font-size: 0.58rem; color: rgba(255,255,255,0.35); line-height: 1.4; }
+
+    /* KUIPER */
+    #kuiper-sec { background: radial-gradient(ellipse at center, #04091a 0%, #000005 70%); }
+    .belt-wrap { width: min(560px, 88vw); height: min(560px, 88vw); margin: 0 auto 40px; }
+
+    /* INTERSTELLAR */
+    #interstellar-sec { background: radial-gradient(ellipse at center, #0a0520 0%, #000005 70%); }
+    .ly-viz { width: min(820px, 90vw); height: 190px; margin: 0 auto 40px; opacity: 0; transition: opacity 1s ease; }
+    .ly-viz.vis { opacity: 1; }
+
+    /* MILKY WAY */
+    #mw-sec { background: radial-gradient(ellipse at center, #0d0520 0%, #000005 70%); }
+    .gal-wrap { position: relative; width: min(580px, 88vw); height: min(580px, 88vw); margin: 0 auto 40px; }
+    #galaxyCanvas { width: 100%; height: 100%; border-radius: 50%; opacity: 0; transition: opacity 1s ease; }
+    #galaxyCanvas.vis { opacity: 1; }
+    .you-marker { position: absolute; width: 10px; height: 10px; background: var(--neon-cyan); border-radius: 50%; box-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan); top: 42%; left: 63%; transform: translate(-50%,-50%); opacity: 0; transition: opacity 1s 1s ease; }
+    #galaxyCanvas.vis ~ .you-marker { opacity: 1; }
+    .you-marker::after { content: '← YOU ARE HERE'; position: absolute; left: 14px; top: -4px; color: var(--neon-cyan); font-family: var(--font-mono); font-size: 9px; white-space: nowrap; text-shadow: 0 0 8px var(--neon-cyan); }
+
+    /* LOCAL GROUP */
+    #lg-sec { background: radial-gradient(ellipse at 30% 50%, #100520 0%, #000005 70%); }
+    .lg-wrap { width: min(700px, 90vw); height: 340px; margin: 0 auto 40px; }
+
+    /* SUPERCLUSTER */
+    #sc-sec { background: radial-gradient(ellipse at center, #0a0020 0%, #000005 70%); }
+    #superclusterCanvas { width: min(700px, 90vw); height: min(480px, 65vw); max-width: 700px; max-height: 480px; opacity: 0; transition: opacity 1s ease; border-radius: 8px; }
+    #superclusterCanvas.vis { opacity: 1; }
+
+    /* SCALE */
+    #scale-sec { background: linear-gradient(180deg, #000005, #000810); }
+    .scale-wrap { width: 100%; max-width: 900px; margin: 40px auto 0; }
+    .scale-row { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; opacity: 0; transform: translateX(-30px); transition: all 0.5s ease; }
+    .scale-row.vis { opacity: 1; transform: translateX(0); }
+    .scale-lbl { width: 210px; flex-shrink: 0; text-align: right; font-family: var(--font-mono); font-size: 0.72rem; color: rgba(255,255,255,0.65); }
+    .scale-track { flex: 1; height: 11px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; }
+    .scale-fill { height: 100%; border-radius: 6px; width: 0; transition: width 1.6s ease; }
+    .scale-val { width: 160px; flex-shrink: 0; font-family: var(--font-mono); font-size: 0.68rem; color: var(--neon-cyan); }
+
+    /* OBSERVABLE UNIVERSE */
+    #ou-sec { background: radial-gradient(ellipse at center, #000010 0%, #000000 70%); }
+    #universeCanvas { width: min(680px, 88vw); height: min(680px, 88vw); max-width: 680px; max-height: 680px; opacity: 0; transition: opacity 1s ease; border-radius: 50%; box-shadow: 0 0 60px rgba(100,0,200,0.2); }
+    #universeCanvas.vis { opacity: 1; }
+
+    /* TIMELINE */
+    #tl-sec { background: linear-gradient(180deg, #000005 0%, #020010 50%, #000005 100%); padding: 100px 40px; }
+    .timeline { position: relative; max-width: 800px; width: 100%; margin: 0 auto; }
+    .timeline::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: linear-gradient(180deg, transparent, var(--neon-purple), var(--neon-blue), var(--neon-cyan), transparent); transform: translateX(-50%); }
+    .tl-item { position: relative; width: 44%; padding: 18px 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; margin-bottom: 28px; opacity: 0; transition: all 0.6s ease; }
+    .tl-item:nth-child(odd) { margin-right: auto; transform: translateX(-30px); }
+    .tl-item:nth-child(even) { margin-left: auto; transform: translateX(30px); }
+    .tl-item.vis { opacity: 1; transform: translateX(0) !important; }
+    .tl-item::after { content: ''; position: absolute; top: 50%; width: 11px; height: 11px; background: var(--neon-cyan); border-radius: 50%; box-shadow: 0 0 10px var(--neon-cyan); transform: translateY(-50%); }
+    .tl-item:nth-child(odd)::after { right: -31px; }
+    .tl-item:nth-child(even)::after { left: -31px; }
+    .t-era { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; color: var(--neon-cyan); margin-bottom: 5px; }
+    .t-title { font-family: var(--font-title); font-size: 0.85rem; font-weight: 700; margin-bottom: 5px; color: white; }
+    .t-desc { font-size: 0.78rem; color: rgba(255,255,255,0.48); line-height: 1.5; }
+
+    /* CLOSING */
+    #closing-sec { background: radial-gradient(ellipse at center, #050010 0%, #000000 70%); text-align: center; }
+    .closing-title { font-family: var(--font-title); font-size: clamp(1.4rem, 3.5vw, 2.8rem); font-weight: 900; background: linear-gradient(135deg, #bf5fff, #00d4ff, #ffd700); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 24px; }
+    .closing-quote { font-size: 1.05rem; color: rgba(255,255,255,0.45); max-width: 580px; font-style: italic; margin-bottom: 10px; }
+    .closing-attr { font-family: var(--font-mono); font-size: 0.78rem; color: var(--neon-cyan); }
+
+    /* DIVIDERS */
+    .divider { position: relative; z-index: 2; height: 120px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .divider::before { content: ''; position: absolute; width: 100%; height: 1px; background: linear-gradient(90deg, transparent, rgba(0,212,255,0.15), transparent); }
+    .div-text { font-family: var(--font-mono); font-size: 10px; letter-spacing: 4px; color: rgba(0,212,255,0.3); text-transform: uppercase; background: var(--void); padding: 0 20px; }
+
+    /* NEBULA backgrounds */
+    .nebula { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; z-index: 0; animation: nebDrift 20s ease-in-out infinite; }
+
+    /* NUM HIGHLIGHT */
+    .nh { display: inline-block; font-family: var(--font-title); font-weight: 900; background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple), var(--neon-cyan)); background-size: 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: shimmer 3s linear infinite; }
+
+    /* KEYFRAMES */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes bounce { 0%,100% { transform:rotate(45deg) translateY(0); } 50% { transform:rotate(45deg) translateY(8px); } }
+    @keyframes sunPulse { 0%,100% { box-shadow:0 0 30px #ff8800,0 0 70px #ff6600,0 0 120px rgba(255,100,0,0.4); } 50% { box-shadow:0 0 50px #ffaa00,0 0 100px #ff8800,0 0 160px rgba(255,150,0,0.5); } }
+    @keyframes coronaExp { 0% { opacity:0.8; transform:translate(-50%,-50%) scale(1); } 100% { opacity:0; transform:translate(-50%,-50%) scale(1.5); } }
+    @keyframes flareAnim { 0%,100% { opacity:0.6; height:50px; } 50% { opacity:1; height:70px; } }
+    @keyframes pOrbit { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+    @keyframes nebDrift { 0%,100% { transform:translate(0,0) scale(1); } 33% { transform:translate(12px,-18px) scale(1.06); } 66% { transform:translate(-10px,12px) scale(0.96); } }
+    @keyframes shimmer { 0% { background-position:-200% center; } 100% { background-position:200% center; } }
+    @keyframes cosmoPulse { 0%,100% { opacity:0.5; } 50% { opacity:0.9; } }
+
+    @media (max-width: 600px) {
+      section { padding: 50px 18px; }
+      .fact-grid { grid-template-columns: 1fr 1fr; }
+      .timeline::before { left: 18px; }
+      .tl-item { width: 82%; margin-left: 42px !important; transform: none !important; }
+      .tl-item::after { left: -29px !important; right: auto !important; }
+      .scale-lbl { width: 110px; font-size: 0.6rem; }
+      .scale-val { width: 90px; font-size: 0.6rem; }
+      nav { right: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="progressBar"></div>
+<canvas id="starCanvas"></canvas>
+<nav id="navDots"></nav>
+<div id="distLabel">0 AU</div>
+
+<!-- ======== HERO ======== -->
+<section id="hero">
+  <div class="nebula" style="width:600px;height:600px;background:radial-gradient(circle,rgba(100,0,200,0.12),transparent 70%);top:-100px;left:-200px;"></div>
+  <div class="nebula" style="width:400px;height:400px;background:radial-gradient(circle,rgba(0,100,255,0.1),transparent 70%);bottom:-50px;right:-100px;animation-duration:18s;animation-delay:-5s;"></div>
+  <p class="hero-tagline">✦ &nbsp; An Interactive Cosmic Journey &nbsp; ✦</p>
+  <h1 class="hero-title">EXPLORE<br/>THE UNIVERSE</h1>
+  <p class="hero-sub">Scroll outward from our Solar System through the Milky Way, past galaxy clusters, superclusters — all the way to the very edge of the observable cosmos.</p>
+  <div class="scroll-cta">
+    <span>SCROLL TO BEGIN</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; starting at the center of our solar system &nbsp; ⟶</span></div>
+
+<!-- ======== SUN ======== -->
+<section id="sun-sec">
+  <div class="nebula" style="width:500px;height:500px;background:radial-gradient(circle,rgba(255,100,0,0.12),transparent 70%);top:0;left:50%;transform:translateX(-50%);"></div>
+  <p class="slabel">Our Star</p>
+  <h2 class="stitle" style="color:#ffd700;">THE SUN</h2>
+  <p class="sdesc">At the heart of our solar system burns a 4.6 billion-year-old yellow dwarf star — fusing hydrogen into helium at 15 million°C, releasing energy that makes life on Earth possible.</p>
+
+  <div class="sun-wrap" id="sunWrap">
+    <div class="corona"></div><div class="corona"></div><div class="corona"></div><div class="corona"></div>
+    <div class="sun-core"></div>
+    <div class="flare"></div><div class="flare"></div><div class="flare"></div><div class="flare"></div><div class="flare"></div>
+  </div>
+
+  <div class="fact-grid">
+    <div class="fact-card"><div class="fc-icon">🌡️</div><div class="fc-label">Surface Temp</div><div class="fc-value">5,500°C</div><div class="fc-detail">Core reaches 15,000,000°C — hot enough for nuclear fusion</div></div>
+    <div class="fact-card"><div class="fc-icon">📏</div><div class="fc-label">Diameter</div><div class="fc-value">1.39M km</div><div class="fc-detail">109× the diameter of Earth; contains 99.8% of solar system's mass</div></div>
+    <div class="fact-card"><div class="fc-icon">⚡</div><div class="fc-label">Energy Output</div><div class="fc-value">3.8×10²⁶ W</div><div class="fc-detail">Converts 4 million tons of mass to energy every single second</div></div>
+    <div class="fact-card"><div class="fc-icon">⏳</div><div class="fc-label">Age</div><div class="fc-value">4.6 Billion yrs</div><div class="fc-detail">Halfway through its 10 billion year lifespan. Will become a red giant</div></div>
+    <div class="fact-card"><div class="fc-icon">🌀</div><div class="fc-label">Composition</div><div class="fc-value">73% Hydrogen</div><div class="fc-detail">25% Helium, 2% heavier elements forged in earlier stars</div></div>
+    <div class="fact-card"><div class="fc-icon">💡</div><div class="fc-label">Light Travel</div><div class="fc-value">8 min 20 sec</div><div class="fc-detail">Light takes 8 minutes to reach Earth — the sunlight you see left minutes ago</div></div>
+  </div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; 0 – 30 AU from the Sun &nbsp; ⟶</span></div>
+
+<!-- ======== SOLAR SYSTEM ======== -->
+<section id="solar-sec">
+  <div class="nebula" style="width:400px;height:400px;background:radial-gradient(circle,rgba(0,60,180,0.08),transparent 70%);top:10%;right:5%;animation-duration:22s;"></div>
+  <p class="slabel">Scale: 0 – 30 Astronomical Units</p>
+  <h2 class="stitle" style="background:linear-gradient(135deg,#00d4ff,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">THE SOLAR SYSTEM</h2>
+  <p class="sdesc">Eight planets orbit our Sun in a disc-shaped system spanning billions of kilometers. If the Sun were a basketball, Earth would be a marble 26 meters away — and Neptune a marble 800 meters away. <em>Hover over planets for details.</em></p>
+
+  <div class="orrery-wrap" id="orreryWrap">
+    <svg class="orbit-svg" id="orbitSvg" viewBox="0 0 660 660"></svg>
+    <div class="orrery-sun-dot" title="The Sun"></div>
+  </div>
+
+  <div class="planets-grid" id="planetsGrid"></div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; 30 – 100,000 AU &nbsp; ⟶</span></div>
+
+<!-- ======== KUIPER BELT ======== -->
+<section id="kuiper-sec">
+  <p class="slabel">Scale: 30 – 100,000 AU</p>
+  <h2 class="stitle" style="color:#00ffee;">KUIPER BELT &amp; OORT CLOUD</h2>
+  <p class="sdesc">Beyond Neptune lie vast frozen reservoirs. The Kuiper Belt hosts Pluto and thousands of icy worlds. The spherical Oort Cloud extending to 100,000 AU marks the true outer boundary of our solar system and the birthplace of long-period comets.</p>
+
+  <div class="belt-wrap">
+    <canvas id="beltCanvas" style="width:100%;height:100%;"></canvas>
+  </div>
+
+  <div class="fact-grid">
+    <div class="fact-card"><div class="fc-icon">🟤</div><div class="fc-label">Kuiper Belt</div><div class="fc-value">30 – 50 AU</div><div class="fc-detail">Contains Pluto, Eris, Makemake, Haumea — over 100,000 objects wider than 100 km</div></div>
+    <div class="fact-card"><div class="fc-icon">☁️</div><div class="fc-label">Oort Cloud</div><div class="fc-value">2,000–100,000 AU</div><div class="fc-detail">A vast spherical shell of billions of icy bodies — the true gravitational edge of our Sun's influence</div></div>
+    <div class="fact-card"><div class="fc-icon">☄️</div><div class="fc-label">Comets</div><div class="fc-value">Timeless Visitors</div><div class="fc-detail">Gravitational nudges from passing stars launch Oort Cloud objects on million-year journeys inward</div></div>
+    <div class="fact-card"><div class="fc-icon">🛸</div><div class="fc-label">Voyager 1</div><div class="fc-value">160+ AU Away</div><div class="fc-detail">Launched 1977 — the farthest human-made object. Crossed into interstellar space in 2012</div></div>
+  </div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; 4 light-years to the nearest star &nbsp; ⟶</span></div>
+
+<!-- ======== INTERSTELLAR ======== -->
+<section id="interstellar-sec">
+  <div class="nebula" style="width:350px;height:350px;background:radial-gradient(circle,rgba(200,100,255,0.08),transparent 70%);bottom:10%;right:8%;animation-duration:24s;"></div>
+  <p class="slabel">Scale: Light-Years</p>
+  <h2 class="stitle" style="background:linear-gradient(135deg,#bf5fff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">INTERSTELLAR SPACE</h2>
+  <p class="sdesc">Beyond the Oort Cloud lies the staggering void between stars. Our cosmic ruler becomes the light-year — the distance light travels in one year. The nearest star system, Alpha Centauri, is 4.37 light-years away. Even at Voyager's speed, it would take 75,000 years.</p>
+
+  <div class="ly-viz" id="lyViz">
+    <canvas id="lyCanvas" style="width:100%;height:100%;"></canvas>
+  </div>
+
+  <div class="fact-grid">
+    <div class="fact-card"><div class="fc-icon">📡</div><div class="fc-label">Nearest Star System</div><div class="fc-value">Proxima Centauri</div><div class="fc-detail">4.24 light-years away. Has a confirmed exoplanet (Proxima b) in the habitable zone</div></div>
+    <div class="fact-card"><div class="fc-icon">🌟</div><div class="fc-label">One Light-Year</div><div class="fc-value">9.46 × 10¹² km</div><div class="fc-detail">Light travels 299,792 km/s — a light-year equals about 63,241 AU</div></div>
+    <div class="fact-card"><div class="fc-icon">🚀</div><div class="fc-label">Travel Time</div><div class="fc-value">~75,000 years</div><div class="fc-detail">At Voyager 1's speed of ~17 km/s, it would take 75,000 years to reach Alpha Centauri</div></div>
+    <div class="fact-card"><div class="fc-icon">🌌</div><div class="fc-label">Stellar Density</div><div class="fc-value">~1 star per 280 ly³</div><div class="fc-detail">Stars are incredibly far apart — most of the galaxy is empty space between solar systems</div></div>
+  </div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; 100,000 light-years across &nbsp; ⟶</span></div>
+
+<!-- ======== MILKY WAY ======== -->
+<section id="mw-sec">
+  <div class="nebula" style="width:600px;height:280px;background:radial-gradient(ellipse,rgba(150,50,255,0.12),transparent 70%);top:0;left:50%;transform:translateX(-50%);"></div>
+  <p class="slabel">Scale: 100,000 Light-Years</p>
+  <h2 class="stitle" style="background:linear-gradient(135deg,#bf5fff,#ffffff,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">THE MILKY WAY</h2>
+  <p class="sdesc">Our home galaxy — a barred spiral containing <span class="nh">200–400 billion stars</span> spanning 100,000 light-years. We live on the Orion Spur, a minor arm about 26,000 light-years from the galactic center, orbiting once every 225 million years.</p>
+
+  <div class="gal-wrap">
+    <canvas id="galaxyCanvas"></canvas>
+    <div class="you-marker" id="youMarker"></div>
+  </div>
+
+  <div class="fact-grid">
+    <div class="fact-card"><div class="fc-icon">🌀</div><div class="fc-label">Structure</div><div class="fc-value">Barred Spiral</div><div class="fc-detail">Central bar, 4 major spiral arms (Perseus, Scutum-Centaurus, Norma, Sagittarius) plus our Orion spur</div></div>
+    <div class="fact-card"><div class="fc-icon">⬛</div><div class="fc-label">Central Black Hole</div><div class="fc-value">Sgr A* — 4M M☉</div><div class="fc-detail">Sagittarius A* has the mass of 4 million suns. First directly imaged by Event Horizon Telescope in 2022</div></div>
+    <div class="fact-card"><div class="fc-icon">🕐</div><div class="fc-label">Galactic Year</div><div class="fc-value">225–250M years</div><div class="fc-detail">The Sun orbits the galactic center at 220 km/s. We've completed ~20 galactic orbits since our formation</div></div>
+    <div class="fact-card"><div class="fc-icon">🌑</div><div class="fc-label">Dark Matter Halo</div><div class="fc-value">~1 Trillion M☉</div><div class="fc-detail">Invisible dark matter outweighs normal matter ~6:1, forming an enormous spherical halo around us</div></div>
+    <div class="fact-card"><div class="fc-icon">⭐</div><div class="fc-label">Star Count</div><div class="fc-value">200–400 Billion</div><div class="fc-detail">On a dark night you can see only ~5,000 stars. The rest of the Milky Way appears as a cloudy band</div></div>
+    <div class="fact-card"><div class="fc-icon">📐</div><div class="fc-label">Diameter</div><div class="fc-value">~100,000 ly</div><div class="fc-detail">Takes 100,000 years for light to cross. The Sun is 26,000 ly from center — slightly beyond the midway point</div></div>
+  </div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; ~10 million light-years &nbsp; ⟶</span></div>
+
+<!-- ======== LOCAL GROUP ======== -->
+<section id="lg-sec">
+  <div class="nebula" style="width:400px;height:400px;background:radial-gradient(circle,rgba(0,100,255,0.08),transparent 70%);top:10%;left:-5%;animation-duration:26s;"></div>
+  <div class="nebula" style="width:300px;height:300px;background:radial-gradient(circle,rgba(200,50,255,0.08),transparent 70%);bottom:10%;right:0%;animation-duration:30s;animation-delay:-8s;"></div>
+  <p class="slabel">Scale: ~10 Million Light-Years</p>
+  <h2 class="stitle" style="background:linear-gradient(135deg,#00d4ff,#bf5fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">THE LOCAL GROUP</h2>
+  <p class="sdesc">The Milky Way belongs to a gravitationally bound family of ~54 galaxies called the Local Group, spanning ~10 million light-years. Our largest neighbor, the Andromeda Galaxy (M31), is racing toward us at 110 km/s and will collide in ~4.5 billion years.</p>
+
+  <div class="lg-wrap">
+    <canvas id="lgCanvas" style="width:100%;height:100%;"></canvas>
+  </div>
+
+  <div class="fact-grid">
+    <div class="fact-card"><div class="fc-icon">🌌</div><div class="fc-label">Andromeda (M31)</div><div class="fc-value">2.537M ly away</div><div class="fc-detail">The largest galaxy in the Local Group with ~1 trillion stars. Visible naked-eye from dark skies as a faint smudge</div></div>
+    <div class="fact-card"><div class="fc-icon">💥</div><div class="fc-label">The Collision</div><div class="fc-value">~4.5 Billion yrs</div><div class="fc-detail">Milky Way + Andromeda will merge into "Milkomeda" — stars are so sparse that very few will actually collide</div></div>
+    <div class="fact-card"><div class="fc-icon">✦</div><div class="fc-label">Satellite Galaxies</div><div class="fc-value">50+ Dwarf Galaxies</div><div class="fc-detail">LMC and SMC (Magellanic Clouds) are our largest satellites, visible from the Southern Hemisphere</div></div>
+    <div class="fact-card"><div class="fc-icon">🎯</div><div class="fc-label">Group Size</div><div class="fc-value">~10 Million ly</div><div class="fc-detail">All ~54 member galaxies are bound together by gravity and will eventually merge into one giant elliptical</div></div>
+  </div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; 520 million light-years &nbsp; ⟶</span></div>
+
+<!-- ======== LANIAKEA ======== -->
+<section id="sc-sec">
+  <div class="nebula" style="width:500px;height:500px;background:radial-gradient(circle,rgba(100,0,200,0.1),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation-duration:32s;"></div>
+  <p class="slabel">Scale: ~520 Million Light-Years</p>
+  <h2 class="stitle" style="background:linear-gradient(135deg,#ff2d78,#bf5fff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">LANIAKEA SUPERCLUSTER</h2>
+  <p class="sdesc">The Local Group is just a tiny corner of the Laniakea Supercluster — home to <span class="nh">~100,000 galaxies</span> spread across 520 million light-years. "Laniakea" means "immeasurable heaven" in Hawaiian. All galaxies within flow toward a mysterious mass — the Great Attractor.</p>
+
+  <canvas id="superclusterCanvas"></canvas>
+
+  <div class="fact-grid" style="margin-top:40px;">
+    <div class="fact-card"><div class="fc-icon">🕸️</div><div class="fc-label">Cosmic Web</div><div class="fc-value">Filaments &amp; Voids</div><div class="fc-detail">Galaxies aren't randomly scattered — they cluster along vast filaments of dark matter with enormous empty voids between</div></div>
+    <div class="fact-card"><div class="fc-icon">🎯</div><div class="fc-label">Great Attractor</div><div class="fc-value">Mysterious Mass</div><div class="fc-detail">All galaxies in Laniakea flow toward this hidden concentration of mass — partially obscured by our galaxy's disc</div></div>
+    <div class="fact-card"><div class="fc-icon">🌐</div><div class="fc-label">Mass</div><div class="fc-value">10¹⁷ Solar Masses</div><div class="fc-detail">Contains 100,000 large galaxies and countless smaller ones. Discovered in 2014 using galaxy velocity flows</div></div>
+    <div class="fact-card"><div class="fc-icon">📏</div><div class="fc-label">Diameter</div><div class="fc-value">520 Million ly</div><div class="fc-detail">Even at light speed, crossing Laniakea would take 520 million years — 38× the age of the dinosaurs</div></div>
+  </div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; placing things in perspective &nbsp; ⟶</span></div>
+
+<!-- ======== SCALE ======== -->
+<section id="scale-sec">
+  <p class="slabel">Comprehending Scale</p>
+  <h2 class="stitle" style="color:white;">HOW BIG IS BIG?</h2>
+  <p class="sdesc">Numbers alone fail to capture the mind-bending scales of the cosmos. Here's every structure's size relative to the observable universe.</p>
+  <div class="scale-wrap" id="scaleWrap"></div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; 93 billion light-years — the furthest horizon &nbsp; ⟶</span></div>
+
+<!-- ======== OBSERVABLE UNIVERSE ======== -->
+<section id="ou-sec">
+  <div class="nebula" style="width:700px;height:700px;background:radial-gradient(circle,rgba(50,0,150,0.15),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation-duration:36s;"></div>
+  <p class="slabel">The Furthest Horizon</p>
+  <h2 class="stitle" style="background:linear-gradient(135deg,#ffffff,#bf5fff,#00d4ff,#ff2d78);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">THE OBSERVABLE UNIVERSE</h2>
+  <p class="sdesc">The observable universe spans 93 billion light-years — not because the universe ends there, but because that's as far as light has had time to travel since the Big Bang 13.8 billion years ago. It contains an estimated <span class="nh">2 trillion galaxies</span>, each with billions of stars.</p>
+
+  <canvas id="universeCanvas"></canvas>
+
+  <div class="fact-grid" style="margin-top:40px;">
+    <div class="fact-card"><div class="fc-icon">🔭</div><div class="fc-label">Diameter</div><div class="fc-value">93 Billion ly</div><div class="fc-detail">The universe is 13.8B years old, but expansion stretched the observable sphere to ~46.5B ly in radius</div></div>
+    <div class="fact-card"><div class="fc-icon">🌌</div><div class="fc-label">Galaxy Count</div><div class="fc-value">~2 Trillion</div><div class="fc-detail">Each with billions to trillions of stars. Total star count exceeds all grains of sand on Earth's beaches</div></div>
+    <div class="fact-card"><div class="fc-icon">📻</div><div class="fc-label">CMB Radiation</div><div class="fc-value">380,000 yrs old</div><div class="fc-detail">The afterglow of the Big Bang — our oldest "photo" of the universe. Still detectable as 2.7K microwave glow</div></div>
+    <div class="fact-card"><div class="fc-icon">💫</div><div class="fc-label">Dark Energy</div><div class="fc-value">68% of Universe</div><div class="fc-detail">A mysterious force accelerating cosmic expansion. Normal matter (stars, planets, gas) is only ~5% of everything</div></div>
+    <div class="fact-card"><div class="fc-icon">❓</div><div class="fc-label">Beyond Observable</div><div class="fc-value">Possibly Infinite</div><div class="fc-detail">The actual universe likely extends far beyond what we can see. Some inflation models suggest it is truly infinite</div></div>
+    <div class="fact-card"><div class="fc-icon">🕳️</div><div class="fc-label">Dark Matter</div><div class="fc-value">27% of Universe</div><div class="fc-detail">Invisible, detectable only by gravity. With dark energy, the "dark sector" accounts for ~95% of cosmic content</div></div>
+  </div>
+</section>
+
+<div class="divider"><span class="div-text">⟶ &nbsp; from the beginning to now &nbsp; ⟶</span></div>
+
+<!-- ======== TIMELINE ======== -->
+<section id="tl-sec">
+  <p class="slabel">13.8 Billion Years</p>
+  <h2 class="stitle" style="background:linear-gradient(135deg,#ffd700,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">TIMELINE OF THE UNIVERSE</h2>
+  <p class="sdesc">From a hot, dense singularity to the vast structured cosmos — here is the epic story of everything.</p>
+
+  <div class="timeline" id="cosmicTimeline">
+    <div class="tl-item"><div class="t-era">T = 0</div><div class="t-title">🌟 The Big Bang</div><div class="t-desc">The universe begins as an infinitely hot, dense singularity. Space, time, and energy spring into existence from a single point.</div></div>
+    <div class="tl-item"><div class="t-era">T = 10⁻³⁵ seconds</div><div class="t-title">💥 Cosmic Inflation</div><div class="t-desc">The universe expands exponentially in a tiny fraction of a second, growing from subatomic to macroscopic size and smoothing out quantum fluctuations.</div></div>
+    <div class="tl-item"><div class="t-era">T = 3 minutes</div><div class="t-title">⚛️ Nucleosynthesis</div><div class="t-desc">Protons and neutrons fuse to form hydrogen, helium, and trace lithium — the raw material for the first generation of stars.</div></div>
+    <div class="tl-item"><div class="t-era">T = 380,000 years</div><div class="t-title">📻 Cosmic Microwave Background</div><div class="t-desc">The universe cools enough for electrons to combine with nuclei. Photons travel freely for the first time — the CMB radiation we detect today.</div></div>
+    <div class="tl-item"><div class="t-era">T = 100 – 500 Million years</div><div class="t-title">🌟 First Stars (Pop III)</div><div class="t-desc">The "cosmic dawn" — first massive stars ignite, forging heavy elements and ending the cosmic dark ages with intense ultraviolet radiation.</div></div>
+    <div class="tl-item"><div class="t-era">T = 1 Billion years</div><div class="t-title">🌌 First Galaxies Form</div><div class="t-desc">Dark matter halos accumulate gas and stars, assembling into the first galaxies and galaxy clusters through gravitational collapse.</div></div>
+    <div class="tl-item"><div class="t-era">T = 9.2 Billion years</div><div class="t-title">☀️ Our Solar System Forms</div><div class="t-desc">A molecular cloud collapses under gravity, forming the Sun and an orbiting disc of gas and dust that becomes the eight planets.</div></div>
+    <div class="tl-item"><div class="t-era">T = 9.8 Billion years</div><div class="t-title">🦠 Life on Earth Begins</div><div class="t-desc">Earliest microbial life emerges in Earth's primordial oceans. Over 3.5 billion years, life complexifies from single cells to all we know.</div></div>
+    <div class="tl-item"><div class="t-era">T = 13.8 Billion years — NOW</div><div class="t-title">👁️ The Present Day</div><div class="t-desc">You are here — a brief flicker in cosmic time, on a pale blue dot, looking outward across billions of light-years of history frozen in starlight.</div></div>
+    <div class="tl-item"><div class="t-era">T = ~10¹⁴ years (future)</div><div class="t-title">💀 Last Stars Go Dark</div><div class="t-desc">The last red dwarf stars exhaust their fuel. The universe enters the Degenerate Era — only white dwarfs, neutron stars, and black holes remain.</div></div>
+  </div>
+</section>
+
+<!-- ======== CLOSING ======== -->
+<section id="closing-sec">
+  <div class="nebula" style="width:500px;height:500px;background:radial-gradient(circle,rgba(100,0,200,0.12),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation-duration:22s;"></div>
+  <h2 class="closing-title">YOU ARE MADE OF STAR STUFF</h2>
+  <p class="closing-quote">"The cosmos is within us. We are made of star-stuff. We are a way for the universe to know itself."</p>
+  <p class="closing-attr">— Carl Sagan</p>
+
+  <div style="margin-top:60px;display:flex;flex-direction:column;align-items:center;gap:16px;">
+    <p style="font-family:var(--font-mono);font-size:10px;letter-spacing:3px;color:rgba(255,255,255,0.3);">WHAT YOU'VE EXPLORED TODAY</p>
+    <div class="fact-grid" style="max-width:720px;">
+      <div class="fact-card"><div class="fc-value" style="font-size:1rem;">🌞 Solar System</div><div class="fc-detail">8 planets, 1 star, hundreds of moons, billions of small bodies across 100,000 AU</div></div>
+      <div class="fact-card"><div class="fc-value" style="font-size:1rem;">🌌 Milky Way</div><div class="fc-detail">200–400 billion stars across 100,000 light-years with a 4M solar-mass black hole at center</div></div>
+      <div class="fact-card"><div class="fc-value" style="font-size:1rem;">🌠 Local Group</div><div class="fc-detail">54 galaxies gravitationally bound across 10 million light-years — heading for a merger</div></div>
+      <div class="fact-card"><div class="fc-value" style="font-size:1rem;">🕸️ Observable Universe</div><div class="fc-detail">~2 trillion galaxies across 93 billion light-years — and it may be infinite beyond that</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:80px;font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,0.12);letter-spacing:2px;text-align:center;">
+    LEARNSPACE • BUILT FOR CURIOUS MINDS • DATA BASED ON CURRENT SCIENTIFIC CONSENSUS
+  </div>
+</section>
+
+<script>
+/* ======== UTILS ======== */
+const $ = id => document.getElementById(id);
+const qs = sel => document.querySelector(sel);
+
+/* ======== 1. STARFIELD CANVAS ======== */
+(function() {
+  const c = $('starCanvas'), ctx = c.getContext('2d');
+  let W, H, stars = [], shoots = [];
+  function resize() { W = c.width = innerWidth; H = c.height = innerHeight; }
+  function mkStar() { return { x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.4+0.2, a:Math.random(), sp:Math.random()*0.005+0.001, ph:Math.random()*Math.PI*2, col:['#fff','#ffe8d6','#c8e6ff','#fffbe6'][0|Math.random()*4] }; }
+  function mkShoot() { return { x:Math.random()*W, y:Math.random()*H*0.5, vx:Math.random()*7+5, vy:Math.random()*3+1, len:Math.random()*80+40, life:0, max:Math.random()*60+40 }; }
+  let fr = 0;
+  function draw() {
+    ctx.clearRect(0,0,W,H); fr++;
+    if (fr%180===0 && Math.random()<0.6) shoots.push(mkShoot());
+    for (const s of stars) { s.a=0.3+0.7*Math.abs(Math.sin(fr*s.sp+s.ph)); ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fillStyle=s.col; ctx.globalAlpha=s.a; ctx.fill(); }
+    for (let i=shoots.length-1;i>=0;i--) {
+      const ss=shoots[i]; ss.x+=ss.vx; ss.y+=ss.vy; ss.life++;
+      const al=1-ss.life/ss.max; if(al<=0){shoots.splice(i,1);continue;}
+      const g=ctx.createLinearGradient(ss.x,ss.y,ss.x-ss.len*(ss.vx/10),ss.y-ss.len*(ss.vy/10));
+      g.addColorStop(0,`rgba(255,255,255,${al})`); g.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.beginPath(); ctx.moveTo(ss.x,ss.y); ctx.lineTo(ss.x-ss.len*(ss.vx/10),ss.y-ss.len*(ss.vy/10));
+      ctx.strokeStyle=g; ctx.lineWidth=1.5; ctx.globalAlpha=al; ctx.stroke();
+    }
+    ctx.globalAlpha=1; requestAnimationFrame(draw);
+  }
+  resize(); stars=[]; const n=0|W*H/2500; for(let i=0;i<n;i++) stars.push(mkStar()); draw();
+  addEventListener('resize',()=>{ resize(); stars=[]; const n=0|W*H/2500; for(let i=0;i<n;i++) stars.push(mkStar()); });
+})();
+
+/* ======== 2. SCROLL PROGRESS ======== */
+addEventListener('scroll',()=>{ const el=document.documentElement; $('progressBar').style.width=(el.scrollTop/(el.scrollHeight-el.clientHeight)*100)+'%'; });
+
+/* ======== 3. NAV DOTS ======== */
+const sections = [
+  {id:'hero',label:'Welcome'},{id:'sun-sec',label:'The Sun'},{id:'solar-sec',label:'Solar System'},
+  {id:'kuiper-sec',label:'Kuiper Belt'},{id:'interstellar-sec',label:'Interstellar'},
+  {id:'mw-sec',label:'Milky Way'},{id:'lg-sec',label:'Local Group'},{id:'sc-sec',label:'Laniakea'},
+  {id:'scale-sec',label:'Scale'},{id:'ou-sec',label:'Observable Universe'},
+  {id:'tl-sec',label:'Timeline'},{id:'closing-sec',label:'Closing'}
+];
+const nav = $('navDots');
+sections.forEach(s => {
+  const d = document.createElement('div');
+  d.className = 'nav-dot'; d.title = s.label;
+  d.onclick = () => $(s.id).scrollIntoView({behavior:'smooth'});
+  nav.appendChild(d);
+});
+function updateNav() {
+  const mid = scrollY + innerHeight/2;
+  sections.forEach((s,i) => {
+    const el=$(s.id); if(!el) return;
+    nav.children[i].classList.toggle('active', mid>=el.offsetTop && mid<el.offsetTop+el.offsetHeight);
+  });
+}
+addEventListener('scroll', updateNav); updateNav();
+
+/* ======== 4. INTERSECTION OBSERVER ======== */
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('vis'); });
+}, {threshold: 0.12});
+document.querySelectorAll('.slabel,.stitle,.sdesc,.fact-card,.p-card,.tl-item,.scale-row,.sun-wrap,.orrery-wrap,.ly-viz').forEach(el => io.observe(el));
+
+/* ======== 5. PLANETS DATA ======== */
+const planets = [
+  {name:'Mercury',col:'#b5b5b5',sz:5,au:0.39,period:0.24,moons:0,dia:'4,880 km',temp:'430°C / -180°C',fun:'Fastest planet; year = 88 Earth days. No moons, no atmosphere'},
+  {name:'Venus',  col:'#e8cda0',sz:8,au:0.72,period:0.62,moons:0,dia:'12,104 km',temp:'465°C',fun:'Hottest planet — hotter than Mercury. Rotates backwards; day longer than year'},
+  {name:'Earth',  col:'#4f94cd',sz:9,au:1.00,period:1.00,moons:1,dia:'12,742 km',temp:'15°C avg',fun:'Only known planet with life. Large moon stabilizes axial tilt, enabling stable seasons'},
+  {name:'Mars',   col:'#cd5c5c',sz:6,au:1.52,period:1.88,moons:2,dia:'6,779 km',temp:'-60°C avg',fun:'Home to Olympus Mons — tallest volcano in the solar system at 22 km'},
+  {name:'Jupiter',col:'#c88b3a',sz:17,au:5.20,period:11.86,moons:95,dia:'139,820 km',temp:'-110°C',fun:'Great Red Spot: a storm 1.5× Earth\'s size, raging for 400+ years'},
+  {name:'Saturn', col:'#e4d191',sz:14,au:9.58,period:29.46,moons:146,dia:'116,460 km',temp:'-140°C',fun:'Rings only ~10m thick despite spanning 300,000 km. Density less than water'},
+  {name:'Uranus', col:'#7de8e8',sz:11,au:19.2,period:84,moons:27,dia:'50,724 km',temp:'-195°C',fun:'Tilted 98° — orbits on its side. First planet discovered by telescope (1781)'},
+  {name:'Neptune',col:'#5b5ddf',sz:10,au:30.1,period:165,moons:16,dia:'49,244 km',temp:'-200°C',fun:'Winds up to 2,100 km/h — fastest in the solar system. Predicted before observation'}
+];
+
+/* ======== 6. BUILD ORRERY ======== */
+(function() {
+  const cont = $('orreryWrap'), svg = $('orbitSvg');
+  const cx=330, cy=330, maxR=300;
+  const logR = p => Math.log(p.au+1)/Math.log(31)*maxR;
+
+  planets.forEach(p => {
+    const r = logR(p);
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx',cx); circle.setAttribute('cy',cy); circle.setAttribute('r',r);
+    circle.classList.add('orbit-ring'); svg.appendChild(circle);
+
+    const orbitDiv = document.createElement('div');
+    orbitDiv.className = 'p-orbit';
+    orbitDiv.style.cssText = `width:${r*2}px;height:${r*2}px;margin-left:${-r}px;margin-top:${-r}px;animation:pOrbit ${p.period*40}s linear infinite;`;
+
+    const dot = document.createElement('div');
+    dot.className = 'p-dot';
+    dot.setAttribute('data-name',p.name);
+    dot.style.cssText = `width:${p.sz}px;height:${p.sz}px;background:${p.col};left:${r}px;top:50%;margin-top:${-p.sz/2}px;box-shadow:0 0 ${p.sz*2}px ${p.col};`;
+    if(p.name==='Earth') dot.style.boxShadow=`0 0 ${p.sz*2}px #4f94cd,0 0 ${p.sz}px #00d4ff`;
+
+    if(p.name==='Saturn') {
+      const ring=document.createElement('div');
+      ring.style.cssText=`position:absolute;width:${p.sz*3}px;height:${p.sz*0.55}px;border-radius:50%;border:3px solid rgba(228,209,145,0.55);left:${r-p.sz}px;top:50%;margin-top:${-p.sz*0.28}px;`;
+      orbitDiv.appendChild(ring);
+    }
+    orbitDiv.appendChild(dot); cont.appendChild(orbitDiv);
+  });
+
+  /* Planet flip cards */
+  const grid = $('planetsGrid');
+  const pGrads = {
+    Earth:'radial-gradient(circle at 35% 35%,#6bbcff 0%,#1a6fa0 40%,#0a3d5e 100%)',
+    Jupiter:'radial-gradient(circle,#f0c070 0%,#c88b3a 40%,#8b5e2a 100%)',
+    Saturn:'radial-gradient(circle,#f8eca0 0%,#e4d191 40%,#b8a850 100%)',
+    Mars:'radial-gradient(circle at 35% 35%,#ff8060 0%,#cd5c5c 50%,#8b2020 100%)',
+    Uranus:'radial-gradient(circle,#a0f0f0 0%,#7de8e8 50%,#40b0b0 100%)',
+    Neptune:'radial-gradient(circle,#8080ff 0%,#5b5ddf 50%,#2030a0 100%)',
+  };
+  planets.forEach((p,i) => {
+    const card = document.createElement('div');
+    card.className = 'p-card';
+    card.style.transitionDelay = `${i*0.09}s`;
+    const grad = pGrads[p.name] || `radial-gradient(circle at 35% 35%,rgba(255,255,255,0.3),${p.col} 60%,${p.col}99)`;
+    const satExtra = p.name==='Saturn' ? `box-shadow:0 0 0 5px rgba(228,209,145,0.25),0 0 0 8px rgba(228,209,145,0.1);` : '';
+    card.innerHTML=`<div class="p-card-inner">
+      <div class="p-face">
+        <div class="p-icon" style="background:${grad};${satExtra}"></div>
+        <div class="p-name">${p.name.toUpperCase()}</div>
+        <div class="p-dist">${p.au} AU from Sun</div>
+      </div>
+      <div class="p-back">
+        <div class="p-stat">Diameter: <span>${p.dia}</span></div>
+        <div class="p-stat">Temp: <span>${p.temp}</span></div>
+        <div class="p-stat">Moons: <span>${p.moons}</span></div>
+        <div class="p-stat">Year: <span>${p.period} Earth yrs</span></div>
+        <div class="p-fun">${p.fun}</div>
+      </div>
+    </div>`;
+    grid.appendChild(card);
+    io.observe(card);
+  });
+})();
+
+/* ======== 7. KUIPER BELT CANVAS ======== */
+(function() {
+  const wrap = document.querySelector('.belt-wrap');
+  const canvas = $('beltCanvas');
+  const size = wrap.offsetWidth || 560;
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d'), cx=size/2, cy=size/2;
+
+  const sg=ctx.createRadialGradient(cx,cy,0,cx,cy,18); sg.addColorStop(0,'#fff'); sg.addColorStop(0.5,'#ffd700'); sg.addColorStop(1,'#ff8800');
+  ctx.beginPath(); ctx.arc(cx,cy,18,0,Math.PI*2); ctx.fillStyle=sg; ctx.shadowColor='#ff8800'; ctx.shadowBlur=30; ctx.fill(); ctx.shadowBlur=0;
+
+  // Neptune
+  const nR=size*0.25;
+  ctx.beginPath(); ctx.arc(cx,cy,nR,0,Math.PI*2); ctx.strokeStyle='rgba(91,93,223,0.35)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx+nR,cy,4,0,Math.PI*2); ctx.fillStyle='#5b5ddf'; ctx.shadowColor='#5b5ddf'; ctx.shadowBlur=10; ctx.fill(); ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(91,93,223,0.6)'; ctx.font='9px Space Mono'; ctx.fillText('Neptune',cx+nR+6,cy+3);
+
+  // Kuiper Belt
+  const kMin=size*0.31,kMax=size*0.42;
+  for(let i=0;i<600;i++){
+    const a=Math.random()*Math.PI*2, r=kMin+Math.random()*(kMax-kMin);
+    ctx.beginPath(); ctx.arc(cx+r*Math.cos(a),cy+r*Math.sin(a),Math.random()*1.5+0.2,0,Math.PI*2);
+    ctx.fillStyle=`rgba(180,160,120,${0.3+Math.random()*0.5})`; ctx.fill();
+  }
+  // Oort Cloud
+  for(let i=0;i<400;i++){
+    const a=Math.random()*Math.PI*2, r=size*0.46+Math.random()*size*0.03;
+    ctx.beginPath(); ctx.arc(cx+r*Math.cos(a),cy+r*Math.sin(a),Math.random()*0.9+0.1,0,Math.PI*2);
+    ctx.fillStyle=`rgba(150,200,255,${0.15+Math.random()*0.3})`; ctx.fill();
+  }
+  // Pluto
+  const plR=kMin+22;
+  ctx.beginPath(); ctx.arc(cx+plR,cy,4,0,Math.PI*2); ctx.fillStyle='#b0a8a0'; ctx.shadowColor='#b0a8a0'; ctx.shadowBlur=6; ctx.fill(); ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='9px Space Mono'; ctx.fillText('Pluto',cx+plR+7,cy+3);
+  // Voyager
+  ctx.beginPath(); ctx.arc(cx+size*0.44,cy-12,3,0,Math.PI*2); ctx.fillStyle='#00ffee'; ctx.shadowColor='#00ffee'; ctx.shadowBlur=8; ctx.fill(); ctx.shadowBlur=0;
+  ctx.fillStyle='#00ffee'; ctx.font='8px Space Mono'; ctx.fillText('Voyager 1 →',cx+size*0.44+6,cy-8);
+  // Labels
+  ctx.font='10px Space Mono';
+  ctx.fillStyle='rgba(180,160,120,0.7)'; ctx.textAlign='center'; ctx.fillText('Kuiper Belt (30–50 AU)',cx,cy-kMax-8);
+  ctx.fillStyle='rgba(150,200,255,0.5)'; ctx.fillText('Oort Cloud',cx,cy-size*0.5);
+})();
+
+/* ======== 8. LIGHT-YEAR VIZ ======== */
+(function() {
+  const canvas = $('lyCanvas');
+  const W=Math.max(canvas.parentElement.offsetWidth||820,400), H=190;
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='rgba(0,0,10,0.4)'; ctx.fillRect(0,0,W,H);
+  for(let i=0;i<250;i++){ctx.beginPath();ctx.arc(Math.random()*W,Math.random()*H,Math.random()*1.1+0.1,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${0.2+Math.random()*0.5})`;ctx.fill();}
+  // Sun
+  const sg=ctx.createRadialGradient(55,H/2,0,55,H/2,22);sg.addColorStop(0,'#fff');sg.addColorStop(0.5,'#ffd700');sg.addColorStop(1,'#ff8800');
+  ctx.beginPath();ctx.arc(55,H/2,16,0,Math.PI*2);ctx.fillStyle=sg;ctx.shadowColor='#ff8800';ctx.shadowBlur=28;ctx.fill();ctx.shadowBlur=0;
+  // Alpha Centauri
+  const acx=W-70;
+  [{off:0,r:8,c:'#fffbe6'},{off:-7,r:4,c:'#ffcc88'},{off:7,r:3.5,c:'#ff8866'}].forEach(({off,r,c})=>{ctx.beginPath();ctx.arc(acx+off,H/2+off/2,r,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.fill();});
+  ctx.shadowBlur=0;
+  // Dashed beam
+  const gr=ctx.createLinearGradient(74,H/2,acx-22,H/2);
+  gr.addColorStop(0,'rgba(255,220,0,0.7)');gr.addColorStop(0.5,'rgba(0,212,255,0.4)');gr.addColorStop(1,'rgba(0,212,255,0.15)');
+  ctx.beginPath();ctx.moveTo(74,H/2);ctx.lineTo(acx-22,H/2);
+  ctx.strokeStyle=gr;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.stroke();ctx.setLineDash([]);
+  // Ticks
+  for(let t=0;t<=4;t++){const x=74+(acx-96)*t/4;ctx.beginPath();ctx.moveTo(x,H/2-18);ctx.lineTo(x,H/2+18);ctx.strokeStyle='rgba(0,212,255,0.25)';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='rgba(0,212,255,0.45)';ctx.font='8px Space Mono';ctx.textAlign='center';ctx.fillText(t+' ly',x,H/2-25);}
+  // Label
+  ctx.fillStyle='rgba(0,212,255,0.6)';ctx.font='11px Space Mono';ctx.textAlign='center';ctx.fillText('4.37 LIGHT-YEARS = 41.3 TRILLION KM',W/2,H/2+30);
+  ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='9px Space Mono';ctx.fillText('Our Sun',72,H-10);ctx.fillText('Alpha Centauri System',acx,H-10);
+})();
+
+/* ======== 9. MILKY WAY CANVAS ======== */
+(function() {
+  const canvas=$('galaxyCanvas');
+  const size=Math.min(canvas.parentElement.offsetWidth||580,580);
+  canvas.width=canvas.height=size;
+  const ctx=canvas.getContext('2d'),cx=size/2,cy=size/2,R=size/2;
+  // Background
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,R);
+  bg.addColorStop(0,'#1a0a30');bg.addColorStop(0.5,'#0a0520');bg.addColorStop(1,'#000005');
+  ctx.fillStyle=bg;ctx.fill();
+  // Galactic center glow
+  const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,R*0.28);
+  cg.addColorStop(0,'rgba(255,220,100,0.6)');cg.addColorStop(0.4,'rgba(255,150,50,0.2)');cg.addColorStop(1,'transparent');
+  ctx.fillStyle=cg;ctx.fillRect(cx-R,cy-R,R*2,R*2);
+  // Spiral arms
+  for(let arm=0;arm<4;arm++){
+    const base=(arm/4)*Math.PI*2;
+    for(let t=0;t<1;t+=0.0018){
+      const angle=base+t*Math.PI*2*2.2, r=t*R*0.88;
+      for(let w=-2;w<=2;w++){
+        const a2=angle+w*0.28*(0.1+t);
+        const x=cx+r*Math.cos(a2),y=cy+r*Math.sin(a2);
+        const d=r/R;
+        const dens=Math.max(0,1-d*1.15);
+        ctx.beginPath();ctx.arc(x,y,Math.random()*1.1+0.15,0,Math.PI*2);
+        ctx.fillStyle=arm<2?`rgba(255,230,180,${dens*0.6+Math.random()*0.1})`:`rgba(200,180,255,${dens*0.5+Math.random()*0.1})`;
+        ctx.fill();
+      }
+    }
+  }
+  // Background stars
+  for(let i=0;i<3500;i++){
+    const a=Math.random()*Math.PI*2,r=Math.random()*R*0.93;
+    if(Math.random()>1.5*(1-r/R)) continue;
+    ctx.beginPath();ctx.arc(cx+r*Math.cos(a),cy+r*Math.sin(a),Math.random()*0.7+0.1,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,255,${0.3+Math.random()*0.7})`;ctx.fill();
+  }
+  // Circular clip
+  ctx.globalCompositeOperation='destination-in';
+  ctx.beginPath();ctx.arc(cx,cy,R-1,0,Math.PI*2);ctx.fillStyle='black';ctx.fill();
+  ctx.globalCompositeOperation='source-over';
+  // Labels
+  ctx.fillStyle='rgba(200,180,255,0.45)';ctx.font='9px Space Mono';ctx.textAlign='center';
+  ctx.fillText('MILKY WAY GALAXY',cx,18);
+  ctx.fillStyle='rgba(255,200,100,0.4)';ctx.font='8px Space Mono';
+  ctx.fillText('Perseus Arm',cx+R*0.38,cy-R*0.52);
+  ctx.fillText('Sagittarius Arm',cx-R*0.45,cy+R*0.32);
+  ctx.fillStyle='rgba(180,160,255,0.35)';
+  ctx.fillText('Scutum Arm',cx+R*0.2,cy+R*0.58);
+  ctx.fillText('Norma Arm',cx-R*0.42,cy-R*0.38);
+})();
+
+/* ======== 10. LOCAL GROUP CANVAS ======== */
+(function() {
+  const canvas=$('lgCanvas');
+  const W=canvas.offsetWidth||700,H=canvas.offsetHeight||340;
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='rgba(0,0,10,0.2)';ctx.fillRect(0,0,W,H);
+
+  function drawGal(x,y,rx,ry,angle,isMW,name){
+    ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+    ctx.beginPath();ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2);
+    const g=ctx.createRadialGradient(0,0,0,0,0,rx);
+    g.addColorStop(0,isMW?'rgba(255,230,150,0.8)':'rgba(200,180,255,0.8)');
+    g.addColorStop(0.4,isMW?'rgba(180,150,80,0.3)':'rgba(150,120,200,0.3)');
+    g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.fill();
+    for(let i=0;i<3;i++){
+      ctx.beginPath();const a0=(i/3)*Math.PI*2;
+      for(let t=0;t<1;t+=0.05){const a=a0+t*Math.PI*3;ctx.lineTo(t*rx*Math.cos(a),t*ry*Math.sin(a));}
+      ctx.strokeStyle=isMW?'rgba(255,220,100,0.18)':'rgba(200,180,255,0.18)';ctx.lineWidth=1;ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle='rgba(255,255,255,0.45)';ctx.font='9px Space Mono';ctx.textAlign='center';ctx.fillText(name,x,y+ry+14);
+  }
+
+  drawGal(W*0.65,H*0.55,52,28,0.3,true,'Milky Way');
+  drawGal(W*0.25,H*0.33,75,18,-0.5,false,'Andromeda (M31)');
+  drawGal(W*0.35,H*0.78,24,21,0.2,false,'Triangulum (M33)');
+  drawGal(W*0.79,H*0.34,19,17,0.5,false,'LMC');
+  drawGal(W*0.88,H*0.47,12,10,0.2,false,'SMC');
+
+  [[W*0.1,H*0.6,7,5,'Sculptor'],[W*0.15,H*0.2,6,5,'Fornax'],[W*0.5,H*0.85,6,5,'Carina'],[W*0.9,H*0.2,5,4,'Sagittarius Dwarf'],[W*0.55,H*0.12,5,4,'IC 10'],[W*0.82,H*0.78,5,4,'NGC 6822']].forEach(([x,y,rx,ry,name])=>{
+    ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);
+    const g=ctx.createRadialGradient(x,y,0,x,y,rx);g.addColorStop(0,'rgba(200,200,255,0.6)');g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.28)';ctx.font='7px Space Mono';ctx.textAlign='center';ctx.fillText(name,x,y+ry+11);
+  });
+
+  [[W*0.65,H*0.55,W*0.25,H*0.33],[W*0.65,H*0.55,W*0.79,H*0.34],[W*0.65,H*0.55,W*0.88,H*0.47]].forEach(([x1,y1,x2,y2])=>{
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+    ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;ctx.setLineDash([4,8]);ctx.stroke();ctx.setLineDash([]);
+  });
+})();
+
+/* ======== 11. SUPERCLUSTER CANVAS ======== */
+(function() {
+  const canvas=$('superclusterCanvas');
+  const W=Math.min(700,window.innerWidth*0.9)|0;
+  const H=Math.min(480,window.innerWidth*0.65)|0;
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#000005';ctx.fillRect(0,0,W,H);
+
+  const nodes=[];
+  for(let i=0;i<85;i++) nodes.push({x:40+Math.random()*(W-80),y:40+Math.random()*(H-80),r:Math.random()*2.5+0.8,b:Math.random()});
+
+  for(let i=0;i<nodes.length;i++) for(let j=i+1;j<nodes.length;j++){
+    const dx=nodes[j].x-nodes[i].x,dy=nodes[j].y-nodes[i].y,d=Math.hypot(dx,dy);
+    if(d<110){const a=(1-d/110)*0.4;ctx.beginPath();ctx.moveTo(nodes[i].x,nodes[i].y);ctx.lineTo(nodes[j].x,nodes[j].y);ctx.strokeStyle=`rgba(150,100,255,${a})`;ctx.lineWidth=(1-d/110)*1.5;ctx.stroke();}
+  }
+
+  const gax=W*0.44,gay=H*0.56;
+  const gaGlow=ctx.createRadialGradient(gax,gay,0,gax,gay,80);
+  gaGlow.addColorStop(0,'rgba(255,100,200,0.55)');gaGlow.addColorStop(0.4,'rgba(200,50,255,0.18)');gaGlow.addColorStop(1,'transparent');
+  ctx.fillStyle=gaGlow;ctx.fillRect(0,0,W,H);
+
+  nodes.forEach(n=>{
+    const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r*3);
+    g.addColorStop(0,`rgba(220,200,255,${n.b})`);g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r*3,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${0.5+n.b*0.5})`;ctx.fill();
+  });
+
+  // Flow arrows
+  for(let i=0;i<28;i++){
+    const x=30+Math.random()*(W-60),y=30+Math.random()*(H-60);
+    const dx=gax-x,dy=gay-y,len=Math.hypot(dx,dy),nx=dx/len,ny=dy/len;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+nx*18,y+ny*18);
+    ctx.strokeStyle=`rgba(0,212,255,${0.1+Math.random()*0.12})`;ctx.lineWidth=0.7;ctx.stroke();
+  }
+
+  ctx.fillStyle='rgba(255,100,200,0.55)';ctx.font='10px Space Mono';ctx.textAlign='center';ctx.fillText('Great Attractor',gax,gay+22);
+
+  const ourX=W*0.6,ourY=H*0.33;
+  ctx.beginPath();ctx.arc(ourX,ourY,5,0,Math.PI*2);ctx.fillStyle='#00ffee';ctx.shadowColor='#00ffee';ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle='#00ffee';ctx.font='9px Space Mono';ctx.textAlign='left';ctx.fillText('Local Group ←',ourX+8,ourY+3);
+
+  ctx.fillStyle='rgba(150,100,255,0.4)';ctx.font='11px Space Mono';ctx.textAlign='center';ctx.fillText('LANIAKEA SUPERCLUSTER',W/2,22);
+  ctx.font='9px Space Mono';ctx.fillStyle='rgba(150,100,255,0.25)';ctx.fillText('520 million light-years across • ~100,000 galaxies',W/2,38);
+})();
+
+/* ======== 12. OBSERVABLE UNIVERSE CANVAS ======== */
+(function() {
+  const canvas=$('universeCanvas');
+  const size=Math.min(680,window.innerWidth*0.88)|0;
+  canvas.width=canvas.height=size;
+  const ctx=canvas.getContext('2d'),cx=size/2,cy=size/2,R=size/2-4;
+
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fillStyle='#000000';ctx.fill();
+
+  const clusters=[];
+  for(let i=0;i<130;i++){const a=Math.random()*Math.PI*2,r=Math.random()*R*0.88;clusters.push({x:cx+r*Math.cos(a),y:cy+r*Math.sin(a),s:Math.random()*2+0.5,b:Math.random()});}
+
+  for(let i=0;i<clusters.length;i++) for(let j=i+1;j<clusters.length;j++){
+    const dx=clusters[j].x-clusters[i].x,dy=clusters[j].y-clusters[i].y,d=Math.hypot(dx,dy);
+    if(d<85){const a=(1-d/85)*0.22;ctx.beginPath();ctx.moveTo(clusters[i].x,clusters[i].y);ctx.lineTo(clusters[j].x,clusters[j].y);ctx.strokeStyle=`rgba(180,120,255,${a})`;ctx.lineWidth=0.5;ctx.stroke();}
+  }
+  clusters.forEach(c=>{
+    const g=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,c.s*4);
+    g.addColorStop(0,`rgba(220,200,255,${c.b*0.8})`);g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(c.x,c.y,c.s*4,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(c.x,c.y,c.s,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${0.5+c.b*0.5})`;ctx.fill();
+  });
+
+  for(let i=0;i<2200;i++){
+    const a=Math.random()*Math.PI*2,r=Math.random()*R*0.91;
+    ctx.beginPath();ctx.arc(cx+r*Math.cos(a),cy+r*Math.sin(a),Math.random()*0.7+0.1,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${180+0|Math.random()*75},${160+0|Math.random()*80},255,${0.2+Math.random()*0.4})`;ctx.fill();
+  }
+
+  // CMB ring
+  const cmb=ctx.createRadialGradient(cx,cy,R*0.84,cx,cy,R*0.97);
+  cmb.addColorStop(0,'transparent');cmb.addColorStop(0.5,'rgba(255,120,50,0.13)');cmb.addColorStop(1,'rgba(200,80,30,0.06)');
+  ctx.fillStyle=cmb;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fill();
+
+  const darkE=ctx.createRadialGradient(cx,cy,R*0.7,cx,cy,R);
+  darkE.addColorStop(0,'transparent');darkE.addColorStop(0.8,'rgba(50,0,150,0.09)');darkE.addColorStop(1,'rgba(80,0,200,0.16)');
+  ctx.fillStyle=darkE;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fill();
+
+  // You marker
+  ctx.beginPath();ctx.arc(cx+4,cy+2,3,0,Math.PI*2);ctx.fillStyle='#00ffee';ctx.shadowColor='#00ffee';ctx.shadowBlur=10;ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle='#00ffee';ctx.font='8px Space Mono';ctx.textAlign='left';ctx.fillText('← You',cx+9,cy+4);
+
+  // Voids
+  for(let i=0;i<9;i++){const a=Math.random()*Math.PI*2,r=Math.random()*R*0.7;const vx=cx+r*Math.cos(a),vy=cy+r*Math.sin(a),vr=18+Math.random()*45;const vg=ctx.createRadialGradient(vx,vy,0,vx,vy,vr);vg.addColorStop(0,'rgba(0,0,0,0.4)');vg.addColorStop(1,'transparent');ctx.fillStyle=vg;ctx.beginPath();ctx.arc(vx,vy,vr,0,Math.PI*2);ctx.fill();}
+
+  // Clip
+  ctx.globalCompositeOperation='destination-in';ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fillStyle='black';ctx.fill();ctx.globalCompositeOperation='source-over';
+
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.strokeStyle='rgba(100,0,200,0.3)';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle='rgba(255,120,50,0.4)';ctx.font='9px Space Mono';ctx.textAlign='center';ctx.fillText('CMB — Cosmic Microwave Background (Edge of Observation)',cx,cy-R+18);
+  ctx.fillStyle='rgba(200,150,255,0.35)';ctx.font='10px Space Mono';ctx.fillText('THE OBSERVABLE UNIVERSE — 93 BILLION LIGHT-YEARS',cx,size-14);
+})();
+
+/* ======== 13. SCALE BARS ======== */
+(function() {
+  const wrap=$('scaleWrap');
+  const rows=[
+    {lbl:'Earth Diameter',val:'12,742 km',pct:0.4,col:'#4f94cd'},
+    {lbl:'Sun Diameter',val:'1.39 million km',pct:1.2,col:'#ffd700'},
+    {lbl:'Solar System (Pluto orbit)',val:'11.8 billion km',pct:3.5,col:'#c88b3a'},
+    {lbl:'Oort Cloud outer edge',val:'~100,000 AU',pct:7,col:'#7de8e8'},
+    {lbl:'Nearest star (Proxima)',val:'4.24 light-years',pct:13,col:'#bf5fff'},
+    {lbl:'Milky Way diameter',val:'100,000 light-years',pct:28,col:'#ddc8ff'},
+    {lbl:'Local Group',val:'~10 million light-years',pct:48,col:'#00d4ff'},
+    {lbl:'Laniakea Supercluster',val:'520 million light-years',pct:73,col:'#ff2d78'},
+    {lbl:'Observable Universe',val:'93 billion light-years',pct:100,col:'linear-gradient(90deg,#bf5fff,#00d4ff,#ff2d78)'},
+  ];
+  rows.forEach((r,i) => {
+    const div=document.createElement('div');
+    div.className='scale-row';div.style.transitionDelay=`${i*0.07}s`;
+    const isGrad=r.col.includes('gradient');
+    div.innerHTML=`<div class="scale-lbl">${r.lbl}</div><div class="scale-track"><div class="scale-fill" data-pct="${r.pct}" style="background:${r.col};box-shadow:0 0 7px ${isGrad?'rgba(200,100,255,0.5)':r.col}40;"></div></div><div class="scale-val">${r.val}</div>`;
+    wrap.appendChild(div);
+    io.observe(div);
+  });
+
+  const scio=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{if(e.isIntersecting){const f=e.target.querySelector('.scale-fill');if(f){setTimeout(()=>{f.style.width=Math.min(parseFloat(f.dataset.pct),100)+'%';},200);}}});
+  },{threshold:0.1});
+  document.querySelectorAll('.scale-row').forEach(el=>scio.observe(el));
+})();
+
+/* ======== 14. CANVAS VIS OBSERVER ======== */
+const cvio=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('vis');if(e.target.id==='galaxyCanvas'){const m=$('youMarker');if(m)m.style.opacity='1';}}});
+},{threshold:0.25});
+['galaxyCanvas','superclusterCanvas','universeCanvas'].forEach(id=>{const el=$(id);if(el)cvio.observe(el);});
+
+/* ======== 15. LIGHT-YEAR VIZ OBSERVER ======== */
+const lyio=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis');});},{threshold:0.3});
+const lv=$('lyViz');if(lv)lyio.observe(lv);
+
+/* ======== 16. DISTANCE LABEL ======== */
+const distMap=[
+  {id:'hero',dist:'Start'},
+  {id:'sun-sec',dist:'0 AU'},
+  {id:'solar-sec',dist:'0 – 30 AU'},
+  {id:'kuiper-sec',dist:'30 – 100K AU'},
+  {id:'interstellar-sec',dist:'4+ light-yrs'},
+  {id:'mw-sec',dist:'100K light-yrs'},
+  {id:'lg-sec',dist:'10M light-yrs'},
+  {id:'sc-sec',dist:'520M light-yrs'},
+  {id:'scale-sec',dist:'All scales'},
+  {id:'ou-sec',dist:'93B light-yrs'},
+  {id:'tl-sec',dist:'13.8B years'},
+  {id:'closing-sec',dist:'♾'},
+];
+const dl=$('distLabel');
+function updateDist(){
+  const mid=scrollY+innerHeight/2;
+  for(let i=distMap.length-1;i>=0;i--){
+    const el=$(distMap[i].id);
+    if(el&&mid>=el.offsetTop){
+      if(dl.textContent!==distMap[i].dist){dl.style.opacity='0';setTimeout(()=>{dl.textContent=distMap[i].dist;dl.style.opacity='1';},300);}break;
+    }
+  }
+}
+addEventListener('scroll',updateDist);updateDist();
+
+/* ======== 17. SUN WRAP OBSERVER ======== */
+const swio=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis');});},{threshold:0.3});
+const sw=$('sunWrap');if(sw)swio.observe(sw);
+
+/* ======== 18. ORRERY OBSERVER ======== */
+const owio=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis');});},{threshold:0.2});
+const ow=$('orreryWrap');if(ow)owio.observe(ow);
+
+/* ======== 19. CURSOR GLOW ======== */
+const cursorGlow=document.createElement('div');
+cursorGlow.style.cssText='position:fixed;pointer-events:none;z-index:9999;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,0.025) 0%,transparent 70%);transform:translate(-50%,-50%);transition:left 0.12s ease,top 0.12s ease;mix-blend-mode:screen;';
+document.body.appendChild(cursorGlow);
+document.addEventListener('mousemove',e=>{cursorGlow.style.left=e.clientX+'px';cursorGlow.style.top=e.clientY+'px';});
+
+/* ======== INIT ======== */
+dispatchEvent(new Event('scroll'));
+</script>
+</body>
+</html>

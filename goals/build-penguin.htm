@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A two-Reels-a-day operating system for growing Penguin Opposites toward 10x followers without reposting other people's content.">
+  <title>10x Penguin Opposites | Two-Reel Growth System</title>
+  <style>
+    :root {
+      --ink: #f1f6fb;
+      --muted: #9eabba;
+      --soft: #ced9e5;
+      --bg: #091019;
+      --panel: #121d29;
+      --panel-2: #172638;
+      --line: rgba(204, 229, 247, .15);
+      --ice: #a9e8ff;
+      --mint: #9cf0c8;
+      --yellow: #ffe17a;
+      --coral: #ff9f8c;
+      --max: 1160px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 85% 3%, rgba(95, 176, 224, .2), transparent 28rem),
+        radial-gradient(circle at 4% 34%, rgba(79, 151, 134, .12), transparent 25rem),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    a { color: var(--ice); }
+    a:hover { color: #e1f8ff; }
+    .shell { width: min(calc(100% - 40px), var(--max)); margin: 0 auto; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 74px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: .75rem;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    .brand { color: var(--ink); text-decoration: none; font-weight: 850; }
+    .topbar .date { white-space: nowrap; }
+
+    .hero { padding: 76px 0 64px; }
+    .eyebrow, .section-label, .kicker {
+      color: var(--mint);
+      font-size: .71rem;
+      font-weight: 850;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      max-width: 880px;
+      margin: 20px 0 23px;
+      font-size: clamp(3.15rem, 8.5vw, 7.1rem);
+      line-height: .91;
+      letter-spacing: -.085em;
+      font-weight: 900;
+    }
+    .hero-intro {
+      max-width: 740px;
+      color: var(--soft);
+      font-size: clamp(1.1rem, 2vw, 1.38rem);
+      line-height: 1.48;
+    }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, .8fr); gap: 15px; margin-top: 43px; }
+    .hero-card, .panel, .card, .route, .score, .audit-card, .week-card, .source-box {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(145deg, rgba(23, 38, 56, .96), rgba(13, 25, 38, .96));
+    }
+    .hero-card { padding: 27px; }
+    .hero-card.recommendation { border-color: rgba(156, 240, 200, .42); }
+    .hero-card .label { display: block; margin-bottom: 12px; color: var(--mint); font-size: .72rem; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+    .hero-card strong { display: block; max-width: 660px; font-size: clamp(1.35rem, 2.4vw, 1.95rem); line-height: 1.15; letter-spacing: -.035em; }
+    .hero-card p { margin: 15px 0 0; color: var(--muted); }
+    .hero-link { display: inline-block; margin-top: 18px; color: var(--ice); font-size: .82rem; font-weight: 850; text-decoration: none; }
+    .hero-link:hover { text-decoration: underline; }
+    .hero-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; overflow: hidden; border-radius: 18px; background: var(--line); }
+    .metric { padding: 22px; background: var(--panel); }
+    .metric b { display: block; color: var(--yellow); font-size: 1.72rem; line-height: 1; }
+    .metric span { display: block; margin-top: 10px; color: var(--muted); font-size: .8rem; line-height: 1.35; }
+    .access-note { margin-top: 16px; padding: 14px 16px; border: 1px solid rgba(169, 232, 255, .24); border-radius: 12px; color: var(--soft); background: rgba(169, 232, 255, .07); font-size: .82rem; }
+    .access-note b { color: var(--ice); }
+
+    main { padding-bottom: 92px; }
+    section { padding: 64px 0; border-top: 1px solid var(--line); }
+    section:first-of-type { border-top: 0; }
+    .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; margin-bottom: 27px; }
+    h2 { max-width: 720px; margin: 7px 0 0; font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1.01; letter-spacing: -.065em; }
+    h3 { margin-bottom: 9px; font-size: 1.08rem; line-height: 1.18; }
+    .section-lede { max-width: 610px; margin: 16px 0 0; color: var(--soft); font-size: 1.03rem; }
+    .small { color: var(--muted); font-size: .82rem; }
+    .source-note, .notice { color: var(--muted); font-size: .78rem; }
+    .source-note { margin: 14px 0 0; }
+
+    .signal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--line); }
+    .signal { min-height: 158px; padding: 22px; background: var(--panel); }
+    .signal .number { display: block; margin-bottom: 15px; color: var(--yellow); font-size: 2.15rem; font-weight: 850; letter-spacing: -.07em; line-height: 1; }
+    .signal p { margin: 0; color: var(--soft); font-size: .88rem; line-height: 1.4; }
+
+    .formula { display: grid; grid-template-columns: .85fr 1.15fr; gap: 18px; align-items: stretch; }
+    .formula-card { padding: 25px; border: 1px solid rgba(156, 240, 200, .36); border-radius: 18px; background: linear-gradient(145deg, rgba(26, 70, 62, .65), rgba(13, 31, 40, .9)); }
+    .formula-card .equation { display: block; margin: 19px 0; color: var(--ink); font-size: clamp(1.35rem, 2.7vw, 2.1rem); font-weight: 850; line-height: 1.08; letter-spacing: -.05em; }
+    .formula-card p { margin: 0; color: var(--soft); font-size: .9rem; }
+    .funnel { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: funnel; }
+    .funnel li { display: grid; grid-template-columns: 42px 1fr; gap: 12px; align-items: start; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: rgba(18, 29, 41, .82); }
+    .funnel li::before { counter-increment: funnel; content: counter(funnel, decimal-leading-zero); color: var(--ice); font-size: .74rem; font-weight: 850; letter-spacing: .08em; }
+    .funnel b { display: block; margin-bottom: 3px; }
+    .funnel span { color: var(--muted); font-size: .87rem; }
+
+    .engine-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .engine-card { min-height: 245px; padding: 22px; border: 1px solid var(--line); border-top: 3px solid var(--ice); border-radius: 16px; background: rgba(18, 29, 41, .84); }
+    .engine-card:nth-child(2) { border-top-color: var(--mint); }
+    .engine-card:nth-child(3) { border-top-color: var(--yellow); }
+    .engine-card:nth-child(4) { border-top-color: var(--coral); }
+    .engine-card .kicker { display: block; margin-bottom: 17px; color: var(--ice); font-size: .68rem; }
+    .engine-card:nth-child(2) .kicker { color: var(--mint); }
+    .engine-card:nth-child(3) .kicker { color: var(--yellow); }
+    .engine-card:nth-child(4) .kicker { color: var(--coral); }
+    .engine-card p { margin: 0; color: var(--muted); font-size: .88rem; }
+    .engine-card .example { display: block; margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--line); color: var(--soft); font-size: .79rem; line-height: 1.4; }
+
+    .route-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .route { min-height: 206px; padding: 22px; border-top: 3px solid var(--ice); }
+    .route:nth-child(2) { border-top-color: var(--mint); }
+    .route:nth-child(3) { border-top-color: var(--yellow); }
+    .route:nth-child(4) { border-top-color: var(--coral); }
+    .route .kicker { display: block; margin-bottom: 16px; color: var(--ice); font-size: .68rem; }
+    .route:nth-child(2) .kicker { color: var(--mint); }
+    .route:nth-child(3) .kicker { color: var(--yellow); }
+    .route:nth-child(4) .kicker { color: var(--coral); }
+    .route p { margin: 0; color: var(--muted); font-size: .88rem; }
+    .route .gate { display: block; margin-top: 16px; padding-top: 13px; border-top: 1px solid var(--line); color: var(--soft); font-size: .78rem; line-height: 1.35; }
+
+    .week-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .week-card { padding: 22px; }
+    .week-card .day { display: block; margin-bottom: 15px; color: var(--yellow); font-size: .7rem; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
+    .week-card h3 { margin-bottom: 14px; }
+    .reel-pair { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .reel-pair li { display: grid; grid-template-columns: 92px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; line-height: 1.4; }
+    .reel-pair b { color: var(--soft); font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; }
+    .batch-note { margin-top: 16px; padding: 17px 19px; border-left: 3px solid var(--mint); border-radius: 0 14px 14px 0; color: var(--soft); background: rgba(156, 240, 200, .08); font-size: .88rem; }
+    .batch-note b { color: var(--mint); }
+
+    .scoreboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; overflow: hidden; border: 1px solid var(--line); background: var(--line); }
+    .score { min-height: 225px; padding: 22px; border: 0; border-radius: 0; background: var(--panel); }
+    .score .period { display: block; margin-bottom: 17px; color: var(--ice); font-size: .7rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+    .score h3 { font-size: 1rem; }
+    .score ul { margin: 0; padding-left: 17px; color: var(--muted); font-size: .84rem; }
+    .score li + li { margin-top: 7px; }
+    .score .gate { display: block; margin-top: 17px; padding-top: 13px; border-top: 1px solid var(--line); color: var(--yellow); font-size: .75rem; line-height: 1.35; }
+    .kill { margin-top: 16px; padding: 20px; border: 1px solid rgba(255, 159, 140, .28); border-radius: 15px; color: var(--soft); background: rgba(255, 159, 140, .07); font-size: .88rem; }
+    .kill b { color: var(--coral); }
+
+    .profile-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 18px; align-items: start; }
+    .bio-card { padding: 25px; border: 1px solid rgba(169, 232, 255, .34); border-radius: 18px; background: rgba(169, 232, 255, .08); }
+    .bio-card code { display: block; margin: 17px 0; padding: 15px; color: var(--ink); background: rgba(0, 0, 0, .22); border-radius: 11px; font-family: "SFMono-Regular", Consolas, monospace; font-size: .86rem; line-height: 1.5; white-space: pre-wrap; }
+    .bio-card p { margin: 0; color: var(--soft); font-size: .87rem; }
+    .profile-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+    .profile-list li { display: grid; grid-template-columns: 38px 1fr; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(18, 29, 41, .8); }
+    .profile-list li::before { content: "→"; color: var(--mint); font-weight: 850; }
+    .profile-list b { display: block; margin-bottom: 3px; }
+    .profile-list span { color: var(--muted); font-size: .86rem; }
+
+    .benchmark-grid { display: grid; grid-template-columns: .9fr 1.1fr; gap: 18px; align-items: stretch; }
+    .benchmark-card { padding: 25px; border: 1px solid rgba(255, 225, 122, .36); border-radius: 18px; background: linear-gradient(145deg, rgba(81, 67, 31, .52), rgba(35, 31, 24, .9)); }
+    .benchmark-card .kicker { display: block; margin-bottom: 16px; color: var(--yellow); }
+    .benchmark-card p { color: var(--soft); font-size: .9rem; }
+    .benchmark-card p:last-child { margin-bottom: 0; }
+    .estimate-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .estimate { padding: 20px; border: 1px solid var(--line); border-radius: 15px; background: rgba(18, 29, 41, .84); }
+    .estimate .period { display: block; margin-bottom: 14px; color: var(--ice); font-size: .7rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+    .estimate strong { display: block; color: var(--yellow); font-size: 1.65rem; line-height: 1; letter-spacing: -.05em; }
+    .estimate p { margin: 10px 0 0; color: var(--muted); font-size: .83rem; line-height: 1.4; }
+    .estimate b { color: var(--soft); }
+    .benchmark-table { width: 100%; margin-top: 17px; border-collapse: collapse; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: .84rem; }
+    .benchmark-table th, .benchmark-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .benchmark-table tr:last-child td { border-bottom: 0; }
+    .benchmark-table th { width: 29%; color: var(--muted); background: rgba(18, 29, 41, .82); font-weight: 650; }
+    .benchmark-table td { color: var(--soft); background: rgba(9, 16, 25, .52); }
+    .sell-gate { margin-top: 17px; padding: 18px 20px; border-left: 3px solid var(--mint); border-radius: 0 14px 14px 0; color: var(--soft); background: rgba(156, 240, 200, .08); font-size: .88rem; }
+    .sell-gate b { color: var(--mint); }
+
+    .audit-card { padding: 23px; overflow: auto; }
+    .audit-table { width: 100%; min-width: 730px; border-collapse: collapse; font-size: .81rem; }
+    .audit-table th, .audit-table td { padding: 12px 11px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .audit-table th { color: var(--muted); background: rgba(18, 29, 41, .8); font-weight: 650; }
+    .audit-table td { height: 47px; color: var(--soft); background: rgba(9, 16, 25, .55); }
+    .audit-table tr:last-child td { border-bottom: 0; }
+    .audit-tip { margin-top: 15px; color: var(--muted); font-size: .8rem; }
+
+    details { border-top: 1px solid var(--line); }
+    details:last-of-type { border-bottom: 1px solid var(--line); }
+    summary { cursor: pointer; padding: 16px 0; color: var(--ink); font-weight: 750; }
+    .sources { padding: 0 0 18px; color: var(--muted); font-size: .82rem; }
+    .sources ol { margin: 0; padding-left: 20px; }
+    .sources li + li { margin-top: 8px; }
+    footer { padding: 30px 0 60px; color: var(--muted); font-size: .77rem; }
+    footer p { margin: 0; }
+
+    @media (max-width: 900px) {
+      .hero-grid, .formula, .profile-grid, .benchmark-grid { grid-template-columns: 1fr; }
+      .signal-grid, .engine-grid, .scoreboard { grid-template-columns: repeat(2, 1fr); }
+      .score:nth-child(3), .score:nth-child(4) { border-top: 1px solid var(--line); }
+    }
+    @media (max-width: 620px) {
+      .shell { width: min(calc(100% - 28px), var(--max)); }
+      .topbar { align-items: flex-start; flex-direction: column; justify-content: center; gap: 3px; min-height: 76px; }
+      .topbar .date { font-size: .66rem; }
+      .hero { padding: 55px 0 45px; }
+      h1 { font-size: clamp(2.9rem, 16vw, 4.8rem); }
+      section { padding: 47px 0; }
+      .section-head { display: block; }
+      .signal-grid, .engine-grid, .route-grid, .week-grid, .scoreboard, .estimate-grid { grid-template-columns: 1fr; }
+      .signal { min-height: auto; }
+      .signal + .signal, .score + .score { border-top: 1px solid var(--line); }
+      .reel-pair li { grid-template-columns: 80px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="../index.htm">APPS2 / GOALS</a>
+      <span class="date">Growth snapshot · 12 Aug 2026 · Instagram</span>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Goal / Penguin Opposites</div>
+        <h1>Make opposites impossible to scroll past.</h1>
+        <p class="hero-intro">A two-Reels-a-day operating system for turning a penguin account into a recognisable series, a shareable identity and a 10x follower engine.</p>
+
+        <div class="hero-grid">
+          <div class="hero-card recommendation">
+            <span class="label">The recommendation</span>
+            <strong>Publish two different jobs every day: one Reel for discovery, one Reel for conversion.</strong>
+            <p>Use the public profile's Reels as a pattern library: study the hook, tension, edit rhythm and payoff. If you also keep private saves, use them the same way. Rebuild the idea with your own footage, narration, observation or story; never treat reference Reels as a repost library.</p>
+            <a class="hero-link" href="#cadence">Jump to the weekly schedule ↓</a>
+          </div>
+          <div class="hero-metrics" aria-label="Plan at a glance">
+            <div class="metric"><b>02</b><span>Reels published each day</span></div>
+            <div class="metric"><b>14</b><span>Learning shots each week</span></div>
+            <div class="metric"><b>180</b><span>Days to run the 10x experiment</span></div>
+            <div class="metric"><b>1</b><span>Clear promise: penguins prove the opposite</span></div>
+          </div>
+        </div>
+        <div class="access-note"><b>Reference:</b> Open the public <a href="https://www.instagram.com/penguinopposites" target="_blank" rel="noopener">@penguinopposites profile</a> and use its public Reels as the live reference set. Instagram pages can still be login-gated or dynamically loaded for external readers, so the audit sheet below keeps the plan usable even when an automated reader cannot see every Reel.</div>
+      </section>
+
+      <section id="math">
+        <div class="section-head">
+          <div>
+            <div class="section-label">01 / The 10x math</div>
+            <h2>Followers are the output of a funnel, not a posting wish.</h2>
+          </div>
+          <p class="section-lede">A 10x target is ambitious, not guaranteed. The controllable system is to create more qualified non-follower reach, make the profile instantly understandable, and turn curiosity into a follow.</p>
+        </div>
+        <div class="formula">
+          <div class="formula-card">
+            <span class="kicker">Working equation</span>
+            <span class="equation">New followers = reach × profile visits × follow conversion</span>
+            <p>Track the rates for every Reel. If reach rises but follows do not, fix the profile promise. If profile visits are low, fix the hook or the caption. If reach is low, fix the first second and the shareability.</p>
+          </div>
+          <ol class="funnel">
+            <li><div><b>Reach people who do not follow you</b><span>Prioritise a clean original premise, immediate visual contrast and a payoff worth sending to one specific person.</span></div></li>
+            <li><div><b>Earn the profile visit</b><span>Use recurring cover language and a caption that makes the viewer want the next example, not a generic “follow for more.”</span></div></li>
+            <li><div><b>Make the profile pass in five seconds</b><span>Bio, pinned Reels and the latest nine posts should all explain the same Penguin Opposites promise.</span></div></li>
+            <li><div><b>Convert with a series</b><span>People follow when they can predict what they will get next. Number episodes and keep one open loop alive.</span></div></li>
+          </ol>
+        </div>
+        <div class="signal-grid" style="margin-top: 17px;">
+          <div class="signal"><span class="number">2/day</span><p>One discovery Reel plus one relationship Reel. Do not spend both slots on the same edit.</p></div>
+          <div class="signal"><span class="number">7 days</span><p>Enough time to compare a format family without changing every variable at once.</p></div>
+          <div class="signal"><span class="number">3x</span><p>Remake a winning idea three times with new footage or a new angle before retiring it.</p></div>
+          <div class="signal"><span class="number">10x</span><p>Use as a 180-day target and review point, not as a promise made to the algorithm.</p></div>
+        </div>
+      </section>
+
+      <section id="engine">
+        <div class="section-head">
+          <div>
+            <div class="section-label">02 / The creative engine</div>
+            <h2>Own one repeatable contrast.</h2>
+          </div>
+          <p class="section-lede">“Penguin Opposites” gives you a natural editorial device: show what viewers expect, then make the penguin, the science or the human meaning contradict it.</p>
+        </div>
+        <div class="engine-grid">
+          <article class="engine-card"><span class="kicker">Lane 01 / cute · capable</span><h3>Adorable does not mean passive.</h3><p>Start with a cute behaviour, then reveal the surprising adaptation, skill or decision underneath it.</p><span class="example">Hook: “This looks like a waddle. It is actually a survival system.”</span></article>
+          <article class="engine-card"><span class="kicker">Lane 02 / expectation · reality</span><h3>Everyone thinks X. Watch Y.</h3><p>Put the common assumption on screen for one beat, then let the clip or narration overturn it.</p><span class="example">Hook: “You think the fastest penguin wins. The colony rewards something else.”</span></article>
+          <article class="engine-card"><span class="kicker">Lane 03 / tiny · huge</span><h3>A small animal carries a big human truth.</h3><p>Connect a real penguin moment to burnout, loyalty, awkwardness, ambition or friendship without pretending the animal has human motives.</p><span class="example">Hook: “The most relatable workplace lesson is hiding in this penguin line.”</span></article>
+          <article class="engine-card"><span class="kicker">Lane 04 / fact · feeling</span><h3>Give the fact a reason to matter.</h3><p>Pair accurate natural history with an emotional payoff. Cite or verify science in the caption when the claim is specific.</p><span class="example">Hook: “The fact is interesting. The reason people keep sharing it is personal.”</span></article>
+        </div>
+        <div class="batch-note"><b>Originality guardrail:</b> a saved Reel can show you the structure, but do not download and lightly re-caption it. Instagram says unoriginal content may be excluded from recommendations; use your own capture, licensed footage, a meaningful voiceover, or a genuinely new narrative.</div>
+      </section>
+
+      <section id="routes">
+        <div class="section-head">
+          <div>
+            <div class="section-label">03 / Turn saves into formats</div>
+            <h2>Swipe the pattern, not the pixels.</h2>
+          </div>
+          <p class="section-lede">For every saved Reel, extract the mechanism that made it work. Then create a Penguin Opposites version with a distinct hook, source, edit and payoff.</p>
+        </div>
+        <div class="route-grid">
+          <article class="route"><span class="kicker">Step 01 / isolate</span><h3>Write the hook in six words.</h3><p>Ignore the creator’s caption. Describe the first-screen promise: the contradiction, question or visual surprise that stopped you.</p><span class="gate">Output: one sentence beginning “I need to know why…”</span></article>
+          <article class="route"><span class="kicker">Step 02 / translate</span><h3>Map the tension to a penguin.</h3><p>Keep the emotional structure, not the surface subject. Turn “expectation vs reality” into a real behaviour, fact or observation from the penguin world.</p><span class="gate">Output: one verified premise and one visual proof.</span></article>
+          <article class="route"><span class="kicker">Step 03 / rebuild</span><h3>Make the first frame do work.</h3><p>Open on the most legible movement or face. Add one large text line. Avoid an intro, logo animation or context paragraph before the contradiction.</p><span class="gate">Output: 3 first-frame variants for the same idea.</span></article>
+          <article class="route"><span class="kicker">Step 04 / invite</span><h3>Give the share a person.</h3><p>Close with a reason to send: “send this to the friend who…” or a question that creates a real choice. Make the follow promise specific to the next episode.</p><span class="gate">Output: one share CTA and one series CTA.</span></article>
+        </div>
+      </section>
+
+      <section id="cadence">
+        <div class="section-head">
+          <div>
+            <div class="section-label">04 / The two-Reel day</div>
+            <h2>One Reel finds strangers. One makes them stay.</h2>
+          </div>
+          <p class="section-lede">The schedule below creates 14 shots per week without requiring 14 unrelated creative ideas. Each day has a discovery job and a relationship job.</p>
+        </div>
+        <div class="week-grid">
+          <article class="week-card"><span class="day">Monday / contrast</span><h3>Make the account promise obvious.</h3><ul class="reel-pair"><li><b>Reach Reel</b><span>“You thought penguins did X…” — fast contradiction with one visual proof.</span></li><li><b>Series Reel</b><span>Episode 01 of a weekly “Opposite of…” story with a comment prompt.</span></li></ul></article>
+          <article class="week-card"><span class="day">Tuesday / character</span><h3>Give the audience someone to recognise.</h3><ul class="reel-pair"><li><b>Reach Reel</b><span>A distinctive penguin behaviour with a human-readable, accurate caption.</span></li><li><b>Series Reel</b><span>“Meet the opposite” — one recurring character, colony role or personality frame.</span></li></ul></article>
+          <article class="week-card"><span class="day">Wednesday / myth</span><h3>Turn a misconception into a share.</h3><ul class="reel-pair"><li><b>Reach Reel</b><span>Myth on frame one, correction by second three, proof before the final beat.</span></li><li><b>Series Reel</b><span>Reply to a real comment with a new example, not a screenshot of the comment.</span></li></ul></article>
+          <article class="week-card"><span class="day">Thursday / feeling</span><h3>Make the fact emotionally useful.</h3><ul class="reel-pair"><li><b>Reach Reel</b><span>A loopable moment that makes viewers think “that is me” without fake animal dialogue.</span></li><li><b>Series Reel</b><span>Voiceover story: setup, opposite turn, honest takeaway, next-episode tease.</span></li></ul></article>
+          <article class="week-card"><span class="day">Friday / format test</span><h3>Spend one slot on a controlled experiment.</h3><ul class="reel-pair"><li><b>Reach Reel</b><span>Test a new hook or opening shot against the best-performing format family.</span></li><li><b>Series Reel</b><span>Remake the week’s strongest idea with a new source and a different ending.</span></li></ul></article>
+          <article class="week-card"><span class="day">Saturday / community</span><h3>Let the audience choose the next opposite.</h3><ul class="reel-pair"><li><b>Reach Reel</b><span>Two possible interpretations; ask viewers to pick A or B before the reveal.</span></li><li><b>Series Reel</b><span>Use the winning comment to launch the next episode within 48 hours.</span></li></ul></article>
+          <article class="week-card"><span class="day">Sunday / compounding</span><h3>Convert the week’s learning into a repeatable asset.</h3><ul class="reel-pair"><li><b>Reach Reel</b><span>Best hook remake with new footage, not a duplicate upload.</span></li><li><b>Series Reel</b><span>“Three opposites this week” recap with a direct reason to follow next week.</span></li></ul></article>
+        </div>
+        <div class="batch-note"><b>Low-time production rule:</b> batch one theme, seven hooks and seven proof moments. Record voiceovers in one sitting, keep three caption templates, and publish the two daily jobs at separate times. Let Instagram Insights decide timing after two weeks of evidence.</div>
+      </section>
+
+      <section id="workflow">
+        <div class="section-head">
+          <div>
+            <div class="section-label">05 / Fast production</div>
+            <h2>Use templates to protect the creative brain.</h2>
+          </div>
+          <p class="section-lede">A repeatable edit is not repetitive content. Keep the structure familiar while changing the observation, source and emotional turn.</p>
+        </div>
+        <div class="formula">
+          <div class="formula-card">
+            <span class="kicker">Discovery Reel / 8–18 seconds to test</span>
+            <code class="equation">0–1s  CONTRADICTION
+1–5s  VISUAL PROOF
+5–10s TWIST OR LOOP
+LAST  SEND TO ONE PERSON</code>
+            <p>Test the length that produces the strongest completion and shares for your audience. There is no magic duration; the opening must earn the next second.</p>
+          </div>
+          <div class="formula-card">
+            <span class="kicker">Relationship Reel / 15–45 seconds to test</span>
+            <code class="equation">SETUP  “You expect…”
+TURN   “But watch…”
+PAYOFF “That means…”
+NEXT   “Episode __ tomorrow”</code>
+            <p>Use the second slot to establish voice, recurring series and reasons to follow. It can be slower if every line advances the story.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="profile">
+        <div class="section-head">
+          <div>
+            <div class="section-label">06 / Convert the visit</div>
+            <h2>Make the profile explain itself before the viewer leaves.</h2>
+          </div>
+          <p class="section-lede">Reach is wasted when the profile feels like a random animal clip page. The grid should make the next follow feel like an obvious decision.</p>
+        </div>
+        <div class="profile-grid">
+          <div class="bio-card">
+            <span class="kicker">Bio draft</span>
+            <code>Penguins doing the opposite of expected 🐧
+Real behaviour · strange facts · tiny stories
+New opposite twice a day ↓</code>
+            <p>Replace the wording with the account’s real promise. Keep the bio specific enough that a stranger can predict the next Reel.</p>
+          </div>
+          <ul class="profile-list">
+            <li><div><b>Pin three entry-point Reels</b><span>What is Penguin Opposites? What is the funniest or most surprising example? What series should a new person start with?</span></div></li>
+            <li><div><b>Use covers as a menu</b><span>One repeated 2–4 word label per format: EXPECTED, OPPOSITE, FACT, EPISODE. Keep the subject visible.</span></div></li>
+            <li><div><b>Make the follow CTA a contract</b><span>“Follow for tomorrow’s opposite” is stronger than “follow for more” because it names the next reward.</span></div></li>
+            <li><div><b>Check recommendation eligibility</b><span>Use a public professional account and review Account Status; eligibility enables recommendation but does not guarantee distribution.</span></div></li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="sell">
+        <div class="section-head">
+          <div>
+            <div class="section-label">07 / Sell like DCHTOONS</div>
+            <h2>Build the catalogue while you build the audience.</h2>
+          </div>
+          <p class="section-lede">The useful DCHTOONS benchmark is not a magic follower number. It is the sequence: relatable comics, a recognisable body of designs, low-priced impulse products, then keychains, clubs, markets and retail.</p>
+        </div>
+        <div class="benchmark-grid">
+          <div class="benchmark-card">
+            <span class="kicker">What the public case study shows</span>
+            <p><a href="https://dchtoons.com/pages/about" target="_blank" rel="noopener">DCHTOONS says it began in 2021 as a comic account</a> and evolved into a shop and community for sticker and keychain lovers.</p>
+            <p>A 2025 <a href="https://www.sutd.edu.sg/news-listing/making-2k-from-stickers-singapores-gen-z-illustrators-turning-their-bedroom-doodles-into-dollars/" target="_blank" rel="noopener">SUTD case study</a> reports that Dylan posted comics for a year before stickers, started with 40 designs, grew toward almost 200, and saw a daily-video challenge create a major sales and follower inflection.</p>
+            <p><b>Inference:</b> the repeatable asset is not “more posts.” It is a large enough original design library that viewers can recognise, collect and buy the characters.</p>
+          </div>
+          <div>
+            <div class="estimate-grid">
+              <div class="estimate"><span class="period">45 days</span><strong>90 more</strong><p>At 2/day. Enough to find the first winning series and test a small waitlist or preorder.</p></div>
+              <div class="estimate"><span class="period">90 days</span><strong>180 more</strong><p>At 2/day. A serious first product gate: select 10–20 designs from real audience demand.</p></div>
+              <div class="estimate"><span class="period">180 days</span><strong>360 more</strong><p>At 2/day. A stronger evidence base for a small batch, market booth or retail conversation.</p></div>
+            </div>
+            <table class="benchmark-table">
+              <tbody>
+                <tr><th>Exact formula</th><td><b>Posts remaining = target total − your current original Reels.</b> Use 90, 180 or 360 as the target; do not count reposts as brand assets.</td></tr>
+                <tr><th>Product ladder</th><td>Free Reel/comic → low-price sticker or digital pack → keychain/print → bundle or club → market, retail or collaboration.</td></tr>
+                <tr><th>Do not wait for</th><td>10x followers. Test demand as soon as people repeatedly ask for the same character, quote the same joke or vote for the same design.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="sell-gate"><b>My recommendation for Penguin Opposites:</b> make 90 more Reels over 45 days, while creating 10–20 penguin designs from the three best-performing ideas. Open a waitlist or preorder at that point. If the audience converts, make the next 180 Reels around the winners; if it does not, change the product promise before manufacturing inventory.</div>
+      </section>
+
+      <section id="scoreboard">
+        <div class="section-head">
+          <div>
+            <div class="section-label">08 / The 180-day scoreboard</div>
+            <h2>Judge every Reel by the job it was hired to do.</h2>
+          </div>
+          <p class="section-lede">Likes are not the main decision metric. Compare each Reel with the account’s own recent median and look for signals that create discovery or conversion.</p>
+        </div>
+        <div class="scoreboard">
+          <div class="score"><span class="period">Discovery Reel</span><h3>Did strangers stop?</h3><ul><li>Non-follower reach</li><li>Average watch time / completion</li><li>Shares or sends per reach</li></ul><span class="gate">Winner: 2x your recent median on reach quality, not just raw views.</span></div>
+          <div class="score"><span class="period">Relationship Reel</span><h3>Did they understand you?</h3><ul><li>Profile visits</li><li>Comments that name the idea</li><li>Follows per profile visit</li></ul><span class="gate">Winner: people ask for the next episode or quote the series promise.</span></div>
+          <div class="score"><span class="period">Weekly review</span><h3>What gets repeated?</h3><ul><li>Top hook family</li><li>Best proof type</li><li>Best CTA and length range</li></ul><span class="gate">Keep one variable stable and change one variable next week.</span></div>
+          <div class="score"><span class="period">Day 180</span><h3>Did the system compound?</h3><ul><li>Follower multiple vs day one</li><li>Repeatable series with demand</li><li>Owned library of original assets</li></ul><span class="gate">If not 10x, keep the best format and reset the target from evidence.</span></div>
+        </div>
+        <div class="kill"><b>Stop or pivot:</b> if 30–40 Reels produce no format family above your median, do not simply post more. Change the promise, the first-frame contrast, the source quality or the audience. Do not buy followers or engineer fake engagement; it damages the signal you need to learn.</div>
+      </section>
+
+      <section id="audit">
+        <div class="section-head">
+          <div>
+            <div class="section-label">09 / Public-Reel audit</div>
+            <h2>Turn public examples into a weekly research sprint.</h2>
+          </div>
+          <p class="section-lede">Open the public profile and fill one row for the 20 Reels you would most want to learn from. Do not copy the clip; identify the repeatable mechanism.</p>
+        </div>
+        <div class="audit-card">
+          <table class="audit-table">
+            <thead><tr><th>Public Reel</th><th>First-frame hook</th><th>Opposite / tension</th><th>Proof moment</th><th>Payoff + CTA</th><th>Penguin version</th></tr></thead>
+            <tbody>
+              <tr><td>01 / link or creator</td><td></td><td></td><td></td><td></td><td></td></tr>
+              <tr><td>02 / link or creator</td><td></td><td></td><td></td><td></td><td></td></tr>
+              <tr><td>03 / link or creator</td><td></td><td></td><td></td><td></td><td></td></tr>
+              <tr><td>04 / link or creator</td><td></td><td></td><td></td><td></td><td></td></tr>
+              <tr><td>05 / link or creator</td><td></td><td></td><td></td><td></td><td></td></tr>
+            </tbody>
+          </table>
+          <p class="audit-tip">For each row, score hook clarity, shareability, originality opportunity and fit with Penguin Opposites from 1–5. Build next week from the three highest combined scores.</p>
+        </div>
+      </section>
+
+      <section id="sources">
+        <div class="section-head">
+          <div>
+            <div class="section-label">Sources / working notes</div>
+            <h2>Use Instagram’s own dashboard as the feedback loop.</h2>
+          </div>
+          <p class="section-lede">The strategy is a practical hypothesis, not a promise of viral reach. Platform features and eligibility can vary by account, country and rollout.</p>
+        </div>
+        <details open>
+          <summary>Instagram guidance used for this plan</summary>
+          <div class="sources"><ol><li><a href="https://about.fb.com/news/2024/10/best-practices-education-hub-creators-instagram/" target="_blank" rel="noopener">Instagram Best Practices</a> — the Professional Dashboard hub covers creation, engagement, reach, monetisation and guidelines, including personalised tips.</li><li><a href="https://www.facebook.com/help/instagram/653964212890722?locale=en_GB" target="_blank" rel="noopener">Recommendation eligibility</a> — public professional accounts can check whether content may be recommended to non-followers through Account Status; eligibility is not a guarantee.</li><li><a href="https://www.facebook.com/help/instagram/313829416281232?locale=en_GB" target="_blank" rel="noopener">Instagram Recommendations</a> — unoriginal content that is largely repurposed without material value may not be eligible for recommendations, and purchased engagement is against the rules.</li><li><a href="https://about.fb.com/news/2024/12/trial-reels-try-content-non-followers-first-see-what-perfoms-best/" target="_blank" rel="noopener">Trial Reels</a> — eligible creators can test a Reel with non-followers first, review early metrics and choose whether to share it with everyone.</li></ol></div>
+        </details>
+        <details>
+          <summary>Reference account</summary>
+          <div class="sources"><ol><li><a href="https://www.instagram.com/penguinopposites" target="_blank" rel="noopener">Penguin Opposites public profile</a> — use the public Reels, profile promise and visible format patterns as the reference set.</li></ol></div>
+        </details>
+        <details>
+          <summary>DCHTOONS selling benchmark</summary>
+          <div class="sources"><ol><li><a href="https://dchtoons.com/pages/about" target="_blank" rel="noopener">DCHTOONS About</a> — describes the progression from comic account to shop and community for stickers and keychains.</li><li><a href="https://dchtoons.com/" target="_blank" rel="noopener">DCHTOONS shop</a> — current product ladder includes stickers, keychains, sticker club, retail stores and collaborations.</li><li><a href="https://www.sutd.edu.sg/news-listing/making-2k-from-stickers-singapores-gen-z-illustrators-turning-their-bedroom-doodles-into-dollars/" target="_blank" rel="noopener">SUTD / The Straits Times case study</a> — reports the one-year comic runway, 40 initial designs, nearly 200 later, daily-video challenge and sales/follower inflection; these are case-study facts, not a forecast for Penguin Opposites.</li></ol></div>
+        </details>
+      </section>
+    </main>
+
+    <footer><p>Goal page · Grow Penguin Opposites 10x with two original Reels a day · Build a recognisable series, not a repost feed.</p></footer>
+  </div>
+</body>
+</html>

@@ -74,18 +74,31 @@ function Get-MergedRow {
     if ($null -eq $ExistingRow) { return $NewRow }
     if ($null -eq $NewRow) { return $ExistingRow }
 
-    $merged = $NewRow.psobject.copy()
+    # Build a new object with the complete schema.  A scraper row normally
+    # does not contain the UI-only tracking fields, so copying it directly
+    # and assigning $merged.Status/$merged.MyRemarks can fail because those
+    # NoteProperties do not exist yet.
+    $mergedData = [ordered]@{}
+    foreach ($column in $Columns) {
+        $mergedData[$column] = $NewRow.$column
+    }
+    $merged = [PSCustomObject]$mergedData
 
     # Always preserve tracking data from the existing row
     foreach ($field in $trackingFields) {
         $existingVal = $ExistingRow.$field
         if ($existingVal -and -not [string]::IsNullOrWhiteSpace($existingVal)) {
-            if ($field -eq "Status" -and $existingVal -eq "New") {
-                # skip
-            } else {
-                $merged.$field = $existingVal
-            }
+            $merged.$field = $existingVal
         }
+    }
+
+    # Keep the same defaults used for genuinely new rows when an older data
+    # file did not yet have values for the tracking fields.
+    if ([string]::IsNullOrWhiteSpace([string]$merged.Status)) {
+        $merged.Status = "New"
+    }
+    if ($null -eq $merged.MyRemarks) {
+        $merged.MyRemarks = ""
     }
 
     return $merged

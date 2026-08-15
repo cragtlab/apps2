@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A current, practical plan for building, testing and flying profitable satellite and lunar hardware from Singapore.">
+  <title>Build space &amp; lunar hardware in Singapore | Goal</title>
+  <style>
+    :root {
+      --ink: #eef3ff;
+      --muted: #9eacc5;
+      --soft: #c9d4e9;
+      --bg: #07101f;
+      --panel: #0e1a2d;
+      --panel-2: #12223a;
+      --line: rgba(202, 219, 248, .14);
+      --mint: #8cf1c0;
+      --yellow: #f7d774;
+      --coral: #ff9d83;
+      --blue: #93b8ff;
+      --max: 1160px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 83% 4%, rgba(67, 118, 210, .2), transparent 27rem),
+        radial-gradient(circle at 7% 29%, rgba(48, 143, 125, .1), transparent 24rem),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    a { color: var(--mint); }
+    a:hover { color: #d3ffe9; }
+    .shell { width: min(calc(100% - 40px), var(--max)); margin: 0 auto; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 74px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: .78rem;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    .brand { color: var(--ink); text-decoration: none; font-weight: 800; }
+    .topbar .date { white-space: nowrap; }
+
+    .hero { padding: 78px 0 66px; }
+    .eyebrow, .section-label {
+      color: var(--mint);
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .17em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      max-width: 830px;
+      margin-bottom: 24px;
+      font-size: clamp(3.1rem, 8vw, 6.8rem);
+      line-height: .95;
+      letter-spacing: -.075em;
+      font-weight: 850;
+    }
+    .hero-intro {
+      max-width: 720px;
+      color: var(--soft);
+      font-size: clamp(1.12rem, 2vw, 1.4rem);
+      line-height: 1.5;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(280px, .75fr);
+      gap: 18px;
+      margin-top: 48px;
+    }
+    .hero-card, .panel, .card, .quote, .timeline-step, .scoreboard {
+      border: 1px solid var(--line);
+      background: linear-gradient(145deg, rgba(18, 34, 58, .96), rgba(10, 23, 41, .96));
+      border-radius: 18px;
+    }
+    .hero-card { padding: 28px; }
+    .hero-card.recommendation { border-color: rgba(140, 241, 192, .45); }
+    .hero-card .label { display: block; margin-bottom: 12px; color: var(--mint); font-size: .74rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .hero-card strong { display: block; max-width: 650px; font-size: clamp(1.35rem, 2.5vw, 2rem); line-height: 1.16; letter-spacing: -.035em; }
+    .hero-card p { margin: 16px 0 0; color: var(--muted); }
+    .hero-link { display: inline-block; margin-top: 19px; color: var(--mint); font-size: .82rem; font-weight: 800; letter-spacing: .04em; text-decoration: none; }
+    .hero-link:hover { text-decoration: underline; }
+    .hero-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; overflow: hidden; border-radius: 18px; background: var(--line); }
+    .metric { padding: 23px; background: var(--panel); }
+    .metric b { display: block; color: var(--yellow); font-size: 1.65rem; line-height: 1; }
+    .metric span { display: block; margin-top: 10px; color: var(--muted); font-size: .82rem; line-height: 1.35; }
+
+    main { padding-bottom: 100px; }
+    section { padding: 66px 0; border-top: 1px solid var(--line); }
+    section:first-of-type { border-top: 0; }
+    .section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; margin-bottom: 28px; }
+    h2 { max-width: 700px; margin: 7px 0 0; color: var(--ink); font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1.02; letter-spacing: -.06em; }
+    h3 { margin-bottom: 9px; font-size: 1.08rem; line-height: 1.2; }
+    .section-lede { max-width: 610px; margin: 18px 0 0; color: var(--soft); font-size: 1.06rem; }
+    .small { color: var(--muted); font-size: .85rem; }
+    .roadmap-section { padding-top: 78px; }
+    .roadmap-section .section-head { margin-bottom: 42px; }
+    .roadmap-callout { display: grid; grid-template-columns: .9fr 1.1fr; gap: 18px; align-items: center; margin-bottom: 28px; padding: 25px 28px; border: 1px solid rgba(140, 241, 192, .38); border-radius: 18px; background: linear-gradient(110deg, rgba(31, 83, 70, .58), rgba(15, 32, 49, .92)); }
+    .roadmap-callout strong { display: block; color: var(--mint); font-size: 1.25rem; line-height: 1.16; }
+    .roadmap-callout p { margin: 0; color: var(--soft); font-size: .94rem; }
+    .sprint-label { margin: 34px 0 13px; color: var(--yellow); font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .sprint-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .sprint-card { padding: 23px; border: 1px solid var(--line); border-top: 3px solid var(--mint); border-radius: 16px; background: rgba(14, 26, 45, .88); }
+    .sprint-card:nth-child(2) { border-top-color: var(--blue); }
+    .sprint-card:nth-child(3) { border-top-color: var(--yellow); }
+    .sprint-card .month { display: block; margin-bottom: 18px; color: var(--mint); font-size: .73rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .sprint-card:nth-child(2) .month { color: var(--blue); }
+    .sprint-card:nth-child(3) .month { color: var(--yellow); }
+    .sprint-card h3 { margin-bottom: 16px; }
+    .week-list { margin: 0; padding: 0; list-style: none; }
+    .week-list li { display: grid; grid-template-columns: 48px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .86rem; line-height: 1.4; }
+    .week-list li b { color: var(--soft); font-size: .75rem; letter-spacing: .04em; }
+    .deliverable { margin-top: 17px; padding: 13px 14px; border-radius: 10px; color: var(--soft); background: rgba(147, 184, 255, .08); font-size: .82rem; line-height: 1.35; }
+    .deliverable b { display: block; margin-bottom: 4px; color: var(--blue); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; }
+    .gate-large { display: grid; grid-template-columns: auto 1fr; gap: 17px; align-items: center; margin-top: 18px; padding: 18px 20px; border: 1px solid rgba(247, 215, 116, .34); border-radius: 14px; background: rgba(247, 215, 116, .07); }
+    .gate-large b { color: var(--yellow); font-size: .73rem; letter-spacing: .12em; text-transform: uppercase; }
+    .gate-large span { color: var(--soft); font-size: .9rem; }
+    .full-roadmap { margin-top: 58px; }
+    .full-roadmap h3 { margin-bottom: 15px; color: var(--soft); font-size: 1rem; letter-spacing: .02em; }
+    .full-roadmap .timeline-step { min-height: 300px; }
+
+    .signal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--line); }
+    .signal { min-height: 160px; padding: 23px; background: var(--panel); }
+    .signal .number { display: block; margin-bottom: 17px; color: var(--yellow); font-size: 2.2rem; font-weight: 800; letter-spacing: -.06em; line-height: 1; }
+    .signal p { margin: 0; color: var(--soft); font-size: .92rem; line-height: 1.35; }
+    .source-note { margin: 15px 0 0; color: var(--muted); font-size: .78rem; }
+
+    .thesis { display: grid; grid-template-columns: .8fr 1.2fr; gap: 52px; align-items: start; }
+    .thesis-copy { color: var(--soft); font-size: 1.22rem; line-height: 1.48; }
+    .thesis-copy strong { color: var(--ink); }
+    .decision-path { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; counter-reset: path; }
+    .decision-path li { display: grid; grid-template-columns: 42px 1fr; gap: 13px; align-items: start; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: rgba(14, 26, 45, .76); }
+    .decision-path li::before { counter-increment: path; content: counter(path, decimal-leading-zero); color: var(--mint); font-size: .75rem; font-weight: 800; letter-spacing: .08em; }
+    .decision-path b { display: block; margin-bottom: 4px; }
+    .decision-path span { color: var(--muted); font-size: .9rem; }
+
+    .product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .card { padding: 22px; }
+    .card .icon { display: inline-grid; place-items: center; width: 30px; height: 30px; margin-bottom: 17px; border: 1px solid rgba(140, 241, 192, .4); border-radius: 9px; color: var(--mint); font-size: .75rem; font-weight: 800; }
+    .card p { margin: 0; color: var(--muted); font-size: .9rem; }
+    .product-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+    .diagram { overflow: auto; margin: 0; padding: 24px; border: 1px solid rgba(147, 184, 255, .28); border-radius: 18px; color: var(--blue); background: #091525; font-family: "SFMono-Regular", Consolas, monospace; font-size: .82rem; line-height: 1.55; }
+    .assumption { padding: 24px; border-left: 3px solid var(--yellow); border-radius: 0 14px 14px 0; background: rgba(247, 215, 116, .08); }
+    .assumption h3 { color: var(--yellow); }
+    .assumption p { margin: 0; color: var(--soft); font-size: .93rem; }
+    .spec-table, .economics-table { width: 100%; margin-top: 18px; border-collapse: collapse; border: 1px solid var(--line); overflow: hidden; border-radius: 14px; font-size: .9rem; }
+    .spec-table th, .spec-table td, .economics-table th, .economics-table td { padding: 13px 15px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .spec-table tr:last-child td, .economics-table tr:last-child td { border-bottom: 0; }
+    .spec-table th, .economics-table th { width: 28%; color: var(--muted); background: rgba(14, 26, 45, .8); font-weight: 600; }
+    .spec-table td, .economics-table td { color: var(--soft); background: rgba(9, 21, 37, .75); }
+
+    .timeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+    .timeline-step { position: relative; min-height: 260px; padding: 21px; }
+    .timeline-step::after { position: absolute; top: 34px; right: -16px; z-index: 2; content: "→"; color: var(--mint); font-size: 1.2rem; }
+    .timeline-step:last-child::after { display: none; }
+    .timeline-step .period { display: block; margin-bottom: 25px; color: var(--mint); font-size: .73rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .timeline-step p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.42; }
+    .gate { display: block; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--yellow); font-size: .77rem; line-height: 1.3; }
+    .build-split { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px; }
+    .build-list { margin: 0; padding: 0; list-style: none; }
+    .build-list li { padding: 13px 0 13px 25px; border-bottom: 1px solid var(--line); color: var(--soft); font-size: .93rem; position: relative; }
+    .build-list li::before { content: "+"; position: absolute; left: 0; color: var(--mint); font-weight: 800; }
+    .build-list li:last-child { border-bottom: 0; }
+
+    .route-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .route, .test-card { padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(14, 26, 45, .84); }
+    .route { min-height: 250px; border-top: 3px solid var(--mint); }
+    .route:nth-child(2) { border-top-color: var(--blue); }
+    .route:nth-child(3) { border-top-color: var(--yellow); }
+    .route:nth-child(4) { border-top-color: var(--coral); }
+    .route-kicker { display: block; margin-bottom: 17px; color: var(--mint); font-size: .7rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    .route:nth-child(2) .route-kicker { color: var(--blue); }
+    .route:nth-child(3) .route-kicker { color: var(--yellow); }
+    .route:nth-child(4) .route-kicker { color: var(--coral); }
+    .route h3 { margin-bottom: 12px; }
+    .route p { margin: 0; color: var(--muted); font-size: .88rem; }
+    .route-gate { display: block; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--soft); font-size: .78rem; line-height: 1.35; }
+    .test-ladder { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 18px; }
+    .test-card { min-height: 190px; }
+    .test-card .test-number { display: block; margin-bottom: 19px; color: var(--yellow); font-size: 1.7rem; font-weight: 800; letter-spacing: -.06em; line-height: 1; }
+    .test-card h3 { margin-bottom: 9px; font-size: 1rem; }
+    .test-card p { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.42; }
+    .test-note { margin-top: 18px; padding: 18px 20px; border-left: 3px solid var(--blue); border-radius: 0 14px 14px 0; color: var(--soft); background: rgba(147, 184, 255, .08); font-size: .9rem; }
+    .test-note b { color: var(--blue); }
+
+    .revenue-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .revenue-card { padding: 25px; border-radius: 16px; background: var(--panel-2); border: 1px solid var(--line); }
+    .revenue-card .tier { color: var(--coral); font-size: .74rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    .revenue-card h3 { margin-top: 16px; }
+    .revenue-card p { margin: 0; color: var(--muted); font-size: .9rem; }
+    .revenue-card .price { display: block; margin: 19px 0 8px; color: var(--ink); font-size: 1.25rem; font-weight: 750; }
+    .economics-note { margin-top: 18px; padding: 18px 20px; border: 1px solid rgba(255, 157, 131, .32); border-radius: 14px; color: var(--soft); background: rgba(255, 157, 131, .07); font-size: .9rem; }
+    .economics-note b { color: var(--coral); }
+
+    .customer-grid { display: grid; grid-template-columns: .7fr 1.3fr; gap: 30px; align-items: start; }
+    .customer-copy { color: var(--soft); font-size: 1.1rem; }
+    .customer-copy p { margin-bottom: 18px; }
+    .buyer-list { display: grid; gap: 10px; }
+    .buyer { display: grid; grid-template-columns: 1fr 1.4fr; gap: 18px; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: rgba(14, 26, 45, .72); }
+    .buyer b { color: var(--ink); font-size: .93rem; }
+    .buyer span { color: var(--muted); font-size: .87rem; }
+
+    .program-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .program { padding: 22px; border-top: 3px solid var(--blue); border-radius: 14px; background: rgba(14, 26, 45, .8); }
+    .program:nth-child(2) { border-color: var(--mint); }
+    .program:nth-child(3) { border-color: var(--yellow); }
+    .program b { display: block; margin-bottom: 7px; }
+    .program p { margin: 0; color: var(--muted); font-size: .88rem; }
+    .compliance { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+    .compliance .card { padding: 21px; }
+    .compliance .card h3 { color: var(--yellow); }
+    .compliance .card p { margin: 0; color: var(--muted); font-size: .88rem; }
+    .notice { margin-top: 18px; color: var(--muted); font-size: .8rem; }
+
+    .moon-branch { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .moon-panel { padding: 27px; border-radius: 18px; }
+    .moon-panel.go { border: 1px solid rgba(140, 241, 192, .4); background: linear-gradient(145deg, rgba(29, 67, 63, .75), rgba(11, 33, 43, .85)); }
+    .moon-panel.no { border: 1px solid rgba(255, 157, 131, .28); background: rgba(78, 33, 38, .25); }
+    .moon-panel h3 { font-size: 1.3rem; }
+    .moon-panel p { color: var(--soft); font-size: .94rem; }
+    .moon-panel ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: .89rem; }
+    .moon-panel li + li { margin-top: 8px; }
+
+    .scoreboard { display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; background: var(--line); }
+    .score { min-height: 210px; padding: 22px; background: var(--panel); }
+    .score + .score { border-left: 1px solid var(--line); }
+    .score .period { display: block; margin-bottom: 18px; color: var(--mint); font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .score h3 { font-size: 1rem; }
+    .score ul { margin: 0; padding-left: 17px; color: var(--muted); font-size: .86rem; }
+    .score li + li { margin-top: 7px; }
+    .kill { margin-top: 17px; padding: 22px; border: 1px solid rgba(247, 215, 116, .3); border-radius: 16px; background: rgba(247, 215, 116, .06); }
+    .kill h3 { color: var(--yellow); }
+    .kill p { max-width: 850px; margin-bottom: 0; color: var(--soft); font-size: .92rem; }
+
+    details { border-top: 1px solid var(--line); }
+    details:last-of-type { border-bottom: 1px solid var(--line); }
+    summary { cursor: pointer; padding: 16px 0; color: var(--ink); font-weight: 700; }
+    .sources { padding: 0 0 18px; color: var(--muted); font-size: .84rem; }
+    .sources ol { margin: 0; padding-left: 20px; }
+    .sources li + li { margin-top: 8px; }
+    footer { padding: 30px 0 60px; color: var(--muted); font-size: .78rem; }
+    footer p { margin: 0; }
+
+    @media (max-width: 900px) {
+      .hero-grid, .thesis, .customer-grid, .product-layout, .moon-branch { grid-template-columns: 1fr; }
+      .roadmap-callout { grid-template-columns: 1fr; }
+      .signal-grid, .route-grid, .test-ladder { grid-template-columns: repeat(2, 1fr); }
+      .timeline { grid-template-columns: repeat(2, 1fr); }
+      .timeline-step::after { display: none; }
+      .scoreboard { grid-template-columns: repeat(2, 1fr); }
+      .score:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
+      .score:nth-child(4) { border-top: 1px solid var(--line); }
+    }
+    @media (max-width: 620px) {
+      .shell { width: min(calc(100% - 28px), var(--max)); }
+      .topbar { align-items: flex-start; flex-direction: column; justify-content: center; gap: 3px; min-height: 76px; }
+      .topbar .date { font-size: .67rem; }
+      .hero { padding: 57px 0 46px; }
+      h1 { font-size: clamp(2.9rem, 16vw, 4.8rem); }
+      section { padding: 48px 0; }
+      .section-head { display: block; }
+      .signal-grid, .product-grid, .revenue-grid, .build-split, .program-grid, .compliance, .sprint-grid, .timeline, .scoreboard, .route-grid, .test-ladder { grid-template-columns: 1fr; }
+      .signal { min-height: auto; }
+      .signal + .signal { border-top: 1px solid var(--line); }
+      .score + .score, .score:nth-child(3), .score:nth-child(4) { border-left: 0; border-top: 1px solid var(--line); }
+      .buyer { grid-template-columns: 1fr; gap: 5px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="../index.htm">APPS2 / GOALS</a>
+      <span class="date">Strategy snapshot · 11 Aug 2026 · Singapore</span>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Goal / space hardware</div>
+        <h1>Build the part of a spacecraft that pays for itself.</h1>
+        <p class="hero-intro">A Singapore-first plan for a company that can sell to satellites now, earn space heritage next, and make a credible lunar variant later.</p>
+
+        <div class="hero-grid">
+          <div class="hero-card recommendation">
+            <span class="label">The recommendation</span>
+            <strong>Start with a rugged avionics + power/thermal controller for small satellites and lunar payloads.</strong>
+            <p>Keep the high-value work in Singapore: requirements, electronics, firmware, autonomy, qualification evidence and customer integration. Buy launch access and specialist test capacity from partners. The first product should be a subsystem, not a rocket, lander or entire constellation.</p>
+            <a class="hero-link" href="#timeline">Jump to the 12-week plan ↓</a>
+          </div>
+          <div class="hero-metrics" aria-label="Plan at a glance">
+            <div class="metric"><b>01</b><span>Reusable product wedge</span></div>
+            <div class="metric"><b>03</b><span>Revenue layers: NRE, units, support</span></div>
+            <div class="metric"><b>12</b><span>Weeks to the first go/pivot gate</span></div>
+            <div class="metric"><b>SG</b><span>Design and business base</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="why-now">
+        <div class="section-head">
+          <div>
+            <div class="section-label">01 / Why this can work</div>
+            <h2>Singapore is a good base for the valuable middle of the stack.</h2>
+          </div>
+          <p class="section-lede">The opportunity is not “put a Singapore flag on a moonshot.” It is using Singapore’s engineering, finance, logistics and regional customer access to turn a difficult subsystem into a repeatable export product.</p>
+        </div>
+          <div class="signal-grid">
+          <div class="signal"><span class="number">70+</span><p>Space companies are active across Singapore’s value chain, according to NSAS.</p></div>
+          <div class="signal"><span class="number">2,000</span><p>Professionals and researchers are counted in the local space ecosystem.</p></div>
+          <div class="signal"><span class="number">S$210m</span><p>Government funding set aside since 2022 through the Space Technology Development Programme.</p></div>
+          <div class="signal"><span class="number">US$2.6b</span><p>Maximum combined value of NASA CLPS contracts through November 2028—not a guarantee of accessible revenue.</p></div>
+        </div>
+        <p class="source-note">The first two signals come from NSAS’s ecosystem page; the S$210m figure is from the current STDP/NSAS pages; the last is NASA’s current CLPS contract ceiling. The practical implication is a real but competitive market for proven components.</p>
+      </section>
+
+      <section id="thesis">
+        <div class="thesis">
+          <div class="thesis-copy">
+            <div class="section-label">The business thesis</div>
+            <p><strong>Sell reliability evidence, not just hardware.</strong> A flight customer is buying a component, a qualification plan, test data, documentation, delivery confidence and someone who will answer the phone during a mission.</p>
+            <p>Use Earth and LEO customers to pay for the learning curve. Treat the Moon as a premium qualification branch, not as the only market.</p>
+          </div>
+          <ol class="decision-path">
+            <li><div><b>Find a painful interface</b><span>Talk to satellite and payload integrators before freezing a board, connector or enclosure.</span></div></li>
+            <li><div><b>Build one modular core</b><span>Keep the power, compute, telemetry and fault-management architecture common across LEO and lunar variants.</span></div></li>
+            <li><div><b>Charge for the work</b><span>Fund engineering through paid studies and non-recurring engineering (NRE), then sell units and mission support.</span></div></li>
+            <li><div><b>Earn heritage in steps</b><span>Terrestrial demo → LEO technology demonstration → lunar payload integration.</span></div></li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="product">
+        <div class="section-head">
+          <div>
+            <div class="section-label">02 / The first product</div>
+            <h2>ORBIT-MOON: a modular payload controller.</h2>
+          </div>
+          <p class="section-lede">Working name only. The product is a flight-like controller that powers, monitors and autonomously protects a customer’s sensor, experiment, communications payload or rover subsystem.</p>
+        </div>
+        <div class="product-grid">
+          <article class="card"><span class="icon">P</span><h3>Power conditioning</h3><p>Accept a customer-defined spacecraft bus input, create protected rails, measure current/voltage, and shut down a failed load without taking the mission with it.</p></article>
+          <article class="card"><span class="icon">C</span><h3>Edge compute</h3><p>Run filtering, compression, event detection or autonomy locally so customers can downlink useful results instead of every raw byte.</p></article>
+          <article class="card"><span class="icon">I/O</span><h3>Payload interface</h3><p>Offer a small, documented set of robust interfaces—such as CAN-FD, RS-422 and SpaceWire where the mission requires it—rather than an everything-board.</p></article>
+          <article class="card"><span class="icon">T</span><h3>Thermal + mechanical</h3><p>Give the customer a defined mounting pattern, heat path, harness, mass properties and thermal model. Integration friction is part of the product.</p></article>
+          <article class="card"><span class="icon">F</span><h3>Fault management</h3><p>Use watchdogs, ECC memory where appropriate, brown-out handling, safe modes, command authentication and a clear fault-log format.</p></article>
+          <article class="card"><span class="icon">V</span><h3>Verification pack</h3><p>Ship the test procedure, raw data, calibration records, configuration baseline and known limitations with every flight unit.</p></article>
+        </div>
+
+        <div class="product-layout">
+          <pre class="diagram" aria-label="Product block diagram">SPACECRAFT BUS
+       │ protected power + telemetry
+       ▼
+┌────────────────────────────┐
+│  ORBIT-MOON CORE            │
+│  power │ compute │ FDIR     │
+│  time  │ secure boot        │
+└─────────────┬──────────────┘
+              │ deterministic payload I/O
+              ▼
+     SENSOR / EXPERIMENT / ROVER
+              │
+              ▼
+     health data + mission results
+     → customer flight computer / ground</pre>
+          <div>
+            <div class="assumption">
+              <h3>Version 0 design targets</h3>
+              <p>Use these only to start customer conversations: 6U/12U-compatible envelope, roughly 15–30 W average and 50 W peak, 2–4 kg total module, redundant load switching, and a firmware interface that can be reused across missions. The actual bus voltage, radiation tolerance, connector, thermal limits and interface standards must be set by a signed customer requirement.</p>
+            </div>
+            <table class="spec-table">
+              <tbody>
+                <tr><th>Buyers pay for</th><td>Lower integration time, better fault isolation, a faster payload path and evidence that survives design review.</td></tr>
+                <tr><th>Do not promise yet</th><td>“Moon qualified” or “radiation proof.” Publish the mission envelope and the tests actually completed.</td></tr>
+                <tr><th>Commercial moat</th><td>Reference designs plus flight data, test automation, component knowledge and customer-specific adapters.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="routes">
+        <div class="section-head">
+          <div>
+            <div class="section-label">Build / test routes</div>
+            <h2>There are four sensible ways to get to space.</h2>
+          </div>
+          <p class="section-lede">Choose the cheapest route that creates evidence a customer can buy. You do not need to own a launch vehicle, a satellite constellation or a lunar lander to become a space company.</p>
+        </div>
+        <div class="route-grid">
+          <article class="route"><span class="route-kicker">Route A / space-enabled now</span><h3>Sell the data outcome first.</h3><p>Build an Earth-observation, maritime or logistics product using existing satellite data and a terrestrial or airborne pilot. This proves the workflow and customer value before you manufacture flight hardware.</p><span class="route-gate">Proof: paid pilot, repeatable data pipeline, measurable decision or cost improvement.</span></article>
+          <article class="route"><span class="route-kicker">Route B / component supplier</span><h3>Build a subsystem for an integrator.</h3><p>Make the controller, power stage, payload interface or software tool. Use a customer-owned mission and partner labs for specialist environmental testing; keep your reusable IP and verification pack.</p><span class="route-gate">Proof: signed ICD, engineering model, test report, customer NRE or purchase order.</span></article>
+          <article class="route"><span class="route-kicker">Route C / technology demo</span><h3>Fly a hosted payload or rideshare.</h3><p>After the bench and environmental evidence, take a small experiment through NSAS’s Space Access Programme or a university/industry payload partner. Treat the first flight as a controlled technology demonstration.</p><span class="route-gate">Proof: accepted payload interface, mission funding, operations rehearsal and usable flight data.</span></article>
+          <article class="route"><span class="route-kicker">Route D / lunar later</span><h3>Join a lunar payload team.</h3><p>Adapt a LEO-proven core for a named lander, rover or payload integrator. NASA CLPS is a useful demand signal, but its current provider pool is American companies; a Singapore supplier should enter through partners.</p><span class="route-gate">Proof: lunar ICD, funded qualification plan and a customer who owns the mission opportunity.</span></article>
+        </div>
+        <div class="section-head" style="margin-top: 52px; margin-bottom: 0;">
+          <div>
+            <div class="section-label">Verification ladder</div>
+            <h3>Test the same failure modes at increasing fidelity.</h3>
+          </div>
+          <p class="section-lede">Write the requirements and verification matrix before buying expensive test time. Tailor the levels to the mission and customer ICD.</p>
+        </div>
+        <div class="test-ladder">
+          <article class="test-card"><span class="test-number">01</span><h3>Model</h3><p>Requirements, interfaces, FMEA, power/thermal model, software unit tests and software-in-the-loop fault cases.</p></article>
+          <article class="test-card"><span class="test-number">02</span><h3>Bench</h3><p>Engineering model, payload emulator, programmable supply, current/temperature logging, command loss and brown-out injection.</p></article>
+          <article class="test-card"><span class="test-number">03</span><h3>Representative</h3><p>Flight-like harness and enclosure, realistic mounting, thermal margins, long-duration soak, EMI pre-scan and repeatability run.</p></article>
+          <article class="test-card"><span class="test-number">04</span><h3>Environmental</h3><p>Partner-lab thermal-vacuum/bakeout, vibration or shock, EMI/EMC and functional retest, with calibrated data and witnessed configuration.</p></article>
+          <article class="test-card"><span class="test-number">05</span><h3>Flight</h3><p>Acceptance test, end-to-end operations rehearsal, launch-site procedures, telemetry monitoring, anomaly response and post-flight report.</p></article>
+        </div>
+        <div class="test-note"><b>Build/test rule:</b> make one test article sacrificial for abuse and keep one clean article for the next step. Test “as you fly” when possible, but do not call a bench demo flight-qualified; NASA’s active GEVS baseline is a useful reference for tailoring environmental verification.</div>
+      </section>
+
+      <section id="timeline" class="roadmap-section">
+        <div class="section-head">
+          <div>
+            <div class="section-label">03 / The operating roadmap</div>
+            <h2>The first 12 weeks decide whether the next 12 months are worth funding.</h2>
+          </div>
+          <p class="section-lede">This is the working sequence: customer evidence first, a useful demo second, a paid commitment third. Hardware work begins only after the problem and interface are specific enough to fund.</p>
+        </div>
+
+        <div class="roadmap-callout">
+          <strong>Near-term objective: become customer-backed by day 90.</strong>
+          <p>By the end of month three, you are not trying to have a flight board. You are trying to have one signed requirements baseline, one paid study, a demo that exposes the integration pain, and a credible quote for the next phase.</p>
+        </div>
+
+        <div class="sprint-label">The first 12 weeks / actions and outputs</div>
+        <div class="sprint-grid">
+          <article class="sprint-card">
+            <span class="month">Month 01 / discover</span>
+            <h3>Choose the painful interface.</h3>
+            <ul class="week-list">
+              <li><b>W1</b><span>Assign one owner for customer discovery and one for systems engineering. Build a list of 20 satellite, payload and Earth-observation accounts. Write a 30-minute interview script.</span></li>
+              <li><b>W2</b><span>Complete five interviews. Ask what failed, what was delayed, which interface is bespoke, and what evidence is needed at the next design review. Do not pitch a finished board.</span></li>
+              <li><b>W3</b><span>Complete five more interviews and two technical reviews. Sketch three wedges: power protection, edge compute, or payload I/O. Record the buyer, mission, budget owner and deadline for each.</span></li>
+              <li><b>W4</b><span>Score the wedges on pain, repeatability, testability in Singapore, export complexity and time to paid pilot. Select one customer problem and one fallback dual-use market.</span></li>
+            </ul>
+            <div class="deliverable"><b>Deliverables</b>20-account list · interview notes · wedge scorecard · one-page problem brief · named design partner</div>
+          </article>
+          <article class="sprint-card">
+            <span class="month">Month 02 / prove value</span>
+            <h3>Make the smallest useful demo.</h3>
+            <ul class="week-list">
+              <li><b>W5</b><span>Turn the problem brief into a one-page offer: customer input, failure mode, demo promise, timeline and price. Ask the design partner to sign a paid feasibility study.</span></li>
+              <li><b>W6</b><span>Assemble a bench kit from development hardware: payload emulator, protected power path, thermal sensors, fault injection and a simple operations dashboard. Label what is not flight hardware.</span></li>
+              <li><b>W7</b><span>Run the demo with the customer. Inject brown-outs, bad telemetry, sensor faults and command loss. Measure recovery time, useful data returned and engineering hours saved.</span></li>
+              <li><b>W8</b><span>Run a second demo or repeatability test. Convert the findings into a draft interface-control document, risk register and NRE quote. Contact an environmental-test partner for budgetary pricing.</span></li>
+            </ul>
+            <div class="deliverable"><b>Deliverables</b>working evaluation kit · recorded failure logs · draft ICD · risk register · paid-study proposal</div>
+          </article>
+          <article class="sprint-card">
+            <span class="month">Month 03 / commit</span>
+            <h3>Earn the right to build the EM.</h3>
+            <ul class="week-list">
+              <li><b>W9</b><span>Freeze the v0 product boundary: supported bus input, interfaces, mass/power envelope, software API, test evidence and explicit exclusions. Get supplier quotes for the long-lead parts.</span></li>
+              <li><b>W10</b><span>Review the requirements with the design partner. Ask for a letter of intent or paid NRE, a target mission window and a named technical approver. Start an export-control classification review.</span></li>
+              <li><b>W11</b><span>Build the 6–9 month plan: engineering model, test sequence, staffing, cash milestones, external labs and space-access route. Discuss the project with NSAS/STDP using the customer case.</span></li>
+              <li><b>W12</b><span>Hold the investment gate. Sign the requirements baseline and paid study, or pivot the wedge. Only then release the engineering-model BOM and begin detailed PCB/mechanical design.</span></li>
+            </ul>
+            <div class="deliverable"><b>Deliverables</b>signed requirements baseline · NRE quote · supplier plan · test budget · grant/partner brief · go/pivot decision</div>
+          </article>
+        </div>
+        <div class="gate-large"><b>Day-90 gate</b><span>Go only if a real customer has accepted the problem, paid or committed to the study, and agreed to the interface review. If not, keep the demo assets and pivot before adding flight-grade cost.</span></div>
+
+        <div class="full-roadmap">
+          <h3>Full 24-month path / what the first 90 days unlock</h3>
+          <div class="timeline">
+            <article class="timeline-step"><span class="period">Months 0–3</span><h3>Sell the problem</h3><p>Run discovery, prove the integration pain with a bench demo, secure a paid study and sign the first requirements baseline.</p><span class="gate">Exit: customer-backed EM scope.</span></article>
+            <article class="timeline-step"><span class="period">Months 4–7</span><h3>Make the demo</h3><p>Build the engineering model, automate fault injection, lock the software API and demonstrate measurable value to the design partner.</p><span class="gate">Exit: customer can test the value in one afternoon.</span></article>
+            <article class="timeline-step"><span class="period">Months 8–12</span><h3>Qualify the core</h3><p>Run pre-compliance EMI/EMC, vibration, thermal-vacuum and end-to-end communications tests with a partner lab.</p><span class="gate">Exit: paid flight or LEO technology-demonstration slot.</span></article>
+            <article class="timeline-step"><span class="period">Months 13–18</span><h3>Earn heritage</h3><p>Fly the simplest useful version. Log every reset, thermal excursion, command and recovery, then publish the customer-facing qualification report.</p><span class="gate">Exit: repeatable results and a second customer order.</span></article>
+            <article class="timeline-step"><span class="period">Months 19–24</span><h3>Open the Moon branch</h3><p>Adapt power, thermal, radiation, dust and communications assumptions for a named lunar payload partner and funded mission.</p><span class="gate">Exit: signed lunar ICD + funded qualification.</span></article>
+          </div>
+        </div>
+
+        <div class="build-split">
+          <div class="panel card">
+            <h3>Keep the brain local</h3>
+            <ul class="build-list">
+              <li>Systems engineering, requirements, architecture and configuration control</li>
+              <li>PCB, firmware, FPGA/compute, autonomy and test automation</li>
+              <li>Mechanical/thermal design, harness drawings and integration</li>
+              <li>Customer support, IP ownership, documentation and export classification</li>
+              <li>Regional sales to satellite, maritime, aviation and geospatial customers</li>
+            </ul>
+          </div>
+          <div class="panel card">
+            <h3>Rent the expensive edge cases</h3>
+            <ul class="build-list">
+              <li>Launch, rideshare, lunar lander and payload-integration services</li>
+              <li>Radiation testing, thermal-vacuum, vibration and specialist EMC capacity until volume justifies ownership</li>
+              <li>Flight-rated or rad-tolerant parts with long-lead and second-source planning</li>
+              <li>High-reliability assembly and environmental test witnessing when customers require it</li>
+              <li>Mission insurance and legal advice for spacecraft ownership or operation</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="economics">
+        <div class="section-head">
+          <div>
+            <div class="section-label">04 / Make it profitable</div>
+            <h2>Charge first for engineering. Scale later on units and software.</h2>
+          </div>
+          <p class="section-lede">The cash-flow trap is funding qualification for free and hoping unit volume appears. Every custom request should either become reusable IP or be paid for by the customer.</p>
+        </div>
+        <div class="revenue-grid">
+          <article class="revenue-card"><span class="tier">Layer 01 / NRE</span><h3>Mission study + adaptation</h3><p>Requirements, interface definition, architecture, analysis, prototype and qualification plan.</p><span class="price">Planning range: S$50k–S$800k</span><p>Use a small paid study to qualify the buyer before accepting a larger NRE contract.</p></article>
+          <article class="revenue-card"><span class="tier">Layer 02 / hardware</span><h3>Engineering + flight units</h3><p>Sell the module, adapters, spares, acceptance test and documentation. Keep the core standard and price the interface changes separately.</p><span class="price">Planning range: S$180k–S$350k / unit</span><p>These are internal planning ranges, not quoted market prices.</p></article>
+          <article class="revenue-card"><span class="tier">Layer 03 / mission support</span><h3>Health data + support</h3><p>Configuration control, firmware updates, ground-tool licences, mission analysis and fleet health reporting.</p><span class="price">Planning range: S$24k–S$60k / year</span><p>Support and software can become the highest-margin layer after the first flight.</p></article>
+        </div>
+        <table class="economics-table">
+          <tbody>
+            <tr><th>Illustrative first pilot</th><td>S$500k NRE + two units at S$240k each = S$980k contract value.</td></tr>
+            <tr><th>Illustrative delivery math</th><td>If hardware direct cost is 45% of unit revenue and NRE delivery cost is S$280k, contribution before company overhead is about S$484k. Replace every assumption with supplier quotes and payroll before raising money.</td></tr>
+            <tr><th>Healthy sales shape</th><td>Three design partners, at least one paid flight opportunity, and a path to six or more repeat units a year before adding a large factory or lab.</td></tr>
+            <tr><th>Cash rule</th><td>Milestone-bill NRE; take a deposit for long-lead components; keep customer-owned mission customisation out of the standard product cost.</td></tr>
+          </tbody>
+        </table>
+        <div class="economics-note"><b>Profit test:</b> if a customer will not pay for a requirements study, will not name the flight opportunity, or cannot explain who owns the integration risk, do not finance the project with your own balance sheet.</div>
+      </section>
+
+      <section id="customers">
+        <div class="customer-grid">
+          <div class="customer-copy">
+            <div class="section-label">05 / Find the buyers</div>
+            <h2>Sell to the integrator who is already late.</h2>
+            <p>Do not begin with a broad “space market” slide. Pick one payload class and one integration pain. Your first customer should be able to tell you exactly what review, test or launch milestone your product helps them pass.</p>
+            <p class="small">The strongest wedge is a dual-use controller: it helps satellite customers in LEO and can later be adapted for lunar payloads.</p>
+          </div>
+          <div class="buyer-list">
+            <div class="buyer"><b>Small-satellite OEM / mission integrator</b><span>Needs a repeatable payload interface, power protection and less bespoke firmware. Offer an evaluation kit and a paid interface study.</span></div>
+            <div class="buyer"><b>Lunar lander or payload supplier</b><span>Needs a low-mass controller with evidence, telemetry and fault recovery. Offer the LEO-proven core plus a mission-specific lunar qualification plan.</span></div>
+            <div class="buyer"><b>Earth-observation / maritime operator</b><span>Needs more useful data per pass and lower ground-processing cost. Offer edge detection/compression with a terrestrial or airborne pilot before flight.</span></div>
+            <div class="buyer"><b>Research institute / university payload team</b><span>Needs an accessible flight path and engineering support. Offer a standard development kit, paid integration and a path into the NSAS Space Access Programme.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="singapore">
+        <div class="section-head">
+          <div>
+            <div class="section-label">06 / Use the Singapore stack</div>
+            <h2>Map each milestone to the right programme.</h2>
+          </div>
+          <p class="section-lede">Singapore’s current space support is structured around capability development, validation and space access. Apply with a customer and a delivery plan, not with a vague moon ambition.</p>
+        </div>
+        <div class="program-grid">
+          <article class="program"><b>STDP · Technology Development</b><p>For a technology that addresses a business or national need and has a clear path to delivery. A customer-backed controller is a better fit than open-ended research.</p></article>
+          <article class="program"><b>STDP · Validation &amp; Experimentation</b><p>For a shorter feasibility, rapid-prototyping or concept-validation project. Use this to test the payload interface and prove a buyer’s operational value.</p></article>
+          <article class="program"><b>STDP · Space Access Programme</b><p>For testing technology in space to achieve space heritage. The official examples include advanced materials, solar cells, edge computing and payload testing.</p></article>
+        </div>
+        <div class="roadmap-callout"><strong>Latest partnership signal: NSAS–JAXA MOC, 6 July 2026.</strong><p>The cooperation memorandum is intended to deepen peaceful space collaboration and create a hub for research, development and economic cooperation involving companies and universities. Treat it as a partnership door to explore, not as an automatic flight slot.</p></div>
+        <div class="compliance">
+          <article class="card"><h3>Before a flight</h3><p>Contact NSAS early. The public May 2024 guideline requests registration of applicable space objects at least 30 days before planned launch, including for Singapore entities that develop, launch, own or operate a space object. Its form still carries OSTIn language, so confirm the current NSAS process in writing.</p></article>
+          <article class="card"><h3>If you operate a satellite network</h3><p>IMDA says a licence for use of a satellite orbital slot is needed if you plan to launch and operate a satellite network requiring an orbital slot. A component supplier may not need that licence, but the customer’s ownership and operating model still matters.</p></article>
+          <article class="card"><h3>Export and technical data</h3><p>Classify the hardware, firmware and technical data before sending them overseas. Singapore Customs controls strategic goods and related technology, including intangible transfer; individual permits are generally needed before controlled shipments and ITT permits before controlled technology transmission.</p></article>
+          <article class="card"><h3>Quality and liability</h3><p>Build a quality system, configuration control and supplier traceability early. Space guidelines point to ISO 14620, ISO 24113 and international debris/sustainability practices; get legal advice on liability, launch contracts, insurance and customer country rules.</p></article>
+        </div>
+        <p class="notice">This is a commercial planning page, not legal, export-control, grant or engineering certification advice. Ask NSAS, IMDA, Singapore Customs and a qualified lawyer or mission assurance lead for a product-specific determination.</p>
+      </section>
+
+      <section id="moon">
+        <div class="section-head">
+          <div>
+            <div class="section-label">07 / The Moon branch</div>
+            <h2>Moon is a product variant, not a starting slogan.</h2>
+          </div>
+          <p class="section-lede">Lunar missions are attractive because they create premium demand for mass, power and reliability. They are also unforgiving. NASA’s current CLPS page lists 13 eligible American companies and 17 lunar deliveries to five vendors, so a Singapore supplier should plan to enter through a payload or integration partner.</p>
+        </div>
+        <div class="moon-branch">
+          <div class="moon-panel go"><h3>Go lunar when you have:</h3><ul><li>A named lander, rover or payload integrator and a real interface document.</li><li>LEO or equivalent flight evidence for the common electronics and fault-management core.</li><li>A funded test plan covering thermal-vacuum, radiation, vibration/shock, contamination and lunar communications/power assumptions.</li><li>A customer willing to pay for the lunar adaptation and accept a clear qualification boundary.</li></ul></div>
+          <div class="moon-panel no"><h3>Do not start by building:</h3><ul><li>A launch vehicle, lunar lander or full rover.</li><li>A one-off science instrument with no repeatable bus interface.</li><li>A custom cleanroom or radiation lab before utilisation is contracted.</li><li>A claim that a commercial part is lunar-ready because it worked on a benchtop.</li></ul></div>
+        </div>
+      </section>
+
+      <section id="scoreboard">
+        <div class="section-head">
+          <div>
+            <div class="section-label">08 / The 24-month scoreboard</div>
+            <h2>Measure paid evidence, not excitement.</h2>
+          </div>
+          <p class="section-lede">Every phase ends with something a customer, grant reviewer or mission integrator can inspect.</p>
+        </div>
+        <div class="scoreboard">
+          <div class="score"><span class="period">0–3 months</span><h3>Customer proof</h3><ul><li>20 interviews</li><li>2 paid studies</li><li>1 signed requirements baseline</li></ul></div>
+          <div class="score"><span class="period">4–9 months</span><h3>Engineering proof</h3><ul><li>Working demo</li><li>Pre-compliance test data</li><li>Flight or pilot LOI</li></ul></div>
+          <div class="score"><span class="period">10–15 months</span><h3>Market proof</h3><ul><li>EM delivered</li><li>1 paid flight opportunity</li><li>Second customer pipeline</li></ul></div>
+          <div class="score"><span class="period">16–24 months</span><h3>Heritage proof</h3><ul><li>Flight data</li><li>Qualification report</li><li>Funded lunar adaptation</li></ul></div>
+        </div>
+        <div class="kill"><h3>Kill or pivot if the evidence is missing</h3><p>Stop the lunar branch if no integrator will sign an interface, no one will pay NRE, the qualification cost is larger than the reachable order book, or the product requires a different custom architecture for every customer. Pivot the same compute/power/fault-management core to Earth-observation, maritime, aviation or industrial autonomy.</p></div>
+      </section>
+
+      <section id="sources">
+        <div class="section-head">
+          <div>
+            <div class="section-label">Sources / working notes</div>
+            <h2>Use the official pages as the next checklist.</h2>
+          </div>
+          <p class="section-lede">Facts and programme references below were checked on 11 Aug 2026. Commercial prices and technical targets above are planning assumptions to validate against a customer, supplier quotes and a mission-specific verification plan.</p>
+        </div>
+        <details open>
+          <summary>Singapore space ecosystem and support</summary>
+          <div class="sources"><ol><li><a href="https://www.space.gov.sg/" target="_blank" rel="noopener">National Space Agency of Singapore (NSAS)</a> — established 1 April 2026 and now carrying the former OSTIn mandate; its homepage lists the 6 July 2026 JAXA cooperation memorandum as current news.</li><li><a href="https://www.space.gov.sg/singapore-space-ecosystem/singapore-space-ecosystem/" target="_blank" rel="noopener">NSAS Singapore Space Ecosystem</a> — current ecosystem count: about 70 companies and around 2,000 professionals and researchers.</li><li><a href="https://www.space.gov.sg/programmes/stdp/" target="_blank" rel="noopener">NSAS Space Technology Development Programme</a> — current page updated 2 July 2026; S$210m secured as of 2025, three funding archetypes, and foreign entities asked to seek local partners.</li><li><a href="https://www.jaxa.jp/projects/int/topics_j.html" target="_blank" rel="noopener">JAXA–NSAS cooperation memorandum</a> — signed 6 July 2026 to strengthen peaceful space cooperation and collaboration involving industry and universities.</li></ol></div>
+        </details>
+        <details>
+          <summary>Lunar demand and mission access</summary>
+          <div class="sources"><ol><li><a href="https://www.nasa.gov/commercial-lunar-payload-services/" target="_blank" rel="noopener">NASA Commercial Lunar Payload Services</a> — current provider pool, deliveries and combined contract ceiling through November 2028.</li></ol></div>
+        </details>
+        <details>
+          <summary>Build and verification references</summary>
+          <div class="sources"><ol><li><a href="https://standards.nasa.gov/standard/gsfc/gsfc-std-7000" target="_blank" rel="noopener">NASA GSFC-STD-7000B General Environmental Verification Standard</a> — active guidance for tailoring environmental verification of payloads, subsystems and components.</li><li><a href="https://www.nasa.gov/wp-content/uploads/2017/03/nasa_csli_cubesat_101_508.pdf" target="_blank" rel="noopener">NASA CubeSat 101</a> — practical first-time developer guidance, including thermal-vacuum/bakeout and launch documentation.</li></ol></div>
+        </details>
+        <details>
+          <summary>Singapore compliance starting points</summary>
+          <div class="sources"><ol><li><a href="https://www.space.gov.sg/files/2024_05_Guidelines_for_Singapore_related_Space_Activities.pdf" target="_blank" rel="noopener">Guidelines for Singapore-related Space Activities</a> — registration, sustainability and responsibility guidance.</li><li><a href="https://iris.imda.gov.sg/application/licence-for-the-use-of-satellite-orbital-slot" target="_blank" rel="noopener">IMDA Licence for the Use of Satellite Orbital Slot</a> — relevant if the company owns and operates a satellite network requiring an orbital slot.</li><li><a href="https://www.customs.gov.sg/permits-and-licences/trade-controls-and-prohibitions/strategic-goods-control/permit-and-registration-requirements/permit-and-registration-requirements-overview/" target="_blank" rel="noopener">Singapore Customs Strategic Goods permit overview</a> — controlled goods, technology and intangible-transfer requirements.</li></ol></div>
+        </details>
+      </section>
+    </main>
+
+    <footer><p>Goal page · Build space and lunar hardware in Singapore profitably · Keep the product narrow, the evidence public, and the customer paid.</p></footer>
+  </div>
+</body>
+</html>

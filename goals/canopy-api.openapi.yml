@@ -1,0 +1,442 @@
+openapi: 3.1.0
+info:
+  title: Canopy Local Workflow API
+  version: 0.1.0
+  description: >-
+    Development-only contract for the Canopy Singapore partner-led veterinary
+    oncology workflow. Synthetic data only. No authentication, production
+    persistence, sequencing, treatment prediction, manufacturing or veterinary
+    care is provided by this prototype.
+servers:
+  - url: http://127.0.0.1:8787
+    description: Loopback development server
+paths:
+  /api/health:
+    get:
+      summary: Check local service status
+      responses:
+        '200':
+          description: Health response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /api/cases:
+    get:
+      summary: List synthetic case records
+      responses:
+        '200':
+          description: Case list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cases, count]
+                properties:
+                  cases:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Case'
+                  count:
+                    type: integer
+    post:
+      summary: Create a synthetic case record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewCase'
+      responses:
+        '201':
+          description: Created case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '400':
+          description: Missing fields or explicit consent
+  /api/cases/{caseId}:
+    parameters:
+      - $ref: '#/components/parameters/CaseId'
+    get:
+      summary: Get one synthetic case
+      responses:
+        '200':
+          description: Case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '404':
+          description: Case not found
+  /api/cases/{caseId}/sample:
+    post:
+      summary: Record a synthetic sample receipt checkpoint
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      responses:
+        '200':
+          description: Updated case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+  /api/cases/{caseId}/advance:
+    post:
+      summary: Advance a synthetic workflow state
+      parameters:
+        - $ref: '#/components/parameters/CaseId'
+      responses:
+        '200':
+          description: Updated case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '409':
+          description: Workflow cannot advance
+  /api/readiness:
+    get:
+      summary: List investor-readiness evidence items
+      responses:
+        '200':
+          description: Readiness list
+  /api/readiness/{index}:
+    patch:
+      summary: Update a readiness item in local development
+      parameters:
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ready]
+              properties:
+                ready:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated readiness item
+  /api/targets:
+    get:
+      summary: List investor and partner target routes
+      responses:
+        '200':
+          description: Target list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [targets, count]
+                properties:
+                  targets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Target'
+                  count:
+                    type: integer
+  /api/targets/{targetId}:
+    patch:
+      summary: Update a local target-preparation status
+      parameters:
+        - $ref: '#/components/parameters/TargetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdate'
+      responses:
+        '200':
+          description: Updated target
+  /api/technology:
+    get:
+      summary: List technology readiness requirements
+      responses:
+        '200':
+          description: Technology list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [technology, count]
+                properties:
+                  technology:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Technology'
+                  count:
+                    type: integer
+  /api/technology/{technologyId}:
+    patch:
+      summary: Update a local technology evidence status
+      parameters:
+        - $ref: '#/components/parameters/TechnologyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdate'
+      responses:
+        '200':
+          description: Updated technology item
+  /api/milestones:
+    get:
+      summary: List one-year go/stop milestones
+      responses:
+        '200':
+          description: Milestone list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [startedAt, milestones, count, decision]
+                properties:
+                  startedAt: { type: string, format: date-time }
+                  milestones: { type: array, items: { type: object } }
+                  count: { type: integer }
+                  decision: { $ref: '#/components/schemas/Decision' }
+  /api/milestones/{milestoneId}:
+    patch:
+      summary: Update a local milestone status
+      parameters:
+        - $ref: '#/components/parameters/MilestoneId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdate'
+      responses:
+        '200':
+          description: Updated milestone
+  /api/decision:
+    get:
+      summary: Compute the year-one go/stop decision state
+      responses:
+        '200':
+          description: Current deadline and stop-review state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Decision'
+  /api/actions:
+    get:
+      summary: List first-30-day founder evidence actions
+      responses:
+        '200':
+          description: Local execution action board
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [startedAt, actions, count]
+                properties:
+                  startedAt: { type: string, format: date-time }
+                  actions: { type: array, items: { $ref: '#/components/schemas/Action' } }
+                  count: { type: integer }
+  /api/actions/{actionId}:
+    patch:
+      summary: Update a local founder action status
+      parameters:
+        - name: actionId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusUpdate'
+      responses:
+        '200':
+          description: Updated local action
+  /api/investor-snapshot:
+    get:
+      summary: Export a case-free diligence summary
+      responses:
+        '200':
+          description: Redacted snapshot
+  /api/reset:
+    post:
+      summary: Reset local synthetic state
+      responses:
+        '200':
+          description: Reset complete
+  /pilot-brief:
+    get:
+      summary: Serve the regulator-informed pilot brief
+      responses:
+        '200':
+          description: Markdown document
+  /partner-rfp:
+    get:
+      summary: Serve partner RFP packets
+      responses:
+        '200':
+          description: Markdown document
+  /readiness-pack:
+    get:
+      summary: Serve company/IP/data-room readiness checklist
+      responses:
+        '200':
+          description: Markdown document
+  /founder-sprint:
+    get:
+      summary: Serve first-30-day founder evidence sprint
+      responses:
+        '200':
+          description: Markdown document
+components:
+  parameters:
+    CaseId:
+      name: caseId
+      in: path
+      required: true
+      schema: { type: string }
+    TargetId:
+      name: targetId
+      in: path
+      required: true
+      schema: { type: string }
+    TechnologyId:
+      name: technologyId
+      in: path
+      required: true
+      schema: { type: string }
+    MilestoneId:
+      name: milestoneId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    Health:
+      type: object
+      required: [ok, service, mode, storage, clinicalUse]
+      properties:
+        ok: { type: boolean }
+        service: { type: string }
+        mode: { type: string }
+        storage: { type: string }
+        clinicalUse: { type: boolean, const: false }
+    NewCase:
+      type: object
+      required: [name, breed, cancer, clinic, consent]
+      properties:
+        name: { type: string, maxLength: 80 }
+        breed: { type: string, maxLength: 100 }
+        cancer: { type: string, maxLength: 160 }
+        stage: { type: string, maxLength: 80 }
+        clinic: { type: string, maxLength: 160 }
+        priority: { type: string, enum: [High, Medium, Low] }
+        context: { type: string, maxLength: 1000, description: Synthetic context only }
+        consent: { type: boolean, const: true }
+    Case:
+      type: object
+      required: [id, name, breed, cancer, clinic, step, consent, sample, events]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        breed: { type: string }
+        cancer: { type: string }
+        stage: { type: string }
+        clinic: { type: string }
+        priority: { type: string }
+        step: { type: integer, minimum: 0, maximum: 6 }
+        consent: { type: boolean }
+        sample: { type: object }
+        candidates: { type: array, items: { type: object } }
+        events: { type: array, items: { type: object } }
+    StatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+        note: { type: string, maxLength: 800 }
+    Technology:
+      type: object
+      required: [id, area, owner, status, proof]
+      properties:
+        id: { type: string }
+        area: { type: string }
+        owner: { type: string }
+        status: { type: string }
+        proof: { type: string }
+        note: { type: string }
+        updated: { type: string, format: date-time }
+        history: { type: array, items: { type: object } }
+        partnerCandidates:
+          type: array
+          description: Public capability routes for conversation only; not approvals or commitments.
+          items:
+            $ref: '#/components/schemas/PartnerCandidate'
+    PartnerCandidate:
+      type: object
+      required: [name, role, officialRoute, evidence, boundary]
+      properties:
+        name: { type: string }
+        role: { type: string }
+        officialRoute: { type: string, format: uri }
+        evidence: { type: string }
+        boundary: { type: string }
+    Target:
+      type: object
+      required: [id, name, kind, status, priority, deskScore, ask, nextAction, dueMonth, evidenceRequired, url]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string }
+        status: { type: string }
+        priority: { type: string, enum: [P1, P2, P3] }
+        deskScore: { type: integer, minimum: 0, maximum: 9, description: Public-source planning score, not probability of funding or partnership. }
+        ask: { type: string }
+        fit: { type: string }
+        routeEvidence: { type: string }
+        evidenceUrl: { type: string, format: uri }
+        fitBoundary: { type: string }
+        evidenceRequired: { type: array, items: { type: string } }
+        nextAction: { type: string }
+        dueMonth: { type: integer, minimum: 1, maximum: 12 }
+        dueDate: { type: string, format: date-time }
+        url: { type: string, format: uri }
+        note: { type: string }
+        updated: { type: string, format: date-time }
+        history: { type: array, items: { type: object } }
+    Decision:
+      type: object
+      required: [evaluatedAt, status, stopReasons, overdue, nextGate, met, total, hardGates]
+      properties:
+        evaluatedAt: { type: string, format: date-time }
+        status: { type: string, enum: ["ON TRACK / EVIDENCE PENDING", "OVERDUE / STOP REVIEW", "STOP / PIVOT", "GO / SCALE REVIEW"] }
+        stopReasons: { type: array, items: { type: string } }
+        overdue: { type: array, items: { type: object } }
+        nextGate: { type: object, nullable: true }
+        met: { type: integer }
+        total: { type: integer }
+        hardGates: { type: integer }
+    Action:
+      type: object
+      required: [id, dueDays, title, category, owner, gate, dueDate, status, requiredOutput, instruction]
+      properties:
+        id: { type: string }
+        dueDays: { type: integer, minimum: 0, maximum: 366 }
+        title: { type: string }
+        category: { type: string }
+        owner: { type: string }
+        gate: { type: string }
+        dueDate: { type: string, format: date-time }
+        status: { type: string, enum: [Open, In progress, Waiting on external, Done, Blocked, Stop] }
+        requiredOutput: { type: string }
+        instruction: { type: string }
+        note: { type: string }
+        updated: { type: string, format: date-time }
+        history: { type: array, items: { type: object } }

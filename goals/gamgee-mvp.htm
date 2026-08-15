@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <title>Canopy — personalised canine oncology workflow MVP</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: #0c1b2d;
+      --panel-2: #10243a;
+      --ink: #f5f8fb;
+      --muted: #aab9cc;
+      --dim: #7f91a9;
+      --line: rgba(191, 218, 242, .15);
+      --cyan: #6ee7f7;
+      --green: #7ef0b3;
+      --amber: #ffd38a;
+      --red: #ff9c9c;
+      --purple: #cbb8ff;
+      --shadow: 0 18px 60px rgba(0,0,0,.2);
+    }
+    * { box-sizing: border-box; }
+    html { color-scheme: dark; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--ink); background:
+        radial-gradient(circle at 0 0, rgba(25, 112, 152, .28), transparent 31rem),
+        radial-gradient(circle at 100% 10%, rgba(93, 53, 142, .24), transparent 30rem), var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.48;
+    }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .shell { min-height: 100vh; display: grid; grid-template-columns: 238px 1fr; }
+    .sidebar { position: sticky; top: 0; align-self: start; min-height: 100vh; padding: 24px 16px; border-right: 1px solid var(--line); background: rgba(5, 14, 25, .76); backdrop-filter: blur(15px); }
+    .logo { display: flex; align-items: center; gap: 10px; padding: 4px 10px 26px; color: var(--ink); font-size: 1.1rem; font-weight: 900; letter-spacing: -.04em; }
+    .logo-mark { display: grid; place-items: center; width: 30px; height: 30px; color: #051520; border-radius: 10px; background: linear-gradient(135deg, var(--cyan), var(--green)); font-size: .82rem; }
+    .logo em { color: var(--cyan); font-style: normal; }
+    .nav-label { padding: 0 10px 8px; color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-size: .65rem; font-weight: 800; }
+    .nav { display: grid; gap: 4px; }
+    .nav button { width: 100%; padding: 11px 12px; color: var(--muted); border: 1px solid transparent; border-radius: 10px; background: transparent; text-align: left; }
+    .nav button:hover, .nav button.active { color: var(--ink); border-color: var(--line); background: rgba(255,255,255,.06); }
+    .nav button.active { box-shadow: inset 3px 0 0 var(--cyan); }
+    .sidebar-note { margin: 32px 8px 0; padding: 13px; border: 1px solid var(--line); border-radius: 12px; color: var(--dim); background: rgba(255,255,255,.035); font-size: .75rem; }
+    .sidebar-note strong { display: block; margin-bottom: 6px; color: var(--amber); font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; }
+    .main { min-width: 0; padding: 28px clamp(18px, 4vw, 56px) 80px; }
+    .topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 28px; }
+    .breadcrumb { color: var(--dim); font-size: .8rem; }
+    .breadcrumb b { color: var(--ink); }
+    .top-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 13px; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.045); font-size: .82rem; font-weight: 750; }
+    .btn:hover { border-color: rgba(110,231,247,.5); background: rgba(110,231,247,.08); }
+    .btn.primary { color: #031520; border-color: var(--cyan); background: var(--cyan); }
+    .btn.primary:hover { background: #a7f3fc; }
+    .btn.green { color: #051b12; border-color: var(--green); background: var(--green); }
+    .btn.danger { color: var(--red); border-color: rgba(255,156,156,.35); }
+    .btn.small { min-height: 31px; padding: 0 9px; font-size: .74rem; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .hero { display: flex; justify-content: space-between; align-items: end; gap: 22px; margin-bottom: 26px; }
+    .eyebrow { color: var(--cyan); text-transform: uppercase; letter-spacing: .14em; font-size: .68rem; font-weight: 850; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2, h3 { line-height: 1.1; letter-spacing: -.04em; }
+    h1 { margin-bottom: 10px; font-size: clamp(2rem, 4vw, 3.55rem); }
+    h2 { margin-bottom: 8px; font-size: 1.55rem; }
+    h3 { margin-bottom: 8px; font-size: 1.02rem; }
+    .hero p { max-width: 650px; margin-bottom: 0; color: var(--muted); }
+    .hero-badge { flex: 0 0 auto; padding: 12px 14px; border: 1px solid rgba(126,240,179,.28); border-radius: 13px; color: var(--green); background: rgba(126,240,179,.07); text-align: right; font-size: .75rem; }
+    .hero-badge b { display: block; color: var(--ink); font-size: 1.1rem; }
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .metric, .card { border: 1px solid var(--line); border-radius: 15px; background: linear-gradient(145deg, rgba(16,36,58,.91), rgba(10,24,40,.87)); box-shadow: var(--shadow); }
+    .metric { padding: 18px; }
+    .metric-label { color: var(--dim); text-transform: uppercase; letter-spacing: .1em; font-size: .65rem; font-weight: 800; }
+    .metric-value { margin-top: 6px; color: var(--cyan); font-size: 2rem; font-weight: 900; letter-spacing: -.07em; }
+    .metric-note { color: var(--muted); font-size: .75rem; }
+    .layout-2 { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(285px, .65fr); gap: 15px; }
+    .layout-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .card { padding: 20px; }
+    .card.flat { box-shadow: none; }
+    .card p { color: var(--muted); }
+    .card-header { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 15px; }
+    .card-header p { margin: 0; font-size: .78rem; }
+    .status { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 5px 8px; border: 1px solid rgba(110,231,247,.25); border-radius: 999px; color: var(--cyan); background: rgba(110,231,247,.07); font-size: .7rem; font-weight: 800; }
+    .status.green { color: var(--green); border-color: rgba(126,240,179,.25); background: rgba(126,240,179,.07); }
+    .status.amber { color: var(--amber); border-color: rgba(255,211,138,.25); background: rgba(255,211,138,.07); }
+    .status.red { color: var(--red); border-color: rgba(255,156,156,.25); background: rgba(255,156,156,.07); }
+    .case-list { display: grid; gap: 9px; }
+    .case-row { display: grid; grid-template-columns: minmax(140px, .9fr) 1.1fr auto; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.035); }
+    .case-row:hover { border-color: rgba(110,231,247,.35); }
+    .case-name { color: var(--ink); font-weight: 800; }
+    .case-meta { color: var(--dim); font-size: .75rem; }
+    .case-next { color: var(--muted); font-size: .78rem; }
+    .empty { padding: 26px 10px; color: var(--dim); text-align: center; }
+    .checklist { display: grid; gap: 10px; }
+    .check { display: flex; justify-content: space-between; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
+    .check:last-child { padding-bottom: 0; border-bottom: 0; }
+    .tick { color: var(--green); font-weight: 900; }
+    .pending { color: var(--amber); font-weight: 800; }
+    .section-title { display: flex; justify-content: space-between; align-items: end; gap: 15px; margin: 28px 0 13px; }
+    .section-title p { margin: 0; color: var(--dim); font-size: .8rem; }
+    .progress { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.08); }
+    .progress > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--green)); }
+    .stage-row { display: flex; justify-content: space-between; gap: 5px; margin-top: 12px; }
+    .stage { flex: 1; color: var(--dim); text-align: center; font-size: .63rem; }
+    .stage.done { color: var(--green); }
+    .stage.current { color: var(--cyan); font-weight: 850; }
+    .stage-dot { width: 10px; height: 10px; margin: 0 auto 6px; border: 2px solid currentColor; border-radius: 50%; }
+    .stage.done .stage-dot { background: currentColor; }
+    form { display: grid; gap: 15px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+    label { display: grid; gap: 6px; color: var(--muted); font-size: .78rem; font-weight: 700; }
+    input, select, textarea { width: 100%; padding: 11px 12px; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; outline: none; background: rgba(3,12,22,.65); }
+    input:focus, select:focus, textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(110,231,247,.1); }
+    textarea { min-height: 90px; resize: vertical; }
+    .required::after { content: " *"; color: var(--red); }
+    .consent { display: flex; grid-template-columns: none; align-items: start; grid-template-columns: auto 1fr; gap: 9px; padding: 12px; border: 1px solid rgba(255,211,138,.22); border-radius: 10px; background: rgba(255,211,138,.05); }
+    .consent input { width: auto; margin-top: 3px; }
+    .consent span { color: var(--muted); font-size: .76rem; }
+    .form-note { color: var(--dim); font-size: .75rem; }
+    .detail-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 15px; margin-bottom: 18px; }
+    .detail-header p { margin-bottom: 0; color: var(--muted); }
+    .action-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .detail-grid { display: grid; grid-template-columns: minmax(0, 1.28fr) minmax(285px, .72fr); gap: 14px; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .info { padding: 11px 12px; border-radius: 10px; background: rgba(255,255,255,.035); }
+    .info-label { color: var(--dim); font-size: .67rem; text-transform: uppercase; letter-spacing: .09em; }
+    .info-value { margin-top: 3px; color: var(--ink); font-size: .86rem; font-weight: 700; }
+    .event-list { display: grid; gap: 0; }
+    .event { display: grid; grid-template-columns: 90px 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+    .event:last-child { border-bottom: 0; }
+    .event time { color: var(--dim); font-size: .7rem; }
+    .event p { margin: 0; color: var(--muted); font-size: .78rem; }
+    .candidate-list { display: grid; gap: 9px; }
+    .candidate { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.035); }
+    .candidate input { width: auto; }
+    .candidate strong { display: block; color: var(--ink); font-size: .82rem; }
+    .candidate small { color: var(--dim); font-size: .7rem; }
+    .score { color: var(--green); font-weight: 900; font-size: .9rem; }
+    .warning { margin-top: 11px; padding: 11px 12px; border-left: 3px solid var(--amber); border-radius: 0 9px 9px 0; color: #ead8b8; background: rgba(255,211,138,.07); font-size: .74rem; }
+    .callout { padding: 15px; border: 1px solid rgba(110,231,247,.23); border-radius: 12px; background: rgba(110,231,247,.06); }
+    .callout strong { color: var(--cyan); }
+    .investor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr); gap: 14px; }
+    .proof-list { display: grid; gap: 8px; }
+    .proof { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.035); }
+    .proof input { width: auto; }
+    .proof span { color: var(--muted); font-size: .8rem; }
+    .proof.done span { color: var(--green); text-decoration: line-through; text-decoration-color: rgba(126,240,179,.5); }
+    .target { display: grid; gap: 8px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .target:last-child { border-bottom: 0; }
+    .target b { color: var(--ink); }
+    .target span, .target small { display: block; color: var(--muted); font-size: .78rem; }
+    .target small { color: var(--dim); font-size: .72rem; }
+    .target-meta { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .target-meta .status { display: inline-flex; }
+    .target-evidence { padding: 8px 10px; border-left: 2px solid rgba(126,240,179,.28); background: rgba(126,240,179,.035); }
+    .target-evidence b { display: block; color: var(--green); font-size: .69rem; text-transform: uppercase; letter-spacing: .08em; }
+    .target-evidence small { margin-top: 3px; color: var(--dim); }
+    .target-evidence a { color: var(--cyan); }
+    .target-log { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+    .target-log input { min-width: 0; padding: 8px 10px; font-size: .74rem; }
+    .action-card { border-left: 2px solid rgba(201,182,255,.4); padding: 9px 11px; background: rgba(201,182,255,.035); }
+    .action-card b { display: block; color: var(--purple); font-size: .69rem; text-transform: uppercase; letter-spacing: .08em; }
+    .action-card small { margin-top: 3px; color: var(--dim); }
+    .tech-partners { display: grid; gap: 8px; padding: 9px 11px; border-left: 2px solid rgba(110,231,247,.28); background: rgba(110,231,247,.035); }
+    .tech-partners > span { color: var(--cyan); font-size: .7rem; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
+    .tech-partner { display: grid; gap: 2px; }
+    .tech-partner b { color: var(--ink); font-size: .76rem; }
+    .tech-partner small { color: var(--dim); font-size: .69rem; line-height: 1.45; }
+    .tech-partner .boundary { color: #d9c99f; }
+    .tech-partner a { color: var(--cyan); }
+    .source-line { margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--dim); font-size: .7rem; }
+    .toast { position: fixed; right: 20px; bottom: 20px; z-index: 20; max-width: min(360px, calc(100% - 40px)); padding: 12px 14px; border: 1px solid rgba(126,240,179,.35); border-radius: 10px; color: var(--ink); background: #123226; box-shadow: var(--shadow); font-size: .78rem; }
+    .hidden { display: none !important; }
+    @media (max-width: 1000px) {
+      .shell { grid-template-columns: 190px 1fr; }
+      .layout-2, .detail-grid, .investor-grid { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      .shell { display: block; }
+      .sidebar { position: static; min-height: 0; padding: 13px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .logo { padding: 2px 4px 12px; }
+      .nav-label, .sidebar-note { display: none; }
+      .nav { display: flex; overflow-x: auto; gap: 5px; }
+      .nav button { width: auto; white-space: nowrap; padding: 8px 10px; }
+      .nav button.active { box-shadow: inset 0 -3px 0 var(--cyan); }
+      .main { padding: 20px 13px 55px; }
+      .hero { display: block; }
+      .hero-badge { display: inline-block; margin-top: 15px; text-align: left; }
+      .metrics, .form-grid, .info-grid { grid-template-columns: 1fr; }
+      .case-row { grid-template-columns: 1fr; gap: 7px; }
+      .case-row .btn { justify-self: start; }
+      .stage-row { gap: 2px; }
+      .stage { font-size: .55rem; }
+      .event { grid-template-columns: 70px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="logo"><span class="logo-mark">C</span> CANOPY <em>· MVP</em></div>
+      <div class="nav-label">Workspace</div>
+      <nav class="nav" aria-label="Application navigation">
+        <button data-view="dashboard" class="active">Overview</button>
+        <button data-view="new-case">New case</button>
+        <button data-view="cases">Case pipeline</button>
+        <button data-view="investors">Investor proof</button>
+      </nav>
+      <div class="sidebar-note"><strong>Prototype boundary</strong>This is a workflow and evidence prototype. It does not sequence DNA, predict treatment, manufacture medicine or replace a licensed veterinarian.</div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="breadcrumb"><b>Canopy</b> / Singapore canine oncology workflow</div>
+      <div class="top-actions"><span id="mode-label" class="status amber">Offline / localStorage</span><button class="btn small" id="seed-btn">Load demo cases</button><button class="btn small" id="export-btn">Export workspace</button><button class="btn small" id="snapshot-btn">Export investor snapshot</button><button class="btn small" id="api-health-btn">Connect local API</button><button class="btn small" id="mode-toggle-btn">Use API mode</button><a class="btn small" href="build-gamgee.htm">Strategy brief</a><a class="btn small" href="gamgee-investor-pack.htm">Investor pack</a><a class="btn small" href="canopy-pilot-brief.md">Pilot brief</a><a class="btn small" href="canopy-partner-rfp.md">Partner RFP</a><a class="btn small" href="CANOPY-READINESS.md">Readiness pack</a><a class="btn small" href="CANOPY-FOUNDER-SPRINT.md">Founder sprint</a></div>
+      </div>
+
+      <section id="view-dashboard" class="view active"></section>
+      <section id="view-new-case" class="view"></section>
+      <section id="view-cases" class="view"></section>
+      <section id="view-investors" class="view"></section>
+      <section id="view-detail" class="view"></section>
+    </main>
+  </div>
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const STORAGE_KEY = 'canopy-gamgee-mvp-v1';
+      const STAGES = ['Intake', 'Sample', 'Analysis', 'Clinical review', 'Manufacturing', 'Treatment', 'Monitoring'];
+      const STAGE_HINTS = [
+        'Confirm case fit, diagnosis and consent.',
+        'Collect matched tumour and blood samples through the clinic.',
+        'Partner-run sequencing and quality-controlled analysis.',
+        'Licensed clinician reviews the design report.',
+        'Qualified partner handles manufacture and release.',
+        'Treatment is administered by the licensed veterinary team.',
+        'Capture safety, imaging and longitudinal outcomes.'
+      ];
+      const PROOF_LABELS = [
+        'Named Singapore veterinary oncology champion',
+        'Written genomics / pathology partner scope',
+        'Manufacturing and quality feasibility quote',
+        'Regulator-informed pilot brief',
+        'Committed runway for the next evidence milestone'
+      ];
+      const TARGET_SEEDS = [
+        { id: 'target-sginnovate', name: 'SGInnovate', kind: 'Investor / ecosystem', status: 'Route verified', priority: 'P1', deskScore: 8, ask: 'Request a biotech/deep-tech investor or translational partner introduction.', nextAction: 'Prepare the one-page technical wedge, scientific-lead profile and pilot brief for a fit conversation.', dueMonth: 1, fit: 'Strong early deep-tech and biotech ecosystem fit; useful for investor validation and translational introductions.', routeEvidence: 'Official materials describe investment in deep-tech startups and list BioTech among investment-focus domains.', evidenceUrl: 'https://www.sginnovate.com/startup-growth-funding', fitBoundary: 'Current ticket, canine/animal-health appetite, access and investment decision are unconfirmed.', evidenceRequired: ['Singapore entity/IP plan', 'Scientific cofounder or advisor', 'Pilot brief', 'Partner-route map'], url: 'https://www.sginnovate.com/contact-us' },
+        { id: 'target-startup-sg', name: 'Startup SG Equity', kind: 'Co-investment route', status: 'Eligibility review', priority: 'P1', deskScore: 7, ask: 'Confirm appointed-manager and qualified third-party investor fit.', nextAction: 'Test whether Canopy can meet the Singapore-based deep-tech and research-IP definition before relying on this route.', dueMonth: 2, fit: 'Potential co-investment route if Canopy is Singapore-based, owns research-driven IP and has an independent qualified investor.', routeEvidence: 'EnterpriseSG says SSGE supports Singapore-based deep-tech startups with differentiated research-based IP and works through appointed fund managers.', evidenceUrl: 'https://www.startupsg.gov.sg/programmes/4895/startup-sg-equity', fitBoundary: 'This is not a direct grant or open application promise; eligibility, investor qualification and route selection are unconfirmed.', evidenceRequired: ['Singapore incorporation plan', 'IP ownership/assignment chain', 'Qualified third-party investor', 'Deep-tech technical differentiation'], url: 'https://www.startupsg.gov.sg/programmes/4895/startup-sg-equity' },
+        { id: 'target-clavystbio', name: 'ClavystBio / 65LAB', kind: 'Life-science investor / builder', status: 'Route verified', priority: 'P1', deskScore: 8, ask: 'Request a scientific and venture-building conversation.', nextAction: 'Ask whether Canopy fits a life-science company-creation or venture-building pathway after the scientific and clinical wedge is defined.', dueMonth: 2, fit: 'High life-science translation fit; potentially relevant if Canopy has a credible scientific asset and company-building plan.', routeEvidence: 'ClavystBio describes itself as a life-sciences investor and venture builder; 65LAB supports translation of research into new biotech companies from Singapore.', evidenceUrl: 'https://www.clavystbio.com/partnerships', fitBoundary: 'A workflow company without proprietary therapeutic science may not fit; current intake, stage and investment decision are unconfirmed.', evidenceRequired: ['Scientific cofounder', 'Defensible IP thesis', 'Clinical champion path', 'Partner feasibility scopes'], url: 'https://www.clavystbio.com/contact' },
+        { id: 'target-edbi', name: 'EDBI', kind: 'Strategic health / biotech investor', status: 'Route verified', priority: 'P2', deskScore: 6, ask: 'Ask whether the regional platform fits its health and bio-economy mandate.', nextAction: 'Defer a formal investor ask until clinical, manufacturing and regional expansion evidence exists; request mandate feedback only.', dueMonth: 3, fit: 'Strategic health/biotech relevance and Singapore capability-building angle, but likely a later diligence route.', routeEvidence: 'EDBI describes focus clusters including Healthcare, Emerging Technology and strategic growth, and positions itself as an active global venture investor.', evidenceUrl: 'https://edbi.com/about/', fitBoundary: 'Stage, ticket, canine-health appetite and willingness to back a pre-proof workflow are unconfirmed.', evidenceRequired: ['Clinical letter', 'Manufacturing feasibility', 'Regional market evidence', 'Unit-economics draft'], url: 'https://www.edbi.com/contact-edbi/' },
+        { id: 'target-nsgbio', name: 'NSG Bio / NSG Bio Tomorrow', kind: 'Lab / biotech support', status: 'Route verified', priority: 'P1', deskScore: 7, ask: 'Ask about the next programme and a lab-visit or residency fit.', nextAction: 'Confirm whether a software-led, partner-orchestration company can enter without performing wet-lab work.', dueMonth: 1, fit: 'Potential early biotech support route for technical talent, lab context and ecosystem introductions.', routeEvidence: 'Public programme materials identify NSG Bio Tomorrow as an early-stage biotech support route; current programme terms must be confirmed directly.', evidenceUrl: 'https://nsgbio.com/about-nsg-bio-tomorrow/', fitBoundary: 'Programme availability, lab requirements, credits, funding and suitability for veterinary oncology are unconfirmed.', evidenceRequired: ['Founder/scientist profile', 'Lab and biosafety boundary', '12-month budget', 'Specific programme fit'], url: 'https://nsgbio.com/contact/' },
+        { id: 'target-ves', name: 'VES Hospital / oncology lead', kind: 'Clinical partner', status: 'Route verified', priority: 'P1', deskScore: 9, ask: 'Request a workflow interview; do not ask for patient enrolment yet.', nextAction: 'Request a 30-minute oncology workflow interview and ask for the first narrow indication, clinical owner and stop criteria.', dueMonth: 1, fit: 'Critical clinical route: Canopy needs a licensed oncology owner before any prospective case or treatment claim.', routeEvidence: 'VES publicly describes specialist veterinary cancer care in Singapore.', evidenceUrl: 'https://www.veshospital.com.sg/services/cancer-care/', fitBoundary: 'No endorsement, enrolment, treatment agreement, outcome-data access or clinical partnership is implied.', evidenceRequired: ['Workflow interview', 'Named clinical lead', 'Indication recommendation', 'Non-binding support letter'], url: 'https://www.veshospital.com.sg/services/cancer-care/' },
+        { id: 'target-vertex-hc', name: 'Vertex Ventures HC via Vertex Holdings', kind: 'Healthcare investor route', status: 'Route verified', priority: 'P2', deskScore: 6, ask: 'Seek a warm introduction to the independently managed healthcare fund team.', nextAction: 'Request an introduction only after the clinical wedge and partner feasibility packet are ready; do not use a media inbox as a funding application.', dueMonth: 3, fit: 'Relevant healthcare VC network with early-stage healthcare exposure and Singapore base.', routeEvidence: 'Vertex says its network includes Vertex Ventures HC for early-stage healthcare opportunities, with independently managed funds.', evidenceUrl: 'https://vertexholdings.com/', fitBoundary: 'Fund mandate, current stage/ticket, animal-health appetite and access are unconfirmed.', evidenceRequired: ['Clinical champion', 'Scientific advisor', 'Partner scopes', 'Regional market thesis'], url: 'https://vertexholdings.com/contact/' },
+        { id: 'target-novo-asia', name: 'Novo Holdings Asia', kind: 'Life-science investor route', status: 'Route verified', priority: 'P2', deskScore: 6, ask: 'Request a Singapore/Asia life-science fit conversation or warm introduction.', nextAction: 'Approach only with a credible life-science asset, regional pathway and evidence plan; ask which team owns the opportunity.', dueMonth: 4, fit: 'Regional life-science investor with Singapore presence and stated Southeast Asia focus.', routeEvidence: 'Novo Holdings says its Asia team is based in Singapore and invests across life sciences and healthcare in Southeast Asia and other Asian markets.', evidenceUrl: 'https://novoholdings.dk/investment-regions/asia', fitBoundary: 'Current stage, ticket, canine-health appetite and appetite for a workflow-led company are unconfirmed.', evidenceRequired: ['Defensible scientific/IP thesis', 'Clinical and manufacturing route', 'Regional scale plan', 'Early evidence'], url: 'https://novoholdings.dk/investments/principal-investments' }
+      ];
+      const TECHNOLOGY_SEEDS = [
+        { id: 'tech-intake', area: 'Case intake + consent', owner: 'Canopy product', status: 'MVP', proof: 'Structured synthetic intake, explicit consent and case export.' },
+        { id: 'tech-sample-chain', area: 'Sample identity + custody', owner: 'Clinic + genomics partner', status: 'Partner required', proof: 'Barcode, matched samples, receipt and rejection rules.', partnerCandidates: [
+          { name: 'AMPL / Translational Pathology Consortium (A*STAR)', role: 'Veterinary pathology and tissue-workflow discussion', url: 'https://www.rsc.a-star.edu.sg/technologyplatforms/scientific-side-menu/scientific-information/national-shared-platform/translational-pathlogy-consortium', evidence: 'The official TPC page lists veterinary pathology and says AMPL is a primary provider of diagnostic pathology services for veterinary clinics and hospitals in Singapore.', boundary: 'Conversation only: sample types, canine tumour fit, custody, turnaround, commercial terms and project acceptance are unconfirmed.' },
+          { name: 'iCORE Genomics / Genome Institute of Singapore (A*STAR)', role: 'Sequencing intake and bioinformatics discussion', url: 'https://www.a-star.edu.sg/icore/icore-platforms/core-platforms/icore-genomics---sequencing', evidence: 'The official iCORE page describes end-to-end genomic solutions and whole-exome sequencing.', boundary: 'Conversation only: canine diagnostic use, sample logistics, data geography and qualification are unconfirmed.' }
+        ] },
+        { id: 'tech-genomics', area: 'Tumour / normal sequencing', owner: 'Qualified genomics lab', status: 'Partner required', proof: 'Written assay, QC, turnaround and data-transfer scope.', partnerCandidates: [
+          { name: 'iCORE Genomics / Genome Institute of Singapore (A*STAR)', role: 'Whole-exome sequencing and analytics discussion', url: 'https://www.a-star.edu.sg/icore/icore-platforms/core-platforms/icore-genomics---sequencing', evidence: 'The official page lists WES, WGS, RNA-seq, sequencing and data analysis as part of end-to-end genomic solutions.', boundary: 'Conversation only: canine tumour/normal validation, clinical reporting, capacity, pricing and data-transfer terms are unconfirmed.' },
+          { name: 'MEDBANK / NTU LKCMedicine', role: 'Research sequencing backup discussion', url: 'https://medbank.sg/service/', evidence: 'The official service page lists whole-genome, whole-exome, RNA-seq and small RNA-seq services in Singapore.', boundary: 'Research conversation only: veterinary diagnostic status, matched tumour/normal workflow, QA, capacity and commercial terms are unconfirmed.' }
+        ] },
+        { id: 'tech-ranking', area: 'Canine neoantigen review', owner: 'Scientific partner', status: 'Partner required', proof: 'Versioned model evidence, clinician review and decision record.', partnerCandidates: [
+          { name: 'Genome Institute of Singapore (A*STAR)', role: 'Genome-informatics and scientific-method discussion', url: 'https://www.a-star.edu.sg/gis/about-us/welcome-message', evidence: 'The official GIS page describes high-quality sequencing and large-scale genome informatics capabilities.', boundary: 'Conversation only: canine neoantigen model, immunogenicity validation and clinical decision support are not established by this source.' }
+        ] },
+        { id: 'tech-mrna', area: 'mRNA design hand-off', owner: 'RNA / manufacturing partner', status: 'Partner required', proof: 'Controlled design package and responsibility boundary.', partnerCandidates: [
+          { name: 'A*STAR BTI / NATi mRNA BioFoundry', role: 'mRNA-LNP process-development discussion', url: 'https://www.a-star.edu.sg/bti/programmes-in-bti', evidence: 'The official BTI programme page says the mRNA BioFoundry develops cGMP-compatible processes for transition from research to manufacturing; the launched NATi facility is described as non-GMP.', boundary: 'Conversation only: canine oncology design, external access, GMP release and clinical use are unconfirmed.' },
+          { name: 'Hilleman Laboratories Singapore', role: 'RNA-platform and manufacturing discussion', url: 'https://hilleman-labs.org/platforms/', evidence: 'The official platform page describes a Singapore R&D/manufacturing hub and an RNA-based platform using circular RNA; its stated focus is vaccines and biologics.', boundary: 'Conversation only: veterinary oncology fit, mRNA versus circRNA scope, external capacity, pricing and release pathway are unconfirmed.' }
+        ] },
+        { id: 'tech-gmp', area: 'Manufacturing + QC release', owner: 'Qualified manufacturing partner', status: 'Partner required', proof: 'Feasibility quote, release criteria, storage and deviations.', partnerCandidates: [
+          { name: 'Hilleman Laboratories Singapore', role: 'Pilot-scale cGMP biologics feasibility discussion', url: 'https://hilleman-labs.org/press-release/hilleman-laboratories-officially-opens-us20-million-facility-in-singapore-to-bolster-resilience-in-vaccine-manufacturing/', evidence: 'The official release describes an operational Singapore ACES cGMP facility and an RNA-platform collaboration with A*STAR.', boundary: 'Conversation only: it is not a confirmed Canopy supplier; canine product classification, batch size, release tests and availability require written review.' },
+          { name: 'BioNTech Singapore', role: 'Strategic mRNA manufacturing discussion', url: 'https://www.biontech.com/int/en/home/mediaroom/news/press-releases/2022/11/biontech-expands-global-footprint-acquiring-gmp-manufacturing.html', evidence: 'BioNTech’s official release describes a Singapore GMP mRNA facility intended for regional clinical and commercial manufacturing.', boundary: 'Higher-bar conversation only: external startup access, veterinary fit, capacity, pricing and collaboration terms are not established.' }
+        ] },
+        { id: 'tech-cold-chain', area: 'Cold-chain logistics', owner: 'Clinic + logistics partner', status: 'Partner required', proof: 'Temperature, label, shipment and receipt records.' },
+        { id: 'tech-monitoring', area: 'Veterinary outcome monitoring', owner: 'Licensed veterinary team', status: 'Partner required', proof: 'Safety, imaging, pathology and owner-reported outcome schedule.', partnerCandidates: [
+          { name: 'VES Hospital cancer care', role: 'Veterinary oncology workflow discussion', url: 'https://www.veshospital.com.sg/services/cancer-care/', evidence: 'The official VES page describes a Singapore veterinary oncology service and specialist-led cancer care.', boundary: 'Conversation only: no clinical endorsement, enrolment, treatment agreement or outcome-data access is assumed.' }
+        ] },
+        { id: 'tech-security', area: 'Security, QA + regulatory', owner: 'Counsel + QA lead', status: 'Gap / counsel', proof: 'Role access, audit identity, data map, AVS pathway and ethics plan.' }
+      ];
+      const MILESTONE_SEEDS = [
+        { id: 'gate-clinical', month: 2, title: 'Clinical champion', owner: 'Founder + veterinary lead', stopIfMissed: true, evidence: 'Signed clinical-partner letter with eligibility and care responsibilities.' },
+        { id: 'gate-regulatory', month: 3, title: 'Regulatory / ethics path', owner: 'QA + counsel + AVS', stopIfMissed: true, evidence: 'Written classification/pathway memo and pilot ethics plan.' },
+        { id: 'gate-manufacturing', month: 4, title: 'Manufacturing route', owner: 'Scientific lead + qualified partner', stopIfMissed: true, evidence: 'Written feasibility quote, QC/release scope and cold-chain responsibility.' },
+        { id: 'gate-funding-cases', month: 6, title: 'Funding + qualified cases', owner: 'Founder / investor lead', stopIfMissed: true, evidence: 'Committed runway plus 10 qualified case leads, not social interest.' },
+        { id: 'gate-pilot', month: 9, title: 'Permitted pilot evidence', owner: 'Clinical + regulatory team', stopIfMissed: true, evidence: 'Approved route and first permitted cases with safety/operations records.' },
+        { id: 'gate-decision', month: 12, title: 'Scale or stop decision', owner: 'Founders + board', stopIfMissed: true, evidence: 'Unit economics, evidence review and written go / stop decision.' }
+      ];
+      const ACTION_STATUSES = ['Open', 'In progress', 'Waiting on external', 'Done', 'Blocked', 'Stop'];
+      const ACTION_SEEDS = [
+        { id: 'action-indication-brief', dueDays: 3, title: 'Write the narrow indication brief', category: 'Clinical', owner: 'Founder + veterinary lead', gate: 'gate-clinical', requiredOutput: 'One-page indication, eligibility, exclusion, endpoint and stop-rule brief.', instruction: 'Use the pilot brief questions; do not promise treatment or efficacy.' },
+        { id: 'action-clinical-interview', dueDays: 7, title: 'Prepare the clinical workflow interview', category: 'Clinical', owner: 'Founder', gate: 'gate-clinical', requiredOutput: '30-minute interview script, named questions and non-binding support-letter template.', instruction: 'Prepare a conversation only; do not enrol a dog or request identifiable records.' },
+        { id: 'action-regulatory-log', dueDays: 10, title: 'Build the AVS/counsel question log', category: 'Regulatory', owner: 'Founder + QA/counsel', gate: 'gate-regulatory', requiredOutput: 'Facts, questions, owner, date, response and attachment fields for classification, import, possession, ethics and clinical roles.', instruction: 'A website answer is not clearance; request written direction for the actual facts.' },
+        { id: 'action-partner-packets', dueDays: 14, title: 'Prepare genomics and manufacturing packets', category: 'Technology', owner: 'Scientific lead', gate: 'gate-manufacturing', requiredOutput: 'Two partner-ready capability packets with sample/QC, mRNA/QC, cold-chain, data/IP and quote questions.', instruction: 'Prepare packets only; the prototype never sends outreach automatically.' },
+        { id: 'action-investor-one-pager', dueDays: 14, title: 'Prepare the investor one-pager', category: 'Capital', owner: 'Founder / investor lead', gate: 'gate-funding-cases', requiredOutput: 'One-page thesis, wedge, team gaps, 12-month gates, planning budget and explicit caveats.', instruction: 'Use public route research as context, not as investor interest or commitment.' },
+        { id: 'action-company-ip-check', dueDays: 21, title: 'Close company and IP readiness gaps', category: 'Company / IP', owner: 'Founder + counsel/CSP', gate: 'gate-regulatory', requiredOutput: 'Incorporation decision, founder IP assignments, invention log, data-rights schedule and restricted data-room index.', instruction: 'Do not publicly disclose patentable detail before counsel reviews novelty and confidentiality.' },
+        { id: 'action-demo-review', dueDays: 21, title: 'Run a synthetic MVP evidence review', category: 'Product', owner: 'Founder + technical lead', gate: 'gate-regulatory', requiredOutput: 'Five-minute demo, API smoke output, case-free investor snapshot and recorded product gaps.', instruction: 'Synthetic/local data only; this does not prove clinical safety or efficacy.' },
+        { id: 'action-sprint-decision', dueDays: 30, title: 'Hold the 30-day evidence review', category: 'Decision', owner: 'Founders', gate: 'gate-clinical', requiredOutput: 'Written review of completed artifacts, external responses, blockers and continue/stop/pivot recommendation.', instruction: 'A missing clinical owner or credible regulatory route remains a stop risk; sunk cost is not progress.' }
+      ];
+
+      function targetSeeds(startedAt) { const start = new Date(startedAt || new Date().toISOString()); return TARGET_SEEDS.map(function (target) { const due = new Date(start.getTime()); due.setMonth(due.getMonth() + target.dueMonth); return Object.assign({}, target, { dueDate: due.toISOString(), note: '', updated: null, history: [] }); }); }
+      function mergeTargetState(value, startedAt) {
+        const current = Array.isArray(value) ? value : [];
+        return targetSeeds(startedAt).map(function (seed) {
+          const existing = current.find(function (item) { return item.id === seed.id; });
+          return existing ? Object.assign({}, seed, existing, { evidenceRequired: existing.evidenceRequired || seed.evidenceRequired }) : seed;
+        });
+      }
+      function technologySeeds() { return TECHNOLOGY_SEEDS.map(function (technology) { return Object.assign({}, technology); }); }
+      function mergeTechnologyState(value) {
+        const current = Array.isArray(value) ? value : [];
+        return technologySeeds().map(function (seed) {
+          const existing = current.find(function (item) { return item.id === seed.id; });
+          return existing ? Object.assign({}, seed, existing, { partnerCandidates: existing.partnerCandidates || seed.partnerCandidates }) : seed;
+        });
+      }
+      function milestoneSeeds(startedAt) { const start = new Date(startedAt || new Date().toISOString()); return MILESTONE_SEEDS.map(function (milestone) { const due = new Date(start.getTime()); due.setMonth(due.getMonth() + milestone.month); return Object.assign({}, milestone, { dueDate: due.toISOString(), status: 'Open', note: '', updated: null, history: [] }); }); }
+      function actionSeeds(startedAt) { const start = new Date(startedAt || new Date().toISOString()); return ACTION_SEEDS.map(function (action) { const due = new Date(start.getTime()); due.setDate(due.getDate() + action.dueDays); return Object.assign({}, action, { dueDate: due.toISOString(), status: 'Open', note: '', updated: null, history: [] }); }); }
+      function mergeActionState(value, startedAt) {
+        const current = Array.isArray(value) ? value : [];
+        return actionSeeds(startedAt).map(function (seed) {
+          const existing = current.find(function (item) { return item.id === seed.id; });
+          return existing ? Object.assign({}, seed, existing) : seed;
+        });
+      }
+      function computeDecision(milestones, asOf) {
+        const evaluatedAt = asOf || new Date().toISOString();
+        const evaluatedMs = new Date(evaluatedAt).getTime();
+        const items = Array.isArray(milestones) ? milestones : [];
+        const active = items.filter(function (item) { return item.status !== 'Met' && item.status !== 'Missed' && item.status !== 'Stopped'; });
+        const overdue = active.filter(function (item) { return item.dueDate && new Date(item.dueDate).getTime() < evaluatedMs; });
+        const stopped = items.filter(function (item) { return item.status === 'Missed' || item.status === 'Stopped'; });
+        const next = active.slice().sort(function (a, b) { return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(); })[0] || null;
+        let status = 'ON TRACK / EVIDENCE PENDING';
+        if (stopped.length) status = 'STOP / PIVOT';
+        else if (overdue.length) status = 'OVERDUE / STOP REVIEW';
+        else if (!active.length) status = 'GO / SCALE REVIEW';
+        const daysRemaining = next && next.dueDate ? Math.ceil((new Date(next.dueDate).getTime() - evaluatedMs) / 86400000) : null;
+        return { evaluatedAt: evaluatedAt, status: status, stopReasons: stopped.map(function (item) { return item.title + ' is ' + item.status.toLowerCase() + '.'; }).concat(overdue.map(function (item) { return item.title + ' is overdue.'; })), overdue: overdue.map(function (item) { return { id: item.id, title: item.title, dueDate: item.dueDate, month: item.month }; }), nextGate: next ? { id: next.id, title: next.title, dueDate: next.dueDate, month: next.month, daysRemaining: daysRemaining } : null, met: items.filter(function (item) { return item.status === 'Met'; }).length, total: items.length, hardGates: items.filter(function (item) { return item.stopIfMissed; }).length };
+      }
+
+      function uid(prefix) {
+        const random = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+        return prefix + '-' + random.slice(0, 8);
+      }
+
+      function dateLabel(value) {
+        return new Intl.DateTimeFormat('en-SG', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
+      }
+
+      function nowLabel() {
+        return new Intl.DateTimeFormat('en-SG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date());
+      }
+
+      function makeEvent(text, when) { return { id: uid('evt'), text, when: when || new Date().toISOString() }; }
+
+      function demoCase(name, breed, cancer, stage, clinic, step, priority, next) {
+        return {
+          id: uid('case'), name, breed, cancer, stage, clinic, priority, step, next,
+          owner: 'Demo record — do not contact',
+          consent: step > 0,
+          created: new Date(Date.now() - (step + 1) * 86400000).toISOString(),
+          sample: step >= 1 ? { tumour: 'Received', blood: 'Received', custody: 'Clinic → partner lab', received: dateLabel(Date.now() - 2 * 86400000) } : { tumour: 'Not collected', blood: 'Not collected', custody: 'Awaiting clinic', received: '—' },
+          candidates: [
+            { id: uid('neo'), label: 'Candidate A · demo mutation', score: 91, selected: step >= 3 },
+            { id: uid('neo'), label: 'Candidate B · demo mutation', score: 84, selected: false },
+            { id: uid('neo'), label: 'Candidate C · demo mutation', score: 76, selected: false }
+          ],
+          events: [
+            makeEvent('Case record created for workflow demonstration.', new Date(Date.now() - (step + 1) * 86400000).toISOString()),
+            ...(step > 0 ? [makeEvent('Sample receipt checkpoint recorded by partner lab.', new Date(Date.now() - 2 * 86400000).toISOString())] : []),
+            ...(step > 2 ? [makeEvent('Demo analysis report made available for clinician review.', new Date(Date.now() - 86400000).toISOString())] : [])
+          ]
+        };
+      }
+
+      function demoState() {
+        const startedAt = new Date().toISOString();
+        return {
+          cases: [
+            demoCase('Miso', 'Singapore Special', 'Mast cell tumour', 'Stage II', 'Demo referral clinic', 3, 'High', 'Clinician review of the design report'),
+            demoCase('Nala', 'Golden Retriever', 'Lymphoma', 'Unconfirmed', 'Demo referral clinic', 1, 'Medium', 'Confirm matched sample receipt'),
+            demoCase('Scout', 'Mixed breed', 'Osteosarcoma', 'Stage III', 'Demo oncology partner', 6, 'Low', 'Record week-4 outcome checkpoint')
+          ],
+          proof: [false, false, false, false, false],
+          targets: targetSeeds(startedAt),
+          technology: technologySeeds(),
+          startedAt: startedAt,
+          milestones: milestoneSeeds(startedAt),
+          actions: actionSeeds(startedAt),
+          decision: null,
+          currentView: 'dashboard',
+          selectedCaseId: null,
+          source: 'offline'
+        };
+      }
+
+      function loadState() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+          if (parsed && Array.isArray(parsed.cases) && Array.isArray(parsed.proof)) {
+            parsed.source = 'offline';
+            parsed.targets = mergeTargetState(parsed.targets, parsed.startedAt);
+            parsed.technology = mergeTechnologyState(parsed.technology);
+            if (!Array.isArray(parsed.milestones)) parsed.milestones = milestoneSeeds(parsed.startedAt);
+            parsed.actions = mergeActionState(parsed.actions, parsed.startedAt);
+            return parsed;
+          }
+        } catch (error) { /* fall through to a clean demo workspace */ }
+        return demoState();
+      }
+
+      let state = loadState();
+      let toastTimer;
+
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      save();
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, function (character) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character];
+        });
+      }
+
+      function apiIsActive() { return state.source === 'api'; }
+
+      async function apiRequest(route, options) {
+        const response = await fetch(route, Object.assign({ headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } }, options || {}));
+        const contentType = response.headers.get('content-type') || '';
+        const payload = contentType.includes('application/json') ? await response.json() : await response.text();
+        if (!response.ok) throw new Error((payload && payload.error) || ('API HTTP ' + response.status));
+        return payload;
+      }
+
+      function replaceCase(updated) {
+        const index = state.cases.findIndex(function (item) { return item.id === updated.id; });
+        if (index === -1) state.cases.unshift(updated);
+        else state.cases[index] = updated;
+      }
+
+      async function syncFromApi() {
+        const results = await Promise.all([apiRequest('/api/cases'), apiRequest('/api/readiness'), apiRequest('/api/targets'), apiRequest('/api/technology'), apiRequest('/api/milestones'), apiRequest('/api/decision'), apiRequest('/api/actions')]);
+        state.cases = results[0].cases || [];
+        state.proof = (results[1].items || []).map(function (item) { return Boolean(item.ready); });
+        state.targets = results[2].targets || [];
+        state.technology = results[3].technology || [];
+        state.startedAt = results[4].startedAt || state.startedAt;
+        state.milestones = results[4].milestones || [];
+        state.decision = results[5] || results[4].decision || null;
+        state.actions = results[6].actions || [];
+        state.source = 'api';
+        if (state.selectedCaseId && !state.cases.some(function (item) { return item.id === state.selectedCaseId; })) state.selectedCaseId = null;
+        save(); render();
+      }
+
+      function modeName() { return apiIsActive() ? 'API / memory-only' : 'Offline / localStorage'; }
+
+      function targetStatusClass(status) {
+        if (status === 'Partner lead' || status === 'Meeting held' || status === 'Committed') return 'green';
+        if (status === 'Pass') return 'red';
+        return 'amber';
+      }
+
+      function targetStatusOptions(current) {
+        return ['Route verified', 'Eligibility review', 'Prepared', 'Contacted', 'Meeting requested', 'Meeting held', 'Partner lead', 'Committed', 'Pass'].map(function (status) {
+          return '<option value="' + escapeHtml(status) + '"' + (status === current ? ' selected' : '') + '>' + escapeHtml(status) + '</option>';
+        }).join('');
+      }
+
+      function targetPriorityClass(priority) { return priority === 'P1' ? 'green' : priority === 'P3' ? 'red' : 'amber'; }
+
+      function targetEvidenceMarkup(target) {
+        const evidence = Array.isArray(target.evidenceRequired) ? target.evidenceRequired : [];
+        const due = target.dueDate ? 'due ' + dateLabel(target.dueDate) : 'due month ' + (target.dueMonth || '?');
+        return '<div class="target-evidence"><b>Next action · ' + escapeHtml(due) + '</b><small>' + escapeHtml(target.nextAction || target.ask) + '</small><small>Prepare: ' + escapeHtml(evidence.join(' · ') || 'Define evidence before advancing') + '</small><small><a target="_blank" rel="noreferrer" href="' + escapeHtml(target.evidenceUrl || target.url) + '">Evidence source</a> · <span title="Desk-research score, not probability">desk fit ' + escapeHtml(target.deskScore || '—') + '/9</span></small></div>';
+      }
+
+      function targetPipelineMarkup() {
+        const targets = Array.isArray(state.targets) ? state.targets : [];
+        const live = targets.filter(function (target) { return target.status === 'Meeting held' || target.status === 'Partner lead' || target.status === 'Committed'; }).length;
+        return '<div class="card" style="margin-bottom:14px"><div class="card-header"><div><h2>Investor / partner pipeline</h2><p>Research and status only. These controls log your preparation; they never send outreach. P1/P2 is founder prioritisation; desk fit is not investment probability.</p></div><span class="status amber">' + live + ' live conversations · ' + targets.length + ' routes</span></div><div class="target-list">' + (targets.length ? targets.map(function (target) { return '<div class="target"><div><b>' + escapeHtml(target.name) + '</b><div class="target-meta"><span>' + escapeHtml(target.kind) + '</span><span class="status ' + targetPriorityClass(target.priority) + '">' + escapeHtml(target.priority || 'Unranked') + '</span><span class="status amber">Desk fit ' + escapeHtml(target.deskScore || '—') + '/9</span></div><small>' + escapeHtml(target.fit || target.ask) + '</small><small>Boundary: ' + escapeHtml(target.fitBoundary || 'Unverified until written evidence.') + '</small></div>' + targetEvidenceMarkup(target) + '<div class="action-row"><span class="status ' + targetStatusClass(target.status) + '">' + escapeHtml(target.status) + '</span><select class="btn small" data-target-status="' + escapeHtml(target.id) + '" aria-label="Status for ' + escapeHtml(target.name) + '">' + targetStatusOptions(target.status) + '</select><a class="btn small" target="_blank" rel="noreferrer" href="' + escapeHtml(target.url) + '">Official route</a></div><div class="target-log"><input data-target-note="' + escapeHtml(target.id) + '" value="' + escapeHtml(target.note || '') + '" maxlength="600" placeholder="Meeting outcome / next action"><button class="btn small" data-target-log="' + escapeHtml(target.id) + '">Log update</button></div></div>'; }).join('') : '<div class="empty">No targets loaded.</div>') + '</div><div class="source-line">Status changes are local evidence records; they do not imply contact, interest, funding or clinical agreement. Desk scores are planning judgments from public-source review, not probabilities.</div></div>';
+      }
+
+      function technologyStatusClass(status) {
+        if (status === 'MVP' || status === 'Pilot-ready' || status === 'Validated') return 'green';
+        if (status === 'Gap / counsel') return 'red';
+        return 'amber';
+      }
+
+      function technologyStatusOptions(current) {
+        return ['MVP', 'Research plan', 'Partner required', 'Quote requested', 'Pilot-ready', 'Validated', 'Gap / counsel', 'Out of year one'].map(function (status) {
+          return '<option value="' + escapeHtml(status) + '"' + (status === current ? ' selected' : '') + '>' + escapeHtml(status) + '</option>';
+        }).join('');
+      }
+
+      function technologyPartnerMarkup(item) {
+        const candidates = Array.isArray(item.partnerCandidates) ? item.partnerCandidates : [];
+        if (!candidates.length) return '';
+        return '<div class="tech-partners"><span>Discussion routes</span>' + candidates.map(function (candidate) { return '<div class="tech-partner"><b>' + escapeHtml(candidate.name) + '</b><small>' + escapeHtml(candidate.role) + '</small><small>' + escapeHtml(candidate.evidence) + '</small><small class="boundary">' + escapeHtml(candidate.boundary) + ' <a target="_blank" rel="noreferrer" href="' + escapeHtml(candidate.url) + '">Official source</a></small></div>'; }).join('') + '</div>';
+      }
+
+      function technologyPipelineMarkup() {
+        const technology = Array.isArray(state.technology) ? state.technology : [];
+        const ready = technology.filter(function (item) { return item.status === 'MVP' || item.status === 'Pilot-ready' || item.status === 'Validated'; }).length;
+        return '<div class="card" style="margin-bottom:14px"><div class="card-header"><div><h2>Technology readiness</h2><p>Gamgee publicly describes whole-exome sequencing, canine neoantigen analysis, mRNA design, GMP manufacturing, cold chain and outcome monitoring. Canopy must source or qualify each partner-owned layer.</p></div><span class="status ' + (ready >= 3 ? 'green' : 'amber') + '">' + ready + '/' + technology.length + ' evidenced</span></div><div class="target-list">' + (technology.length ? technology.map(function (item) { return '<div class="target"><div><b>' + escapeHtml(item.area) + '</b><span>' + escapeHtml(item.owner) + '</span><small>Evidence: ' + escapeHtml(item.proof) + '</small></div><div class="action-row"><span class="status ' + technologyStatusClass(item.status) + '">' + escapeHtml(item.status) + '</span><select class="btn small" data-technology-status="' + escapeHtml(item.id) + '" aria-label="Status for ' + escapeHtml(item.area) + '">' + technologyStatusOptions(item.status) + '</select></div>' + technologyPartnerMarkup(item) + '</div>'; }).join('') : '<div class="empty">No technology requirements loaded.</div>') + '</div><div class="source-line">This registry was researched against official capability pages on 13 Aug 2026. Routes are conversation-only leads; none proves access, qualification, availability, clinical suitability or regulatory approval. The registry does not perform sequencing, predict treatment, manufacture medicine or replace clinical/regulatory review. <a target="_blank" rel="noreferrer" href="https://www.gamgee.io/vet/">Gamgee public technical baseline</a>.</div></div>';
+      }
+
+      function milestoneStatusClass(status) {
+        if (status === 'Met') return 'green';
+        if (status === 'Missed' || status === 'Stopped') return 'red';
+        return 'amber';
+      }
+
+      function milestoneStatusOptions(current) {
+        return ['Open', 'In progress', 'Met', 'Missed', 'Stopped'].map(function (status) {
+          return '<option value="' + escapeHtml(status) + '"' + (status === current ? ' selected' : '') + '>' + escapeHtml(status) + '</option>';
+        }).join('');
+      }
+
+      function actionStatusClass(status) {
+        if (status === 'Done') return 'green';
+        if (status === 'Blocked' || status === 'Stop') return 'red';
+        return 'amber';
+      }
+
+      function actionStatusOptions(current) {
+        return ACTION_STATUSES.map(function (status) { return '<option value="' + escapeHtml(status) + '"' + (status === current ? ' selected' : '') + '>' + escapeHtml(status) + '</option>'; }).join('');
+      }
+
+      function actionBoardMarkup() {
+        const actions = Array.isArray(state.actions) ? state.actions : [];
+        const done = actions.filter(function (item) { return item.status === 'Done'; }).length;
+        const overdue = actions.filter(function (item) { return item.status !== 'Done' && item.status !== 'Stop' && item.dueDate && new Date(item.dueDate).getTime() < Date.now(); }).length;
+        return '<div class="card" style="margin-bottom:14px"><div class="card-header"><div><h2>First 30-day evidence sprint</h2><p>Mark an item Done only when its local artifact exists. These controls record preparation; they do not send outreach, submit an application or create approval.</p></div><span class="status ' + (overdue ? 'red' : done === actions.length && actions.length ? 'green' : 'amber') + '">' + done + '/' + actions.length + ' artifacts · ' + overdue + ' overdue</span></div><div class="target-list">' + (actions.length ? actions.map(function (item) { const overdueItem = item.status !== 'Done' && item.status !== 'Stop' && item.dueDate && new Date(item.dueDate).getTime() < Date.now(); const due = item.dueDate ? dateLabel(item.dueDate) : 'No date'; return '<div class="target"><div><b>' + escapeHtml(item.title) + '</b><span>' + escapeHtml(item.category) + ' · ' + escapeHtml(item.owner) + ' · gate ' + escapeHtml(item.gate) + '</span><small>Output: ' + escapeHtml(item.requiredOutput) + '</small><small>Boundary: ' + escapeHtml(item.instruction) + '</small></div><div class="action-card"><b>Due ' + escapeHtml(due) + (overdueItem ? ' · OVERDUE' : '') + '</b><small>' + escapeHtml(item.status) + '</small></div><div class="action-row"><span class="status ' + (overdueItem ? 'red' : actionStatusClass(item.status)) + '">' + escapeHtml(overdueItem ? 'Overdue' : item.status) + '</span><select class="btn small" data-action-status="' + escapeHtml(item.id) + '" aria-label="Status for ' + escapeHtml(item.title) + '">' + actionStatusOptions(item.status) + '</select></div><div class="target-log"><input data-action-note="' + escapeHtml(item.id) + '" value="' + escapeHtml(item.note || '') + '" maxlength="800" placeholder="Artifact location / review note"><button class="btn small" data-action-log="' + escapeHtml(item.id) + '">Log update</button></div></div>'; }).join('') : '<div class="empty">No founder actions loaded.</div>') + '</div><div class="source-line">This board is deliberately operational: public research is not a completed artifact, a draft is not external evidence, and a status does not imply contact or approval.</div></div>';
+      }
+
+      function decisionStatusClass(status) { return status === 'STOP / PIVOT' || status === 'OVERDUE / STOP REVIEW' ? 'red' : status === 'GO / SCALE REVIEW' ? 'green' : 'amber'; }
+
+      function milestonePipelineMarkup() {
+        const milestones = Array.isArray(state.milestones) ? state.milestones : [];
+        const decision = computeDecision(milestones);
+        const next = decision.nextGate ? 'Next: ' + decision.nextGate.title + ' · ' + (decision.nextGate.daysRemaining >= 0 ? decision.nextGate.daysRemaining + ' days' : Math.abs(decision.nextGate.daysRemaining) + ' days overdue') : 'No open gate';
+        const reasons = decision.stopReasons.length ? ' ' + decision.stopReasons.join(' ') : '';
+        return '<div class="card" style="margin-bottom:14px"><div class="card-header"><div><h2>One-year go / stop gates</h2><p>Deadlines are evaluated automatically. A missed or overdue hard gate requires a stop review; it cannot be re-labelled as progress.</p></div><span class="status ' + decisionStatusClass(decision.status) + '">' + escapeHtml(decision.status) + '</span></div><div class="source-line" style="margin-top:0;padding-top:0;border-top:0">' + escapeHtml(next + reasons) + '</div><div class="target-list">' + (milestones.length ? milestones.map(function (item) { const due = item.dueDate ? dateLabel(item.dueDate) : 'Set when the clock starts'; const overdue = item.status !== 'Met' && item.status !== 'Missed' && item.status !== 'Stopped' && item.dueDate && new Date(item.dueDate).getTime() < Date.now(); const timing = overdue ? 'OVERDUE' : item.dueDate ? Math.ceil((new Date(item.dueDate).getTime() - Date.now()) / 86400000) + ' days' : 'No date'; return '<div class="target"><div><b>Month ' + escapeHtml(item.month) + ' · ' + escapeHtml(item.title) + '</b><span>' + escapeHtml(item.owner) + ' · due ' + escapeHtml(due) + ' · ' + escapeHtml(timing) + '</span><small>Required evidence: ' + escapeHtml(item.evidence) + '</small></div><div class="action-row"><span class="status ' + (overdue ? 'red' : milestoneStatusClass(item.status)) + '">' + escapeHtml(overdue ? 'Overdue' : item.status) + '</span><select class="btn small" data-milestone-status="' + escapeHtml(item.id) + '" aria-label="Status for ' + escapeHtml(item.title) + '">' + milestoneStatusOptions(item.status) + '</select></div></div>'; }).join('') : '<div class="empty">No milestones loaded.</div>') + '</div><div class="source-line">These are founder decision gates, not regulatory approval. A real go decision still requires qualified clinical, scientific, legal and investor evidence.</div></div>';
+      }
+
+      function statusClass(caseItem) {
+        if (caseItem.step >= 6) return 'green';
+        if (caseItem.priority === 'High') return 'amber';
+        return '';
+      }
+
+      function stageProgress(step) {
+        return Math.round((step / (STAGES.length - 1)) * 100);
+      }
+
+      function stageMarkup(step) {
+        return '<div class="progress"><span style="width:' + stageProgress(step) + '%"></span></div><div class="stage-row">' + STAGES.map(function (stage, index) {
+          const stateClass = index < step ? 'done' : index === step ? 'current' : '';
+          return '<div class="stage ' + stateClass + '"><div class="stage-dot"></div>' + escapeHtml(stage) + '</div>';
+        }).join('') + '</div>';
+      }
+
+      function caseRow(item) {
+        return '<div class="case-row"><div><div class="case-name">' + escapeHtml(item.name) + '</div><div class="case-meta">' + escapeHtml(item.breed) + ' · ' + escapeHtml(item.cancer) + '</div></div><div><div class="status ' + statusClass(item) + '">' + escapeHtml(STAGES[item.step]) + '</div><div class="case-next">Next: ' + escapeHtml(item.next) + '</div></div><button class="btn small" data-open-case="' + escapeHtml(item.id) + '">Open</button></div>';
+      }
+
+      function dashboard() {
+        const cases = state.cases;
+        const active = cases.filter(function (item) { return item.step < 6; }).length;
+        const consented = cases.filter(function (item) { return item.consent; }).length;
+        const traceable = cases.filter(function (item) { return item.events && item.events.length >= 2; }).length;
+        const high = cases.filter(function (item) { return item.priority === 'High'; }).length;
+        return '<div class="hero"><div><div class="eyebrow">Operational proof / local-first prototype</div><h1>Move every case with evidence.</h1><p>Canopy is the coordination layer for a Singapore-based personalised canine oncology programme. It keeps the vet, sample, analysis decision, qualified manufacturing partner and outcome record in one traceable case file.</p></div><div class="hero-badge"><b>Year-one test</b>3–5 permitted pilot cases</div></div>' +
+          '<div class="metrics"><div class="metric"><div class="metric-label">Active cases</div><div class="metric-value">' + active + '</div><div class="metric-note">of ' + cases.length + ' records</div></div><div class="metric"><div class="metric-label">Consent recorded</div><div class="metric-value">' + consented + '/' + cases.length + '</div><div class="metric-note">owner / data permission</div></div><div class="metric"><div class="metric-label">Traceable cases</div><div class="metric-value">' + traceable + '/' + cases.length + '</div><div class="metric-note">sample + event history</div></div><div class="metric"><div class="metric-label">Priority queue</div><div class="metric-value">' + high + '</div><div class="metric-note">requires clinical review</div></div></div>' +
+          '<div class="layout-2"><div class="card"><div class="card-header"><div><h2>Case pipeline</h2><p>Demo records are clearly marked. Replace them only with consented, approved data.</p></div><button class="btn primary small" data-nav="new-case">+ New case</button></div><div class="case-list">' + (cases.length ? cases.slice(0, 6).map(caseRow).join('') : '<div class="empty">No cases yet. Create a case to test the workflow.</div>') + '</div></div><div class="card"><div class="card-header"><div><h2>Evidence checklist</h2><p>What an investor should be able to verify.</p></div></div><div class="checklist"><div class="check"><span>Case intake is structured</span><span class="tick">✓ MVP</span></div><div class="check"><span>Sample custody is recorded</span><span class="tick">✓ MVP</span></div><div class="check"><span>Clinical design review is explicit</span><span class="tick">✓ MVP</span></div><div class="check"><span>Partner manufacturing is qualified</span><span class="pending">Pending</span></div><div class="check"><span>Regulatory pathway is written</span><span class="pending">Pending</span></div></div><div class="callout" style="margin-top:16px"><strong>Next proof:</strong><br><span style="color:var(--muted);font-size:.78rem">Secure a clinical-partner letter and an AVS-informed pilot brief before spending on wet-lab capability.</span></div></div></div>';
+      }
+
+      function newCaseView() {
+        return '<div class="hero"><div><div class="eyebrow">Workflow / step 01</div><h1>Open a case.</h1><p>Use synthetic data for this prototype. A production version needs a secure backend, role-based access, consent management and local regulatory review before collecting identifiable records.</p></div></div><div class="card" style="max-width:850px"><form id="new-case-form"><div class="form-grid"><label class="required">Dog name<input name="name" required placeholder="e.g. Miso"></label><label class="required">Breed<input name="breed" required placeholder="e.g. Singapore Special"></label><label class="required">Cancer type<input name="cancer" required placeholder="e.g. mast cell tumour"></label><label>Stage / grade<select name="stage"><option>Unconfirmed</option><option>Stage I</option><option>Stage II</option><option>Stage III</option><option>Stage IV</option><option>Recurrent / treatment-resistant</option></select></label><label class="required">Referring clinic<input name="clinic" required placeholder="Clinic or hospital"></label><label>Priority<select name="priority"><option>Medium</option><option>High</option><option>Low</option></select></label></div><label>Clinical context<textarea name="context" placeholder="Diagnosis, prior treatment, and what the clinical team wants reviewed. Do not paste real personal data into this offline demo."></textarea></label><label class="consent"><input type="checkbox" name="consent" required><span>I am using synthetic/demo data, or I have the appropriate permission to create this case record. I understand this prototype does not provide medical advice or treatment decisions.</span></label><div class="action-row"><button class="btn primary" type="submit">Create case record</button><button class="btn" type="button" data-nav="dashboard">Cancel</button></div><div class="form-note">Production requirement: separate owner consent, research consent and clinic authorisation; store the policy version and audit who approved each action.</div></form></div>';
+      }
+
+      function casesView() {
+        const rows = state.cases.map(caseRow).join('');
+        return '<div class="hero"><div><div class="eyebrow">Operations / all records</div><h1>Case pipeline.</h1><p>Every state change should have a responsible person, timestamp and evidence attachment in production.</p></div><button class="btn primary" data-nav="new-case">+ New case</button></div><div class="card"><div class="card-header"><div><h2>' + state.cases.length + ' case records</h2><p>Local-only demo storage in this browser.</p></div><button class="btn small" id="reset-btn">Reset demo data</button></div><div class="case-list">' + (rows || '<div class="empty">No records.</div>') + '</div></div>';
+      }
+
+      function proofRow(index, label) {
+        const checked = state.proof[index] ? ' checked' : '';
+        return '<label class="proof ' + (state.proof[index] ? 'done' : '') + '"><input type="checkbox" data-proof="' + index + '"' + checked + '><span>' + escapeHtml(label) + '</span></label>';
+      }
+
+      function investorsView() {
+        const count = state.proof.filter(Boolean).length;
+        const pct = Math.round((count / PROOF_LABELS.length) * 100);
+        return '<div class="hero"><div><div class="eyebrow">Capital / evidence first</div><h1>Investor proof, not investor theatre.</h1><p>Track the milestones that turn Canopy from a compelling story into a fundable Singapore deep-tech company. Check a box only when evidence exists in the data room.</p></div><div class="hero-badge"><b>' + count + '/5</b>proof items ready</div></div><div class="investor-grid"><div class="card"><div class="card-header"><div><h2>Pre-seed readiness</h2><p>Target: enough capital to reach the next permitted evidence milestone.</p></div><span class="status ' + (pct >= 80 ? 'green' : 'amber') + '">' + pct + '% ready</span></div><div class="progress"><span style="width:' + pct + '%"></span></div><div class="proof-list" style="margin-top:15px">' + PROOF_LABELS.map(proofRow).join('') + '</div><div class="warning">Do not represent a partner conversation, grant programme or verbal interest as committed funding. Attach a signed letter, quote, approval or bankable term to each checked item.</div></div><div class="card"><div class="card-header"><div><h2>Target conversations</h2><p>Warm introductions are more valuable than a generic blast.</p></div></div><div class="target"><b>SGInnovate</b><span>Deep-tech / biotech ecosystem and early-stage capital conversation.</span></div><div class="target"><b>Startup SG Equity</b><span>Co-investment route; requires a qualified third-party investor alongside the company.</span></div><div class="target"><b>ClavystBio / EDBI</b><span>Life-science strategic and venture-building conversations after science and partner proof.</span></div><div class="target"><b>NSG Bio Tomorrow</b><span>Biotech residency, mentorship, investment network and possible programme credits.</span></div><div class="action-row" style="margin-top:15px"><a class="btn small" target="_blank" rel="noreferrer" href="https://www.sginnovate.com/">SGInnovate</a><a class="btn small" target="_blank" rel="noreferrer" href="https://www.startupsg.gov.sg/programmes/4895/startup-sg-equity">Startup SG</a><a class="btn small" target="_blank" rel="noreferrer" href="https://nsgbio.com/about-nsg-bio-tomorrow/">NSG Bio</a></div></div></div><div class="card" style="margin-top:14px"><div class="card-header"><div><h2>One-line pitch</h2><p>Use after you can support it with evidence.</p></div><button class="btn small" id="copy-pitch">Copy</button></div><div class="callout"><strong>Canopy makes personalised veterinary oncology repeatable across Asia</strong><br><span style="color:var(--muted);font-size:.8rem">by turning fragmented case, genomic, manufacturing and outcome data into one auditable, partner-led workflow.</span></div><div class="source-line">Current reference points: <a target="_blank" rel="noreferrer" href="https://www.gamgee.io/vet/">Gamgee’s public veterinary workflow</a> · <a target="_blank" rel="noreferrer" href="https://avs.nparks.gov.sg/businesses/general-licences-services/licence-possess-veterinary-biologics/licence-possess-veterinary-biologics/">AVS biologics licensing</a> · <a target="_blank" rel="noreferrer" href="https://edbi.com/about/">EDBI</a> · <a target="_blank" rel="noreferrer" href="https://www.clavystbio.com/company">ClavystBio</a>.</div></div>';
+      }
+
+      function caseDetail(item) {
+        if (!item) return '<div class="empty">Case not found.</div>';
+        const atLast = item.step >= STAGES.length - 1;
+        const selectedCount = item.candidates.filter(function (candidate) { return candidate.selected; }).length;
+        return '<div class="detail-header"><div><div class="eyebrow">Case file / ' + escapeHtml(item.id) + '</div><h1>' + escapeHtml(item.name) + '</h1><p>' + escapeHtml(item.breed) + ' · ' + escapeHtml(item.cancer) + ' · ' + escapeHtml(item.clinic) + '</p></div><div class="action-row"><button class="btn small" data-nav="cases">← Pipeline</button><button class="btn small" id="export-case">Export case JSON</button><button class="btn primary small" id="advance-case"' + (atLast ? ' disabled' : '') + '>' + (atLast ? 'At monitoring' : 'Advance to ' + escapeHtml(STAGES[item.step + 1])) + '</button></div></div><div class="detail-grid"><div class="card"><div class="card-header"><div><h2>Workflow state</h2><p>Current owner: ' + escapeHtml(item.step < 3 ? 'clinic / sample team' : 'clinical review team') + '</p></div><span class="status ' + statusClass(item) + '">' + escapeHtml(STAGES[item.step]) + '</span></div>' + stageMarkup(item.step) + '<div class="callout" style="margin-top:22px"><strong>Next action</strong><br><span style="color:var(--muted);font-size:.82rem">' + escapeHtml(item.next) + '</span><br><span style="color:var(--dim);font-size:.72rem">' + escapeHtml(STAGE_HINTS[item.step]) + '</span></div><div class="section-title"><div><h2>Case details</h2><p>Source fields are intentionally minimal in this prototype.</p></div></div><div class="info-grid"><div class="info"><div class="info-label">Diagnosis</div><div class="info-value">' + escapeHtml(item.cancer) + '</div></div><div class="info"><div class="info-label">Stage / grade</div><div class="info-value">' + escapeHtml(item.stage) + '</div></div><div class="info"><div class="info-label">Referring clinic</div><div class="info-value">' + escapeHtml(item.clinic) + '</div></div><div class="info"><div class="info-label">Consent status</div><div class="info-value">' + (item.consent ? '<span style="color:var(--green)">Recorded in demo</span>' : '<span style="color:var(--amber)">Required</span>') + '</div></div></div></div><div class="card"><div class="card-header"><div><h2>Sample custody</h2><p>Track identity and hand-offs; production needs attachments and signatures.</p></div><span class="status ' + (item.sample.tumour === 'Received' && item.sample.blood === 'Received' ? 'green' : 'amber') + '">' + escapeHtml(item.sample.custody) + '</span></div><div class="info-grid"><div class="info"><div class="info-label">Tumour</div><div class="info-value">' + escapeHtml(item.sample.tumour) + '</div></div><div class="info"><div class="info-label">Matched blood</div><div class="info-value">' + escapeHtml(item.sample.blood) + '</div></div><div class="info"><div class="info-label">Received</div><div class="info-value">' + escapeHtml(item.sample.received) + '</div></div><div class="info"><div class="info-label">Record type</div><div class="info-value">Demo checkpoint</div></div></div><button class="btn small" id="record-sample" style="margin-top:14px">Record sample receipt</button><div class="warning">No laboratory result is generated here. This screen is only an auditable hand-off placeholder.</div></div></div><div class="layout-2" style="margin-top:14px"><div class="card"><div class="card-header"><div><h2>Design review</h2><p>Mock candidate rows show where clinician review would happen.</p></div><span class="status ' + (selectedCount ? 'green' : 'amber') + '">' + selectedCount + ' selected</span></div><div class="candidate-list">' + item.candidates.map(function (candidate) { return '<label class="candidate"><input type="checkbox" data-candidate="' + escapeHtml(candidate.id) + '"' + (candidate.selected ? ' checked' : '') + '><span><strong>' + escapeHtml(candidate.label) + '</strong><small>Illustrative ranking only · clinician must review supporting evidence</small></span><span class="score">' + (candidate.score === null ? 'PENDING' : candidate.score + '%') + '</span></label>'; }).join('') + '</div><div class="warning">These scores are synthetic UI data. They are not binding-affinity predictions, immunogenicity scores or treatment recommendations.</div></div><div class="card"><div class="card-header"><div><h2>Audit trail</h2><p>Newest event appears first.</p></div></div><div class="event-list">' + item.events.slice().reverse().map(function (event) { return '<div class="event"><time>' + escapeHtml(new Intl.DateTimeFormat('en-SG', { day: '2-digit', month: 'short' }).format(new Date(event.when))) + '</time><p>' + escapeHtml(event.text) + '</p></div>'; }).join('') + '</div></div></div>';
+      }
+
+      function render() {
+        ['dashboard', 'new-case', 'cases', 'investors', 'detail'].forEach(function (name) {
+          const node = document.getElementById('view-' + name);
+          if (node) node.classList.toggle('active', state.currentView === name);
+        });
+        document.getElementById('view-dashboard').innerHTML = dashboard();
+        document.getElementById('view-new-case').innerHTML = newCaseView();
+        document.getElementById('view-cases').innerHTML = casesView();
+        document.getElementById('view-investors').innerHTML = investorsView().replace('<div class="investor-grid">', actionBoardMarkup() + milestonePipelineMarkup() + targetPipelineMarkup() + technologyPipelineMarkup() + '<div class="investor-grid">');
+        document.getElementById('view-detail').innerHTML = caseDetail(state.cases.find(function (item) { return item.id === state.selectedCaseId; }));
+        const modeLabel = document.getElementById('mode-label'); if (modeLabel) { modeLabel.textContent = modeName(); modeLabel.className = 'status ' + (apiIsActive() ? 'green' : 'amber'); }
+        const apiHealthButton = document.getElementById('api-health-btn'); if (apiHealthButton) apiHealthButton.textContent = apiIsActive() ? 'Refresh local API' : 'Check local API';
+        const modeToggleButton = document.getElementById('mode-toggle-btn'); if (modeToggleButton) modeToggleButton.textContent = apiIsActive() ? 'Use offline mode' : 'Use API mode';
+        document.querySelectorAll('.nav button').forEach(function (button) { button.classList.toggle('active', button.dataset.view === state.currentView); });
+        bindViewActions();
+      }
+
+      function showToast(message) {
+        const node = document.getElementById('toast');
+        node.textContent = message;
+        node.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { node.classList.add('hidden'); }, 3200);
+      }
+
+      async function checkApi() {
+        try {
+          const data = await apiRequest('/api/health', { headers: { 'Accept': 'application/json' } });
+          if (!data.ok) throw new Error('Local API reported an unhealthy status.');
+          await syncFromApi();
+          showToast('Local API connected: memory-only development mode.');
+        } catch (error) {
+          showToast('Local API not reachable. Start canopy-api.js, then open this page from http://127.0.0.1:8787/.');
+        }
+      }
+
+      function toggleMode() {
+        if (apiIsActive()) {
+          state.source = 'offline';
+          save(); render(); showToast('Using the local browser demo again.');
+        } else {
+          return checkApi();
+        }
+      }
+
+      function go(view) {
+        state.currentView = view;
+        if (view !== 'detail') state.selectedCaseId = null;
+        save(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function openCase(id) {
+        state.selectedCaseId = id;
+        state.currentView = 'detail';
+        save(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      async function advanceCase() {
+        const item = state.cases.find(function (candidate) { return candidate.id === state.selectedCaseId; });
+        if (!item || item.step >= STAGES.length - 1) return;
+        try {
+          if (apiIsActive()) {
+            replaceCase(await apiRequest('/api/cases/' + encodeURIComponent(item.id) + '/advance', { method: 'POST', body: '{}' }));
+          } else {
+            item.step += 1;
+            item.next = item.step === 6 ? 'Record week-4 outcome checkpoint' : STAGE_HINTS[item.step];
+            item.events.push(makeEvent('Workflow advanced to ' + STAGES[item.step] + '. Owner must attach evidence in production.'));
+          }
+          save(); render(); showToast('Case advanced to ' + STAGES[item.step] + '.');
+        } catch (error) { showToast('Could not advance case: ' + error.message); }
+      }
+
+      async function recordSample() {
+        const item = state.cases.find(function (candidate) { return candidate.id === state.selectedCaseId; });
+        if (!item) return;
+        try {
+          if (apiIsActive()) {
+            replaceCase(await apiRequest('/api/cases/' + encodeURIComponent(item.id) + '/sample', { method: 'POST', body: '{}' }));
+          } else {
+            item.sample = { tumour: 'Received', blood: 'Received', custody: 'Clinic → partner lab', received: nowLabel() };
+            if (item.step < 1) item.step = 1;
+            item.next = STAGE_HINTS[item.step];
+            item.events.push(makeEvent('Sample receipt checkpoint recorded in demo workspace.'));
+          }
+          save(); render(); showToast('Sample receipt checkpoint recorded.');
+        } catch (error) { showToast('Could not record sample: ' + error.message); }
+      }
+
+      function exportJson(payload, filename) {
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.click();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      }
+
+      function localInvestorSnapshot() {
+        const traceable = state.cases.filter(function (item) { return item.events && item.events.length >= 2; }).length;
+        return {
+          schemaVersion: 'canopy-investor-snapshot.v1', generatedAt: new Date().toISOString(),
+          dataBoundary: 'Offline/local-development summary. Case-level context, owner data and clinical records are intentionally excluded.',
+          productProof: { caseRecords: state.cases.length, activeCases: state.cases.filter(function (item) { return item.step < STAGES.length - 1; }).length, consentedRecords: state.cases.filter(function (item) { return item.consent === true; }).length, traceableRecords: traceable, apiMode: 'offline-localStorage' },
+          investorReadiness: PROOF_LABELS.map(function (label, index) { return { label: label, ready: Boolean(state.proof[index]) }; }),
+          targets: (state.targets || []).map(function (item) { return { id: item.id, name: item.name, kind: item.kind, status: item.status, priority: item.priority, deskScore: item.deskScore, ask: item.ask, fit: item.fit, routeEvidence: item.routeEvidence, evidenceUrl: item.evidenceUrl, fitBoundary: item.fitBoundary, evidenceRequired: item.evidenceRequired, nextAction: item.nextAction, dueMonth: item.dueMonth, dueDate: item.dueDate || null, officialRoute: item.url, updated: item.updated || null, history: (item.history || []).map(function (entry) { return { status: entry.status, when: entry.when }; }) }; }),
+          technology: (state.technology || []).map(function (item) { return { id: item.id, area: item.area, owner: item.owner, status: item.status, requiredProof: item.proof, updated: item.updated || null, partnerCandidates: (item.partnerCandidates || []).map(function (candidate) { return { name: candidate.name, role: candidate.role, officialRoute: candidate.url, evidence: candidate.evidence, boundary: candidate.boundary }; }) }; }),
+          milestones: (state.milestones || []).map(function (item) { return { id: item.id, month: item.month, title: item.title, owner: item.owner, dueDate: item.dueDate || null, status: item.status, stopIfMissed: item.stopIfMissed, evidence: item.evidence, updated: item.updated || null }; }),
+          executionActions: (state.actions || []).map(function (item) { return { id: item.id, dueDays: item.dueDays, title: item.title, category: item.category, owner: item.owner, gate: item.gate, dueDate: item.dueDate || null, status: item.status, requiredOutput: item.requiredOutput, instruction: item.instruction, updated: item.updated || null }; }),
+          decision: computeDecision(state.milestones || []),
+          claimBoundary: 'This snapshot does not prove investor interest, regulatory clearance, clinical efficacy, manufacturing qualification or veterinary partnership.',
+          nextGate: 'Obtain a clinical-partner letter and regulator-informed pilot brief before enrolling or treating any animal.'
+        };
+      }
+
+      async function exportInvestorSnapshot() {
+        try {
+          const payload = apiIsActive() ? await apiRequest('/api/investor-snapshot') : localInvestorSnapshot();
+          exportJson(payload, 'canopy-investor-snapshot.json');
+          showToast('Case-free investor snapshot exported.');
+        } catch (error) { showToast('Could not export investor snapshot: ' + error.message); }
+      }
+
+      async function submitNewCase(form) {
+        const data = new FormData(form);
+        try {
+          let item;
+          if (apiIsActive()) {
+            item = await apiRequest('/api/cases', { method: 'POST', body: JSON.stringify({ name: data.get('name'), breed: data.get('breed'), cancer: data.get('cancer'), stage: data.get('stage'), clinic: data.get('clinic'), priority: data.get('priority'), context: data.get('context'), consent: Boolean(data.get('consent')) }) });
+          } else {
+            item = { id: uid('case'), name: data.get('name'), breed: data.get('breed'), cancer: data.get('cancer'), stage: data.get('stage'), clinic: data.get('clinic'), priority: data.get('priority'), step: 0, next: STAGE_HINTS[0], owner: 'Assigned clinical team', consent: Boolean(data.get('consent')), created: new Date().toISOString(), context: data.get('context'), sample: { tumour: 'Not collected', blood: 'Not collected', custody: 'Awaiting clinic', received: '—' }, candidates: [{ id: uid('neo'), label: 'Candidate A · pending partner analysis', score: null, selected: false }], events: [makeEvent('Case record created; consent checkbox captured in demo workspace.')] };
+          }
+          replaceCase(item); state.selectedCaseId = item.id; state.currentView = 'detail'; save(); render(); showToast('Case created in ' + (apiIsActive() ? 'local API' : 'offline demo') + '.');
+        } catch (error) { showToast('Could not create case: ' + error.message); }
+      }
+
+      async function setProof(index, ready) {
+        try {
+          if (apiIsActive()) {
+            const result = await apiRequest('/api/readiness/' + index, { method: 'PATCH', body: JSON.stringify({ ready: ready }) });
+            state.proof[index] = Boolean(result.ready);
+          } else state.proof[index] = ready;
+          save(); render();
+        } catch (error) { showToast('Could not update investor proof: ' + error.message); }
+      }
+
+      async function setTargetStatus(targetId, status, note) {
+        try {
+          const target = (state.targets || []).find(function (item) { return item.id === targetId; });
+          if (!target) return;
+          if (apiIsActive()) {
+            const updated = await apiRequest('/api/targets/' + encodeURIComponent(targetId), { method: 'PATCH', body: JSON.stringify({ status: status, note: note || '' }) });
+            Object.assign(target, updated);
+          } else {
+            target.status = status;
+            target.note = String(note || '').slice(0, 600);
+            target.updated = new Date().toISOString();
+            if (!Array.isArray(target.history)) target.history = [];
+            target.history.push({ status: target.status, note: target.note, when: target.updated });
+          }
+          save(); render(); showToast(target.name + ' status logged as ' + status + '. No outreach was sent.');
+        } catch (error) { showToast('Could not update target: ' + error.message); }
+      }
+
+      async function setTechnologyStatus(technologyId, status) {
+        try {
+          const item = (state.technology || []).find(function (technology) { return technology.id === technologyId; });
+          if (!item) return;
+          if (apiIsActive()) {
+            const updated = await apiRequest('/api/technology/' + encodeURIComponent(technologyId), { method: 'PATCH', body: JSON.stringify({ status: status }) });
+            Object.assign(item, updated);
+          } else item.status = status;
+          save(); render(); showToast(item.area + ' status logged as ' + status + '.');
+        } catch (error) { showToast('Could not update technology: ' + error.message); }
+      }
+
+      async function setMilestoneStatus(milestoneId, status) {
+        try {
+          const item = (state.milestones || []).find(function (milestone) { return milestone.id === milestoneId; });
+          if (!item) return;
+          if (apiIsActive()) {
+            const updated = await apiRequest('/api/milestones/' + encodeURIComponent(milestoneId), { method: 'PATCH', body: JSON.stringify({ status: status }) });
+            Object.assign(item, updated);
+          } else item.status = status;
+          state.decision = computeDecision(state.milestones || []);
+          save(); render(); showToast(item.title + ' logged as ' + status + '.');
+        } catch (error) { showToast('Could not update milestone: ' + error.message); }
+      }
+
+      async function setActionStatus(actionId, status, note) {
+        try {
+          const item = (state.actions || []).find(function (action) { return action.id === actionId; });
+          if (!item) return;
+          if (apiIsActive()) {
+            const updated = await apiRequest('/api/actions/' + encodeURIComponent(actionId), { method: 'PATCH', body: JSON.stringify({ status: status, note: note || '' }) });
+            Object.assign(item, updated);
+          } else {
+            item.status = status;
+            item.note = String(note || '').slice(0, 800);
+            item.updated = new Date().toISOString();
+            if (!Array.isArray(item.history)) item.history = [];
+            item.history.push({ status: item.status, note: item.note, when: item.updated });
+          }
+          save(); render(); showToast(item.title + ' logged as ' + status + '.');
+        } catch (error) { showToast('Could not update action: ' + error.message); }
+      }
+
+      async function resetWorkspace() {
+        try {
+          if (apiIsActive()) {
+            const result = await apiRequest('/api/reset', { method: 'POST', body: '{}' });
+            state.cases = result.cases || []; state.proof = (result.proof || []).map(function (item) { return Boolean(item.ready); }); state.targets = result.targets || []; state.technology = result.technology || []; state.startedAt = result.startedAt || state.startedAt; state.milestones = result.milestones || []; state.actions = result.actions || []; state.decision = result.decision || computeDecision(state.milestones); state.selectedCaseId = null; state.currentView = 'dashboard';
+          } else state = demoState();
+          save(); render(); showToast('Demo workspace reset.');
+        } catch (error) { showToast('Could not reset workspace: ' + error.message); }
+      }
+
+      function bindViewActions() {
+        document.querySelectorAll('[data-nav]').forEach(function (node) { node.addEventListener('click', function () { go(node.dataset.nav); }); });
+        document.querySelectorAll('[data-open-case]').forEach(function (node) { node.addEventListener('click', function () { openCase(node.dataset.openCase); }); });
+        document.querySelectorAll('[data-proof]').forEach(function (node) { node.addEventListener('change', function () { setProof(Number(node.dataset.proof), node.checked); }); });
+        document.querySelectorAll('[data-target-status]').forEach(function (node) { node.addEventListener('change', function () { const target = (state.targets || []).find(function (item) { return item.id === node.dataset.targetStatus; }); setTargetStatus(node.dataset.targetStatus, node.value, target && target.note); }); });
+        document.querySelectorAll('[data-target-log]').forEach(function (node) { node.addEventListener('click', function () { const target = (state.targets || []).find(function (item) { return item.id === node.dataset.targetLog; }); const input = document.querySelector('[data-target-note="' + node.dataset.targetLog + '"]'); if (target && input) setTargetStatus(node.dataset.targetLog, target.status, input.value); }); });
+        document.querySelectorAll('[data-technology-status]').forEach(function (node) { node.addEventListener('change', function () { setTechnologyStatus(node.dataset.technologyStatus, node.value); }); });
+        document.querySelectorAll('[data-milestone-status]').forEach(function (node) { node.addEventListener('change', function () { setMilestoneStatus(node.dataset.milestoneStatus, node.value); }); });
+        document.querySelectorAll('[data-action-status]').forEach(function (node) { node.addEventListener('change', function () { const item = (state.actions || []).find(function (action) { return action.id === node.dataset.actionStatus; }); setActionStatus(node.dataset.actionStatus, node.value, item && item.note); }); });
+        document.querySelectorAll('[data-action-log]').forEach(function (node) { node.addEventListener('click', function () { const item = (state.actions || []).find(function (action) { return action.id === node.dataset.actionLog; }); const input = document.querySelector('[data-action-note="' + node.dataset.actionLog + '"]'); if (item && input) setActionStatus(node.dataset.actionLog, item.status, input.value); }); });
+        document.querySelectorAll('[data-candidate]').forEach(function (node) { node.addEventListener('change', function () { const item = state.cases.find(function (candidate) { return candidate.id === state.selectedCaseId; }); const selected = item && item.candidates.find(function (candidate) { return candidate.id === node.dataset.candidate; }); if (selected) { selected.selected = node.checked; save(); render(); } }); });
+        const form = document.getElementById('new-case-form');
+        if (form) form.addEventListener('submit', function (event) { event.preventDefault(); submitNewCase(form); });
+        const advance = document.getElementById('advance-case'); if (advance) advance.addEventListener('click', advanceCase);
+        const sample = document.getElementById('record-sample'); if (sample) sample.addEventListener('click', recordSample);
+        const exportCase = document.getElementById('export-case'); if (exportCase) exportCase.addEventListener('click', function () { const item = state.cases.find(function (candidate) { return candidate.id === state.selectedCaseId; }); if (item) exportJson(item, 'canopy-' + item.id + '.json'); });
+        const reset = document.getElementById('reset-btn'); if (reset) reset.addEventListener('click', function () { if (window.confirm('Reset this local demo workspace?')) resetWorkspace(); });
+        const copyPitch = document.getElementById('copy-pitch'); if (copyPitch) copyPitch.addEventListener('click', function () { const pitch = 'Canopy makes personalised veterinary oncology repeatable across Asia by turning fragmented case, genomic, manufacturing and outcome data into one auditable, partner-led workflow.'; navigator.clipboard && navigator.clipboard.writeText(pitch); showToast('Pitch copied when browser permissions allow.'); });
+        const apiHealth = document.getElementById('api-health-btn'); if (apiHealth) apiHealth.addEventListener('click', checkApi);
+        const modeToggle = document.getElementById('mode-toggle-btn'); if (modeToggle) modeToggle.addEventListener('click', toggleMode);
+        const snapshotButton = document.getElementById('snapshot-btn'); if (snapshotButton) snapshotButton.addEventListener('click', exportInvestorSnapshot);
+      }
+
+      document.querySelectorAll('.nav button').forEach(function (button) { button.addEventListener('click', function () { go(button.dataset.view); }); });
+      document.getElementById('seed-btn').addEventListener('click', function () { resetWorkspace(); });
+      document.getElementById('export-btn').addEventListener('click', function () { exportJson({ exportedAt: new Date().toISOString(), prototype: 'Canopy MVP', state: state }, 'canopy-workspace.json'); showToast('Workspace export downloaded.'); });
+      render();
+    }());
+  </script>
+</body>
+</html>
