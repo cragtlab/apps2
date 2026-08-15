@@ -210,7 +210,21 @@
 
             const row = document.createElement("div");
             row.className = "officer-row";
-            row.innerHTML = `<strong>${o}</strong>: `;
+
+            const officerSpan = document.createElement("strong");
+            officerSpan.style.cursor = "pointer";
+            officerSpan.style.textDecoration = "underline";
+            officerSpan.style.marginRight = "5px";
+            officerSpan.textContent = `${o} (${officerIndex[o] ? officerIndex[o].length : 0})`;
+            officerSpan.onclick = () => {
+                container.querySelector("#officerFilter").value = o;
+                container.querySelector("#statusFilter").value = "";
+                applyFilters();
+            };
+
+            row.appendChild(officerSpan);
+            row.appendChild(document.createTextNode(": "));
+
             statuses.forEach(s => {
                 const count = dashboardIndex[o][s];
                 const span = document.createElement("span");

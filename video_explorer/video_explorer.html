@@ -1,0 +1,78 @@
+
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Video Scene Explorer</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background:#10151d; color:#edf2f7; }
+    body { margin:0; max-width:1100px; padding:28px; margin-inline:auto; }
+    h1 { margin:0 0 6px; } .muted { color:#a9b6c6; } .panel { background:#18212d; border:1px solid #2b3b4e; border-radius:12px; padding:18px; margin:18px 0; }
+    .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; } button, input { font:inherit; } button { border:0; border-radius:8px; padding:9px 13px; background:#4f8cff; color:white; cursor:pointer; } button:disabled { opacity:.45; cursor:not-allowed; }
+    button.secondary { background:#304156; } input[type=range] { accent-color:#4f8cff; } #thresholdOutput { min-width:3ch; }
+    video { width:100%; max-height:62vh; background:#05070a; border-radius:9px; } #progress { width:100%; height:9px; } #status { min-height:1.5em; }
+    table { width:100%; border-collapse:collapse; } th,td { padding:10px 8px; border-bottom:1px solid #2b3b4e; text-align:left; } th { color:#a9b6c6; font-size:.85rem; } .download { background:#1f9d70; } canvas { display:none; }
+    .notice { border-left:3px solid #f5b942; padding-left:12px; color:#d7c69c; }
+  </style>
+</head>
+<body>
+  <h1>Video Scene Explorer</h1>
+  <p class="muted">A self-contained, local video scene detector. Your video stays in this browser.</p>
+
+  <section class="panel controls">
+    <label>Choose video <input id="file" type="file" accept="video/*"></label>
+    <label>Scan every <input id="interval" type="number" value="0.5" min="0.1" max="10" step="0.1" style="width:5em"> seconds</label>
+    <button id="fastScan" class="secondary" type="button">Fast (2 s)</button>
+    <button id="smartScan" class="secondary" type="button">Detailed (0.25 s)</button>
+    <label>Cut sensitivity <input id="threshold" type="range" min="4" max="45" value="12"> <output id="thresholdOutput">12</output></label>
+    <button id="detect" disabled>Detect scenes</button>
+    <button id="addScene" class="secondary" disabled>Add selected clip</button>
+  </section>
+
+  <section class="panel"><video id="video" controls playsinline></video></section>
+  <section class="panel controls">
+    <span class="muted">Manual clip:</span>
+    <label>Start <input id="manualStart" type="number" min="0" step="0.01" value="0" style="width:6em"> s</label>
+    <label>End <input id="manualEnd" type="number" min="0" step="0.01" style="width:6em"> s</label>
+    <button id="setStart" class="secondary" disabled>Use current as start</button>
+    <button id="setEnd" class="secondary" disabled>Use current as end</button>
+  </section>
+  <section class="panel">
+    <progress id="progress" max="1" value="0"></progress>
+    <div id="status" class="muted">Choose a video to begin.</div>
+  </section>
+  <section class="panel">
+    <h2>Scenes</h2>
+    <p class="notice">Automatic detection compares small video frames for abrupt visual changes. “Add selected clip” adds exactly the Start–End range above. “Download clip” records the selected range as a WebM file while it plays; keep this tab open until the download starts.</p>
+    <table><thead><tr><th>#</th><th>Start</th><th>End</th><th>Length</th><th></th></tr></thead><tbody id="scenes"><tr><td colspan="5" class="muted">No scenes detected yet.</td></tr></tbody></table>
+  </section>
+  <canvas id="frame" width="64" height="36"></canvas>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const file = $('file'), video = $('video'), detect = $('detect'), status = $('status'), progress = $('progress');
+    const interval = $('interval'), threshold = $('threshold'), thresholdOutput = $('thresholdOutput'), rows = $('scenes');
+    const fastScan = $('fastScan'), smartScan = $('smartScan');
+    const manualStart = $('manualStart'), manualEnd = $('manualEnd'), addScene = $('addScene'), setStart = $('setStart'), setEnd = $('setEnd');
+    const canvas = $('frame'), ctx = canvas.getContext('2d', {willReadFrequently:true});
+    let objectUrl, scenes = [];
+    threshold.oninput = () => thresholdOutput.textContent = threshold.value;
+    const fmt = seconds => { seconds = Math.max(0, seconds); const h=Math.floor(seconds/3600), m=Math.floor(seconds%3600/60), s=seconds%60; return (h ? String(h).padStart(2,'0')+':' : '') + String(m).padStart(2,'0') + ':' + s.toFixed(2).padStart(5,'0'); };
+    const seek = time => new Promise((resolve, reject) => { const target=Math.min(Math.max(0,time),video.duration); if(Math.abs(video.currentTime-target)<.01) return resolve(); const timer=setTimeout(()=>{video.removeEventListener('seeked',done); reject(new Error('Seeking timed out.'));},10000); const done=()=>{clearTimeout(timer); resolve();}; video.addEventListener('seeked',done,{once:true}); video.currentTime=target; });
+    function signature() { ctx.drawImage(video,0,0,canvas.width,canvas.height); const data=ctx.getImageData(0,0,canvas.width,canvas.height).data, pixels=[]; for(let i=0;i<data.length;i+=4) { const luma=(data[i]*.299+data[i+1]*.587+data[i+2]*.114)/255; const chroma=(Math.max(data[i],data[i+1],data[i+2])-Math.min(data[i],data[i+1],data[i+2]))/255; pixels.push(luma, chroma); } return pixels; }
+    function difference(a,b) { return a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length*100; }
+    file.onchange = () => { if(objectUrl) URL.revokeObjectURL(objectUrl); const chosen=file.files[0]; if(!chosen) return; objectUrl=URL.createObjectURL(chosen); video.src=objectUrl; video.load(); status.textContent='Loading '+chosen.name+'…'; scenes=[]; render(); };
+    video.onloadedmetadata = () => { detect.disabled=false; addScene.disabled=false; setStart.disabled=false; setEnd.disabled=false; manualEnd.value=video.duration.toFixed(2); scenes=[{start:0,end:video.duration}]; render(); status.textContent=`Ready: ${fmt(video.duration)} long. The full video is available below; select Detect scenes to split it automatically.`; };
+    fastScan.onclick=()=>{interval.value=2; status.textContent='Fast scan selected: checks every 2 seconds; short scenes can be missed.';};
+    smartScan.onclick=()=>{interval.value=.25; status.textContent='Detailed scan selected: checks every 0.25 seconds; this takes longer.';};
+    detect.onclick = async () => { try { detect.disabled=true; const step=Math.max(.1,Number(interval.value)||.5), limit=Number(threshold.value), duration=video.duration; const cuts=[0]; let previous, runningAverage=0, samples=0; video.pause(); for(let time=0;time<duration;time+=step) { await seek(time); const current=signature(); if(previous) { const score=difference(previous,current); runningAverage=(runningAverage*samples+score)/(++samples); const adaptiveLimit=Math.max(limit, runningAverage*3); if(score>=adaptiveLimit && time-cuts[cuts.length-1]>=step*1.5) cuts.push(time); } previous=current; progress.value=Math.min(1,(time+step)/duration); status.textContent=`Scanning ${fmt(Math.min(time+step,duration))} of ${fmt(duration)}…`; } scenes=cuts.map((start,i)=>({start,end:i+1<cuts.length?cuts[i+1]:duration})); progress.value=1; status.textContent=`Found ${scenes.length} scene${scenes.length===1?'':'s'}. Lower the sensitivity number if it missed cuts.`; render(); await seek(0); } catch(error) { status.textContent='Could not scan this video: '+error.message; } finally { detect.disabled=false; } };
+    setStart.onclick=()=>manualStart.value=video.currentTime.toFixed(2);
+    setEnd.onclick=()=>manualEnd.value=video.currentTime.toFixed(2);
+    addScene.onclick=()=>{ const start=Number(manualStart.value), end=Number(manualEnd.value); if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end>video.duration+.01) return status.textContent='Enter a valid start and end time within the video.'; scenes.push({start,end}); scenes.sort((a,b)=>a.start-b.start); render(); status.textContent='Manual scene added.'; };
+    function render() { rows.innerHTML=''; if(!scenes.length) { rows.innerHTML='<tr><td colspan="5" class="muted">No scenes detected yet.</td></tr>'; return; } scenes.forEach((scene,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${fmt(scene.start)}</td><td>${fmt(scene.end)}</td><td>${fmt(scene.end-scene.start)}</td><td><button class="secondary">Preview</button> <button class="download">Download clip</button></td>`; tr.querySelector('.secondary').onclick=async()=>{ await seek(scene.start); video.play(); setTimeout(()=>video.pause(), Math.max(0,(scene.end-scene.start)*1000)); }; tr.querySelector('.download').onclick=()=>recordClip(scene,i+1); rows.append(tr); }); }
+    async function recordClip(scene, number) { if(!video.captureStream || !window.MediaRecorder) return status.textContent='This browser cannot export clips. Try current Chrome, Edge, or Firefox.'; try { video.pause(); await seek(scene.start); const stream=video.captureStream(); const chunks=[]; const recorder=new MediaRecorder(stream,{mimeType:MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')?'video/webm;codecs=vp9,opus':'video/webm'}); recorder.ondataavailable=e=>e.data.size&&chunks.push(e.data); recorder.onstop=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(chunks,{type:'video/webm'})); a.download=`scene-${String(number).padStart(3,'0')}.webm`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); status.textContent=`Scene ${number} downloaded.`; }; recorder.start(); status.textContent=`Recording scene ${number}…`; video.play(); const onTimeUpdate=()=>{ if(video.currentTime>=scene.end) { video.removeEventListener('timeupdate',onTimeUpdate); video.pause(); recorder.stop(); } }; video.addEventListener('timeupdate',onTimeUpdate); } catch(error) { status.textContent='Clip export failed: '+error.message; } }
+  </script>
+</body>
+</html>

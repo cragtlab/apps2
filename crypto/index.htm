@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>LayerZero OFT Scanner</title>
+<style>
+body{background:#111;color:#eee;font-family:Arial;padding:20px}
+table{border-collapse:collapse;width:100%;margin-top:12px}
+th,td{border:1px solid #333;padding:6px}th{background:#222}
+button{padding:5px 10px} .good{color:#6f6}.bad{color:#f66}
+pre{white-space:pre-wrap}
+</style></head><body>
+<h2>LayerZero OFT Scanner</h2>
+<div style="margin-bottom:12px;">
+  <label for="min2Input">Min 2: </label>
+  <input type="text" id="min2Input" value="ethereum,base,arbitrum,bsc,solana,robinhood,avalanche,monad,optimism,polygon" style="width: 500px; background: #222; color: #eee; border: 1px solid #444; padding: 4px; margin-right: 10px;">
+  <button onclick="scan()">Scan</button>
+</div>
+<div id="status"></div>
+<table><thead><tr><th>Symbol</th><th>Chains</th><th>Deployments</th><th>Prices</th></tr></thead><tbody id="tbody"></tbody></table>
+<script>
+const grouped={};
+
+function getActiveChains(){
+  const val = document.getElementById("min2Input").value || "";
+  return val.split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
+}
+
+async function getAllTokens(){
+ let all=[],next=null;
+ do{
+   let url="https://transfer.layerzero-api.com/v1/tokens";
+   if(next) url+="?pagination[nextToken]="+encodeURIComponent(next);
+   const r=await fetch(url); const j=await r.json();
+   if(j.tokens) all.push(...j.tokens);
+   next=j.pagination?.nextToken;
+ }while(next);
+ return all;
+}
+
+async function scan(){
+ document.getElementById("status").textContent="Loading...";
+ Object.keys(grouped).forEach(k=>delete grouped[k]);
+ let tbody=document.getElementById("tbody"); tbody.innerHTML="";
+ const tokens=await getAllTokens();
+ for(const t of tokens){
+   const s=t.symbol||t.tokenSymbol||t.name||"UNKNOWN";
+   if(!grouped[s]) grouped[s]=[];
+   grouped[s].push({chain:(t.chainKey||t.chain||t.chainName||"").toLowerCase(),
+                    address:t.address||t.tokenAddress});
+ }
+ const activeChains = getActiveChains();
+ const filteredEntries = Object.entries(grouped).filter(([sym, list]) => {
+   const matchCount = list.filter(x => activeChains.includes(x.chain)).length;
+   return matchCount >= 2;
+ });
+ for(const [sym,list] of filteredEntries){
+   const tr=document.createElement("tr");
+   tr.innerHTML=`<td>${sym}</td><td>${list.map(x=>x.chain).join(", ")}</td>
+   <td>${list.length}</td>
+   <td><button onclick="checkPrices('${sym}')">Check Prices</button><div id="r_${sym}"></div></td>`;
+   tbody.appendChild(tr);
+ }
+ document.getElementById("status").textContent="Loaded.";
+}
+
+async function dex(chain,address){
+ try{
+  const r=await fetch(`https://api.dexscreener.com/token-pairs/v1/${chain}/${address}`);
+  const a=await r.json();
+  if(!Array.isArray(a)||!a.length) return null;
+  a.sort((x,y)=>(y.liquidity?.usd||0)-(x.liquidity?.usd||0));
+  return a[0];
+ }catch(e){return null;}
+}
+
+async function checkPrices(sym){
+ const out=document.getElementById("r_"+sym);
+ out.textContent="Loading...";
+ const activeChains = getActiveChains();
+ const rows=grouped[sym].filter(x=>activeChains.includes(x.chain));
+ const res=(await Promise.all(rows.map(async r=>{
+   const p=await dex(r.chain,r.address);
+   return p?{chain:r.chain,price:+p.priceUsd,liq:p.liquidity?.usd||0}:null;
+ }))).filter(Boolean);
+ if(!res.length){out.textContent="No prices.";return;}
+ res.sort((a,b)=>a.price-b.price);
+ const low=res[0], high=res[res.length-1];
+ const spread=((high.price-low.price)/low.price*100).toFixed(2);
+ let html=`<pre>`;
+ for(const r of res){
+   html+=`${r.chain}: $${r.price.toFixed(6)}  L:$${Math.round(r.liq).toLocaleString()}\n`;
+ }
+ html+=`\n<span class="good">Lowest: ${low.chain} $${low.price}</span>\n`;
+ html+=`<span class="bad">Highest: ${high.chain} $${high.price}</span>\nSpread: ${spread}%</pre>`;
+ out.innerHTML=html;
+}
+</script></body></html>

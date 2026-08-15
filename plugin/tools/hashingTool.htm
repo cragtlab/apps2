@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SHA Hash Generator</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2em;
+      margin: 0;
+      height: 100vh;
+      box-sizing: border-box;
+      border: 2px dashed #ccc;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    body.dragover {
+      background-color: #eef;
+      border-color: #66f;
+    }
+    #drop-zone {
+      text-align: center;
+      color: #888;
+      margin-bottom: 1em;
+      cursor: pointer;
+    }
+    #results {
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+    .file-block {
+      margin-bottom: 1em;
+    }
+    .file-name {
+      font-weight: bold;
+    }
+    .label {
+      color: #888;
+      font-size: 0.85em;
+    }
+  </style>
+</head>
+<body>
+  <h1>File(s) SHA-1 & SHA-256 Hash Generator</h1>
+  <div id="drop-zone">Drop file(s) here or click to select</div>
+  <input type="file" id="file-input" multiple webkitdirectory directory style="display:none" />
+  <div id="results"></div>
+
+  <script>
+    const dropZone = document.body;
+    const fileInput = document.getElementById('file-input');
+    const results = document.getElementById('results');
+    const dropText = document.getElementById('drop-zone');
+
+    dropText.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    document.addEventListener('dragover', e => {
+      e.preventDefault();
+      document.body.classList.add('dragover');
+    });
+
+    document.addEventListener('dragleave', e => {
+      if (e.target === document.body || e.relatedTarget === null) {
+        document.body.classList.remove('dragover');
+      }
+    });
+
+    document.addEventListener('drop', async e => {
+      e.preventDefault();
+      document.body.classList.remove('dragover');
+
+      const items = Array.from(e.dataTransfer.items).filter(item => item.kind === 'file');
+      const filePromises = items.map(item => item.getAsFile());
+      const files = (await Promise.all(filePromises)).filter(Boolean);
+
+      handleFiles(files);
+    });
+
+    async function handleFiles(fileList) {
+      results.innerHTML = 'Computing hashes...\n\n';
+      const files = Array.from(fileList).sort((a, b) => {
+        const nameA = a.webkitRelativePath || a.name;
+        const nameB = b.webkitRelativePath || b.name;
+        return nameA.localeCompare(nameB);
+      });
+
+      for (const file of files) {
+        const name = file.webkitRelativePath || file.name;
+        const block = document.createElement('div');
+        block.className = 'file-block';
+
+        try {
+          block.innerHTML = `<span class="file-name">${name}</span>\nHashing...`;
+          results.appendChild(block);
+
+          const buffer = await file.arrayBuffer();
+          const [sha1, sha256] = await Promise.all([
+            computeHash('SHA-1', buffer),
+            computeHash('SHA-256', buffer)
+          ]);
+
+          block.innerHTML =
+            `<span class="file-name">${name}</span>\n` +
+            `<span class="label">SHA-1  </span> ${sha1}\n` +
+            `<span class="label">SHA-256</span> ${sha256}`;
+        } catch (err) {
+          block.innerHTML = `<span class="file-name">${name}</span>\nERROR: ${err.message}`;
+        }
+      }
+    }
+
+    async function computeHash(algorithm, buffer) {
+      const hashBuffer = await crypto.subtle.digest(algorithm, buffer);
+      return [...new Uint8Array(hashBuffer)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  </script>
+</body>
+</html>
