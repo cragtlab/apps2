@@ -134,10 +134,15 @@ function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
 function addPathPoint(x,y){
   const last = path[path.length-1];
   if(last && dist({x,y},last) < 3) return;
-  path.push({x,y});
-  const prev = path.length>1 ? path[path.length-2] : {x,y};
-  totalLen += dist({x,y},prev);
-  cumLen.push(totalLen);
+  if(path.length === 0){
+    path.push({x,y});
+    cumLen = [0];
+    totalLen = 0;
+  } else {
+    totalLen += dist({x,y}, last);
+    path.push({x,y});
+    cumLen.push(totalLen);
+  }
   if(path.length > 20000){ path.shift(); rebuildCumLen(); }
 }
 function rebuildCumLen(){
@@ -170,18 +175,19 @@ function initFish(){
 initFish();
 
 function pointAtLength(len){
-  if(path.length < 2) return null;
+  if(path.length < 2 || totalLen <= 0) return null;
   len = ((len % totalLen) + totalLen) % totalLen;
   let lo=0, hi=cumLen.length-1;
   while(lo<hi){
     const mid=(lo+hi)>>1;
     if(cumLen[mid] < len) lo = mid+1; else hi = mid;
   }
-  const i = Math.max(1, lo);
+  const i = Math.min(path.length - 1, Math.max(1, lo));
   const segStart = cumLen[i-1], segEnd = cumLen[i];
   const segLen = (segEnd - segStart) || 1;
   const t = (len - segStart) / segLen;
   const p0 = path[i-1], p1 = path[i];
+  if(!p0 || !p1) return null;
   return { x: p0.x + (p1.x-p0.x)*t, y: p0.y + (p1.y-p0.y)*t };
 }
 
