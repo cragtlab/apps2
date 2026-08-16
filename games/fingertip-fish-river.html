@@ -67,7 +67,7 @@
   .hud .dot.on{ background:#4ade80; box-shadow:0 0 8px #4ade80; }
 
   .overlay-msg{
-    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
     text-align:center; padding:24px; font-size:13px; color:var(--muted);
     font-family:'Space Mono', monospace; background:rgba(4,7,12,0.85); z-index:10;
     line-height:1.7;
@@ -88,7 +88,7 @@
 <body>
 
   <h1>Finger River</h1>
-  <div class="sub">Move your index finger to trace a channel — fish will swim through it endlessly. Show an open palm and hold to reset the river.</div>
+  <div class="sub">Move your index finger to trace a channel — fish will swim through it endlessly. Show an open palm and hold (~2s) to reset the river.</div>
 
   <div class="stage-wrap">
     <div class="stage">
@@ -107,7 +107,7 @@
     </div>
   </div>
 
-  <footer>drag a finger to draw &nbsp;·&nbsp; open palm ~1s to reset</footer>
+  <footer>drag a finger to draw &nbsp;·&nbsp; open palm ~2s to reset</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
@@ -127,8 +127,6 @@ let path = [];        // {x,y}
 let cumLen = [0];
 let totalLen = 0;
 let smoothPos = null;
-let palmFrames = 0;
-const PALM_HOLD_FRAMES = 16;
 let resetFlash = 0;
 
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
@@ -140,7 +138,7 @@ function addPathPoint(x,y){
   const prev = path.length>1 ? path[path.length-2] : {x,y};
   totalLen += dist({x,y},prev);
   cumLen.push(totalLen);
-  if(path.length > 2200){ path.shift(); rebuildCumLen(); }
+  if(path.length > 20000){ path.shift(); rebuildCumLen(); }
 }
 function rebuildCumLen(){
   cumLen=[0]; let t=0;
@@ -265,14 +263,36 @@ function drawRiver(){
 }
 
 // ---------- hand gesture ----------
-function isOpenPalm(lm){
-  const wrist = lm[0];
-  const ext = (tip,ref)=> dist(lm[tip],wrist) > dist(lm[ref],wrist)*1.15;
-  const thumbExt = dist(lm[4],wrist) > dist(lm[2],wrist)*1.05;
-  return ext(8,5) && ext(12,9) && ext(16,13) && ext(20,17) && thumbExt;
+function isFingerExtended(lm, tipIdx, pipIdx, mcpIdx){
+  const dTip = dist(lm[tipIdx], lm[0]);
+  const dPip = dist(lm[pipIdx], lm[0]);
+  const dMcp = dist(lm[mcpIdx], lm[0]);
+  return dTip > dPip * 1.12 && dTip > dMcp * 1.2;
 }
 
+function isThumbExtended(lm){
+  const wrist = lm[0];
+  const dTipWrist = dist(lm[4], wrist);
+  const dMcpWrist = dist(lm[2], wrist);
+  const dTipPinkyMcp = dist(lm[4], lm[17]);
+  const dMcpPinkyMcp = dist(lm[2], lm[17]);
+  return dTipWrist > dMcpWrist * 1.1 && dTipPinkyMcp > dMcpPinkyMcp * 1.05;
+}
+
+function isOpenPalm(lm){
+  const indexExt = isFingerExtended(lm, 8, 6, 5);
+  const middleExt = isFingerExtended(lm, 12, 10, 9);
+  const ringExt = isFingerExtended(lm, 16, 14, 13);
+  const pinkyExt = isFingerExtended(lm, 20, 18, 17);
+  const thumbExt = isThumbExtended(lm);
+  return indexExt && middleExt && ringExt && pinkyExt && thumbExt;
+}
+
+let palmHoldStartTime = null;
+const PALM_HOLD_MS = 2000;
+
 function onResults(results){
+  const now = performance.now();
   ctx.clearRect(0,0,W,H);
 
   const has = results.multiHandLandmarks && results.multiHandLandmarks.length>0;
@@ -281,23 +301,21 @@ function onResults(results){
   if(has){
     const lm = results.multiHandLandmarks[0];
     const open = isOpenPalm(lm);
-    if(open){
-      palmFrames++;
-      if(palmFrames === PALM_HOLD_FRAMES) resetRiver();
-    } else {
-      palmFrames = 0;
-      const tip = lm[8];
-      const raw = { x: tip.x*W, y: tip.y*H };
-      if(!smoothPos) smoothPos = {x:raw.x, y:raw.y};
-      smoothPos.x += (raw.x - smoothPos.x)*0.4;
-      smoothPos.y += (raw.y - smoothPos.y)*0.4;
-      addPathPoint(smoothPos.x, smoothPos.y);
-    }
 
-    if(open && palmFrames>0){
+    if(open){
+      if(palmHoldStartTime === null){
+        palmHoldStartTime = now;
+      }
+      const elapsed = now - palmHoldStartTime;
+      const pct = Math.min(1, elapsed / PALM_HOLD_MS);
+
+      if(elapsed >= PALM_HOLD_MS){
+        resetRiver();
+        palmHoldStartTime = null;
+      }
+
       const wrist = lm[0];
       const cx = wrist.x*W, cy = wrist.y*H;
-      const pct = Math.min(1, palmFrames/PALM_HOLD_FRAMES);
       ctx.save();
       ctx.strokeStyle='rgba(248,113,113,0.9)';
       ctx.lineWidth=5;
@@ -305,9 +323,17 @@ function onResults(results){
       ctx.arc(cx,cy,26,-Math.PI/2, -Math.PI/2 + pct*Math.PI*2);
       ctx.stroke();
       ctx.restore();
+    } else {
+      palmHoldStartTime = null;
+      const tip = lm[8];
+      const raw = { x: tip.x*W, y: tip.y*H };
+      if(!smoothPos) smoothPos = {x:raw.x, y:raw.y};
+      smoothPos.x += (raw.x - smoothPos.x)*0.4;
+      smoothPos.y += (raw.y - smoothPos.y)*0.4;
+      addPathPoint(smoothPos.x, smoothPos.y);
     }
   } else {
-    palmFrames = 0;
+    palmHoldStartTime = null;
     smoothPos = null;
   }
 
