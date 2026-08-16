@@ -156,7 +156,7 @@ function resetRiver(){
 }
 
 // ---------- fish ----------
-const FISH_COUNT = 9;
+const FISH_COUNT = 27;
 let fish = [];
 function initFish(){
   fish = [];
@@ -165,7 +165,7 @@ function initFish(){
       phase: Math.random()*400,
       speed: 55 + Math.random()*45,
       size: 12 + Math.random()*9,
-      hue: 185 + Math.random()*55,
+      hue: Math.random()*360,
       wOff: Math.random()*Math.PI*2,
       wFreq: 3.5 + Math.random()*2.5,
     });
