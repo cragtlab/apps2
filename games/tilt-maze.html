@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Tilt Maze</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#05070d;
+    --panel:#0d1220;
+    --line:#2a3350;
+    --wall:#4a6cf7;
+    --wall-glow:#4a6cf788;
+    --ball:#ffd166;
+    --goal:#3ddc97;
+    --text:#e8ecff;
+    --muted:#7c88b8;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; height:100%; background:var(--bg); color:var(--text);
+    font-family:'Space Grotesk',sans-serif; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    touch-action:none; user-select:none;
+  }
+  #wrap{
+    position:relative; width:100vw; height:100vh; max-width:600px; max-height:900px;
+    display:flex; flex-direction:column;
+  }
+  #hud{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 18px 6px; font-family:'Space Mono',monospace; font-size:12px;
+    letter-spacing:0.08em; color:var(--muted); flex-shrink:0;
+  }
+  #hud .val{color:var(--text); font-weight:700;}
+  #title{
+    text-align:center; font-size:11px; letter-spacing:0.25em; color:var(--muted);
+    padding:0 0 8px; flex-shrink:0;
+  }
+  #canvasHolder{flex:1; position:relative; min-height:0;}
+  canvas{position:absolute; top:0; left:0; width:100%; height:100%; display:block;}
+  #overlay{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:18px; background:rgba(5,7,13,0.92); text-align:center; padding:24px; z-index:5;
+  }
+  #overlay h1{
+    font-size:22px; margin:0; letter-spacing:0.05em; font-weight:700;
+  }
+  #overlay p{margin:0; color:var(--muted); font-size:13px; line-height:1.6; max-width:320px;}
+  button{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
+    background:var(--wall); color:#05070d; border:none; padding:14px 34px;
+    border-radius:999px; cursor:pointer; letter-spacing:0.05em;
+    box-shadow:0 0 24px var(--wall-glow);
+  }
+  button:active{transform:scale(0.97);}
+  #winFlash{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:700; color:var(--goal); background:rgba(5,7,13,0.0);
+    opacity:0; pointer-events:none; letter-spacing:0.1em; z-index:4;
+    transition:opacity 0.25s;
+  }
+  #winFlash.show{opacity:1;}
+  #footer{
+    text-align:center; padding:8px 0 14px; font-family:'Space Mono',monospace;
+    font-size:10px; color:var(--muted); letter-spacing:0.06em; flex-shrink:0;
+  }
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="title">▚ TILT MAZE ▞</div>
+  <div id="hud">
+    <div>LEVEL <span class="val" id="levelVal">1</span></div>
+    <div>TIME <span class="val" id="timeVal">0.0</span>s</div>
+    <div>BEST <span class="val" id="bestVal">--</span></div>
+  </div>
+  <div id="canvasHolder">
+    <canvas id="c"></canvas>
+    <div id="winFlash">MAZE CLEARED</div>
+    <div id="overlay">
+      <h1>TILT MAZE</h1>
+      <p id="introText">Guide the ball from the yellow start to the green goal.
+      On a phone, tilt to roll the ball — hold your phone flat and steady for a second first to calibrate.
+      On desktop, use arrow keys or drag with the mouse.</p>
+      <button id="startBtn">▶ START</button>
+    </div>
+  </div>
+  <div id="footer">GYRO / TOUCH / ARROW KEYS · NEW MAZE EACH CLEAR</div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const startBtn = document.getElementById('startBtn');
+  const introText = document.getElementById('introText');
+  const winFlash = document.getElementById('winFlash');
+  const levelVal = document.getElementById('levelVal');
+  const timeVal = document.getElementById('timeVal');
+  const bestVal = document.getElementById('bestVal');
+
+  let level = 1;
+  let bestTime = null;
+  let running = false;
+  let calibrated = false;
+  let calib = {beta:0, gamma:0};
+  let tilt = {x:0, y:0}; // -1..1 range, x = left/right, y = forward/back
+  let usingGyro = false;
+  const keys = {};
+  let dragging = false, dragStart=null;
+
+  let cols, rows, cellSize, wallT;
+  let hWalls, vWalls; // horizontal: (rows+1) x cols ; vertical: rows x (cols+1)
+  let ball = {x:0,y:0,vx:0,vy:0,r:0};
+  let goal = {x:0,y:0};
+  let segments = []; // {type:'h'|'v', x1,y1,x2,y2}
+  let startTime = 0, elapsed = 0, won = false;
+
+  function resize(){
+    const holder = document.getElementById('canvasHolder');
+    const w = holder.clientWidth, h = holder.clientHeight;
+    canvas.width = w * devicePixelRatio;
+    canvas.height = h * devicePixelRatio;
+    canvas.style.width = w+'px';
+    canvas.style.height = h+'px';
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    buildLayout();
+  }
+
+  function mazeSizeForLevel(lv){
+    const n = Math.min(5 + Math.floor((lv-1)*0.8), 14);
+    return {cols:n, rows:n};
+  }
+
+  function generateMaze(c, r){
+    const visited = Array.from({length:r}, ()=>Array(c).fill(false));
+    hWalls = Array.from({length:r+1}, ()=>Array(c).fill(true));
+    vWalls = Array.from({length:r}, ()=>Array(c+1).fill(true));
+
+    const stack = [[0,0]];
+    visited[0][0] = true;
+
+    function neighbors(cx, cy){
+      const list = [];
+      if(cy>0 && !visited[cy-1][cx]) list.push([cx,cy-1,'up']);
+      if(cy<r-1 && !visited[cy+1][cx]) list.push([cx,cy+1,'down']);
+      if(cx>0 && !visited[cy][cx-1]) list.push([cx-1,cy,'left']);
+      if(cx<c-1 && !visited[cy][cx+1]) list.push([cx+1,cy,'right']);
+      return list;
+    }
+
+    while(stack.length){
+      const [cx,cy] = stack[stack.length-1];
+      const nbs = neighbors(cx,cy);
+      if(nbs.length===0){ stack.pop(); continue; }
+      const [nx,ny,dir] = nbs[Math.floor(Math.random()*nbs.length)];
+      if(dir==='up') hWalls[cy][cx] = false;
+      else if(dir==='down') hWalls[cy+1][cx] = false;
+      else if(dir==='left') vWalls[cy][cx] = false;
+      else if(dir==='right') vWalls[cy][cx+1] = false;
+      visited[ny][nx] = true;
+      stack.push([nx,ny]);
+    }
+  }
+
+  function buildSegments(){
+    segments = [];
+    for(let r=0;r<=rows;r++){
+      for(let c=0;c<cols;c++){
+        if(hWalls[r][c]){
+          const x1 = c*cellSize, x2 = (c+1)*cellSize, y = r*cellSize;
+          segments.push({type:'h', x1, x2, y});
+        }
+      }
+    }
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<=cols;c++){
+        if(vWalls[r][c]){
+          const y1 = r*cellSize, y2=(r+1)*cellSize, x = c*cellSize;
+          segments.push({type:'v', y1, y2, x});
+        }
+      }
+    }
+  }
+
+  function buildLayout(){
+    const holder = document.getElementById('canvasHolder');
+    const w = holder.clientWidth, h = holder.clientHeight;
+    const size = mazeSizeForLevel(level);
+    cols = size.cols; rows = size.rows;
+    const margin = 20;
+    cellSize = Math.min((w-margin*2)/cols, (h-margin*2)/rows);
+    wallT = Math.max(cellSize*0.11, 3);
+    generateMaze(cols, rows);
+    buildSegments();
+    ball.r = cellSize*0.26;
+    ball.x = cellSize*0.5;
+    ball.y = cellSize*0.5;
+    ball.vx = 0; ball.vy = 0;
+    goal.x = (cols-0.5)*cellSize;
+    goal.y = (rows-0.5)*cellSize;
+    offsetX = (w - cols*cellSize)/2;
+    offsetY = (h - rows*cellSize)/2;
+    won = false;
+    startTime = performance.now();
+  }
+
+  let offsetX=0, offsetY=0;
+
+  function closestPointOnRect(px,py, rx,ry,rw,rh){
+    const cx = Math.max(rx, Math.min(px, rx+rw));
+    const cy = Math.max(ry, Math.min(py, ry+rh));
+    return [cx,cy];
+  }
+
+  function resolveCollisions(){
+    for(const seg of segments){
+      let rx,ry,rw,rh;
+      if(seg.type==='h'){
+        rx = seg.x1 - wallT/2; ry = seg.y - wallT/2;
+        rw = (seg.x2-seg.x1) + wallT; rh = wallT;
+      } else {
+        rx = seg.x - wallT/2; ry = seg.y1 - wallT/2;
+        rw = wallT; rh = (seg.y2-seg.y1) + wallT;
+      }
+      const [cx,cy] = closestPointOnRect(ball.x, ball.y, rx,ry,rw,rh);
+      const dx = ball.x - cx, dy = ball.y - cy;
+      const distSq = dx*dx + dy*dy;
+      if(distSq < ball.r*ball.r){
+        const dist = Math.sqrt(distSq) || 0.0001;
+        const nx = dx/dist, ny = dy/dist;
+        const push = ball.r - dist;
+        ball.x += nx*push;
+        ball.y += ny*push;
+        const vn = ball.vx*nx + ball.vy*ny;
+        if(vn < 0){
+          ball.vx -= vn*nx*1.5;
+          ball.vy -= vn*ny*1.5;
+        }
+      }
+    }
+  }
+
+  function update(dt){
+    if(!running || won) return;
+    let ax=0, ay=0;
+    const accel = 1600;
+    if(usingGyro){
+      ax = tilt.x * accel;
+      ay = tilt.y * accel;
+    } else {
+      if(keys['ArrowLeft']) ax -= accel;
+      if(keys['ArrowRight']) ax += accel;
+      if(keys['ArrowUp']) ay -= accel;
+      if(keys['ArrowDown']) ay += accel;
+      if(dragging && dragStart){
+        ax = tilt.x*accel;
+        ay = tilt.y*accel;
+      }
+    }
+    ball.vx += ax*dt;
+    ball.vy += ay*dt;
+    const friction = 0.985;
+    ball.vx *= friction;
+    ball.vy *= friction;
+    const maxV = 900;
+    ball.vx = Math.max(-maxV, Math.min(maxV, ball.vx));
+    ball.vy = Math.max(-maxV, Math.min(maxV, ball.vy));
+
+    ball.x += ball.vx*dt;
+    ball.y += ball.vy*dt;
+
+    const maxX = cols*cellSize - ball.r;
+    const maxY = rows*cellSize - ball.r;
+    ball.x = Math.max(ball.r, Math.min(maxX, ball.x));
+    ball.y = Math.max(ball.r, Math.min(maxY, ball.y));
+
+    resolveCollisions();
+
+    const dgx = ball.x-goal.x, dgy = ball.y-goal.y;
+    if(Math.hypot(dgx,dgy) < ball.r + cellSize*0.22){
+      handleWin();
+    }
+
+    elapsed = (performance.now()-startTime)/1000;
+    timeVal.textContent = elapsed.toFixed(1);
+  }
+
+  function handleWin(){
+    won = true;
+    if(bestTime===null || elapsed < bestTime){
+      bestTime = elapsed;
+      bestVal.textContent = bestTime.toFixed(1)+'s';
+    }
+    winFlash.classList.add('show');
+    setTimeout(()=>{
+      winFlash.classList.remove('show');
+      level++;
+      levelVal.textContent = level;
+      buildLayout();
+    }, 900);
+  }
+
+  function draw(){
+    const w = canvas.width/devicePixelRatio, h = canvas.height/devicePixelRatio;
+    ctx.clearRect(0,0,w,h);
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+
+    ctx.strokeStyle = 'rgba(74,108,247,0.15)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0,0, cols*cellSize, rows*cellSize);
+
+    ctx.strokeStyle = 'var(--wall)';
+    ctx.strokeStyle = '#4a6cf7';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = wallT;
+    ctx.shadowColor = 'rgba(74,108,247,0.55)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    for(const seg of segments){
+      if(seg.type==='h'){
+        ctx.moveTo(seg.x1, seg.y);
+        ctx.lineTo(seg.x2, seg.y);
+      } else {
+        ctx.moveTo(seg.x, seg.y1);
+        ctx.lineTo(seg.x, seg.y2);
+      }
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // start marker
+    ctx.fillStyle = 'rgba(255,209,102,0.25)';
+    ctx.beginPath();
+    ctx.arc(cellSize*0.5, cellSize*0.5, cellSize*0.3, 0, 7);
+    ctx.fill();
+
+    // goal
+    ctx.fillStyle = '#3ddc97';
+    ctx.shadowColor = '#3ddc97aa';
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.arc(goal.x, goal.y, cellSize*0.22, 0, 7);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // ball
+    ctx.fillStyle = '#ffd166';
+    ctx.shadowColor = '#ffd166aa';
+    ctx.shadowBlur = 16;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, 7);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+  }
+
+  let lastT = performance.now();
+  function loop(t){
+    const dt = Math.min((t-lastT)/1000, 0.033);
+    lastT = t;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // --- Input: gyro ---
+  function onOrientation(e){
+    if(e.beta===null || e.gamma===null) return;
+    if(!calibrated){
+      calib.beta = e.beta;
+      calib.gamma = e.gamma;
+      calibrated = true;
+    }
+    let db = e.beta - calib.beta;   // forward/back
+    let dg = e.gamma - calib.gamma; // left/right
+    db = Math.max(-35, Math.min(35, db));
+    dg = Math.max(-35, Math.min(35, dg));
+    tilt.x = dg/35;
+    tilt.y = db/35;
+    usingGyro = true;
+  }
+
+  function requestGyro(){
+    if(typeof DeviceOrientationEvent !== 'undefined' &&
+       typeof DeviceOrientationEvent.requestPermission === 'function'){
+      DeviceOrientationEvent.requestPermission().then(state=>{
+        if(state === 'granted'){
+          window.addEventListener('deviceorientation', onOrientation, true);
+        }
+      }).catch(()=>{});
+    } else if(typeof DeviceOrientationEvent !== 'undefined'){
+      window.addEventListener('deviceorientation', onOrientation, true);
+    }
+  }
+
+  // --- Input: keyboard ---
+  window.addEventListener('keydown', e=>{ keys[e.key]=true; });
+  window.addEventListener('keyup', e=>{ keys[e.key]=false; });
+
+  // --- Input: mouse/touch drag (desktop fallback) ---
+  canvas.addEventListener('pointerdown', e=>{
+    if(usingGyro) return;
+    dragging = true;
+    dragStart = {x:e.clientX, y:e.clientY};
+  });
+  window.addEventListener('pointermove', e=>{
+    if(!dragging || usingGyro) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    tilt.x = Math.max(-1, Math.min(1, dx/80));
+    tilt.y = Math.max(-1, Math.min(1, dy/80));
+  });
+  window.addEventListener('pointerup', ()=>{
+    dragging = false;
+    tilt.x = 0; tilt.y = 0;
+  });
+
+  startBtn.addEventListener('click', ()=>{
+    requestGyro();
+    overlay.classList.add('hidden');
+    running = true;
+    lastT = performance.now();
+    startTime = performance.now();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
