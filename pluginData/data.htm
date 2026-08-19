@@ -96,6 +96,7 @@
     let pluginScripts = {}; // name -> { handle, text, evaluated, promise }
     let pluginHandlers = {}; // name -> { onActivated }
     let dataCache = {}; // type -> rows[]
+    let dataPromises = {}; // type -> Promise
 
     const reportTypes = [
       "LJA_KPI_Report",
@@ -158,63 +159,72 @@
       },
       pullData: async function(type) {
         if (dataCache[type]) return dataCache[type];
+        if (dataPromises[type]) return dataPromises[type];
 
         const info = foundFiles[type];
         if (!info) {
           throw new Error(`Report type "${type}" not found in the selected folder.`);
         }
 
-        if (type.endsWith("PR")) {
-          const targetKey = type.replace("PR", "");
-          let combinedResult = {};
-          let masterRows = [];
-          let masterHeader = null;
+        dataPromises[type] = (async () => {
+          updateCatalogueUI();
+          try {
+            if (type.endsWith("PR")) {
+              const targetKey = type.replace("PR", "");
+              let combinedResult = {};
+              let masterRows = [];
+              let masterHeader = null;
 
-          for (const f of info.files) {
-             const allSheets = await loadExcelFile(f.handle, type);
-             const month = f.date.substring(0, 6);
-             const day = parseInt(f.date.substring(6, 8));
+              for (const f of info.files) {
+                 const allSheets = await loadExcelFile(f.handle, type);
+                 const month = f.date.substring(0, 6);
+                 const day = parseInt(f.date.substring(6, 8));
 
-             for (let d = 1; d <= day; d++) {
-                const sheetName = d.toString();
-                if (allSheets[sheetName]) {
-                   const sheetData = allSheets[sheetName];
-                   if (sheetData.length < 3) continue;
+                 for (let d = 1; d <= day; d++) {
+                    const sheetName = d.toString();
+                    if (allSheets[sheetName]) {
+                       const sheetData = allSheets[sheetName];
+                       if (sheetData.length < 3) continue;
 
-                   const rawHeader = sheetData[2];
-                   if (!masterHeader) {
-                      masterHeader = [...rawHeader, "Source Month", "Source Day"];
-                      masterRows.push(masterHeader);
-                   }
+                       const rawHeader = sheetData[2];
+                       if (!masterHeader) {
+                          masterHeader = [...rawHeader, "Source Month", "Source Day"];
+                          masterRows.push(masterHeader);
+                       }
 
-                   const linkNameIdx = rawHeader.findIndex(c => String(c||'').trim().toLowerCase() === "link name");
+                       const linkNameIdx = rawHeader.findIndex(c => String(c||'').trim().toLowerCase() === "link name");
 
-                   for (let i = 3; i < sheetData.length; i++) {
-                      const row = sheetData[i];
-                      if (linkNameIdx !== -1 && !String(row[linkNameIdx]||'').trim()) continue;
+                       for (let i = 3; i < sheetData.length; i++) {
+                          const row = sheetData[i];
+                          if (linkNameIdx !== -1 && !String(row[linkNameIdx]||'').trim()) continue;
 
-                      // Normalize row length to match masterHeader
-                      const normalizedRow = new Array(masterHeader.length - 2).fill("");
-                      for (let j = 0; j < Math.min(row.length, masterHeader.length - 2); j++) {
-                         normalizedRow[j] = row[j];
-                      }
-                      normalizedRow.push(month, d);
-                      masterRows.push(normalizedRow);
-                   }
-                }
-                // Yield to UI
-                await new Promise(r => setTimeout(r, 0));
-             }
+                          // Normalize row length to match masterHeader
+                          const normalizedRow = new Array(masterHeader.length - 2).fill("");
+                          for (let j = 0; j < Math.min(row.length, masterHeader.length - 2); j++) {
+                             normalizedRow[j] = row[j];
+                          }
+                          normalizedRow.push(month, d);
+                          masterRows.push(normalizedRow);
+                       }
+                    }
+                    // Yield to UI
+                    await new Promise(r => setTimeout(r, 0));
+                 }
+              }
+              combinedResult[targetKey] = masterRows;
+              dataCache[type] = combinedResult;
+            } else {
+              const data = await loadExcelFile(info.handle, type);
+              dataCache[type] = data;
+            }
+            return dataCache[type];
+          } finally {
+            delete dataPromises[type];
+            updateCatalogueUI();
           }
-          combinedResult[targetKey] = masterRows;
-          dataCache[type] = combinedResult;
-        } else {
-          const data = await loadExcelFile(info.handle, type);
-          dataCache[type] = data;
-        }
+        })();
 
-        updateCatalogueUI();
-        return dataCache[type];
+        return dataPromises[type];
       }
     };
 
@@ -472,6 +482,8 @@
            } else {
               rowDisplay = "Multi-sheet";
            }
+        } else if (dataPromises[type]) {
+           rowDisplay = "Loading...";
         } else if (file) {
            rowDisplay = 'Click plugin to load';
         }
@@ -506,15 +518,13 @@
 
         // Handle preload if checked
         if (document.getElementById("preloadCheckbox").checked) {
-          for (const type of reportTypes) {
+          reportTypes.forEach(type => {
             if (foundFiles[type]) {
-              try {
-                await PluginAPI.pullData(type);
-              } catch (preloadErr) {
+              PluginAPI.pullData(type).catch(preloadErr => {
                 console.error(`Preload failed for report type "${type}":`, preloadErr);
-              }
+              });
             }
-          }
+          });
         }
       } catch (err) {
         console.error('Loading failed:', err);
@@ -572,11 +582,23 @@
       // Reset plugins but keep catalogue if possible, or just re-scan everything
       document.querySelectorAll("#contentArea > div:not(#tab_Catalogue)").forEach(div => div.remove());
       dataCache = {};
+      dataPromises = {};
       pluginScripts = {};
       pluginHandlers = {};
       await scanDataFiles();
       await scanDataJS();
       showTab("tab_Catalogue");
+
+      // Handle preload if checked
+      if (document.getElementById("preloadCheckbox").checked) {
+        reportTypes.forEach(type => {
+          if (foundFiles[type]) {
+            PluginAPI.pullData(type).catch(preloadErr => {
+              console.error(`Preload failed for report type "${type}":`, preloadErr);
+            });
+          }
+        });
+      }
     };
 
     document.addEventListener("keydown", (e) => {
