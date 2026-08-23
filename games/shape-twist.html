@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Twist & Fit!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#66d1f5;
+    --sky-bottom:#ffe08a;
+    --wood:#e3a75e;
+    --wood-edge:#a86a2d;
+    --ink:#3a2a1a;
+    --paper:#fff8ea;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none;}
+  html,body{
+    height:100%; margin:0; overflow:hidden; touch-action:none;
+    background:linear-gradient(180deg,var(--sky-top) 0%, var(--sky-bottom) 100%);
+    font-family:'Nunito',sans-serif;
+  }
+  #app{position:fixed; inset:0; touch-action:none;}
+
+  #topbar{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:calc(10px + env(safe-area-inset-top)) 18px 10px;
+    z-index:20; pointer-events:none;
+  }
+  #title{
+    font-family:'Baloo 2',sans-serif; font-weight:800; font-size:22px;
+    color:var(--ink); text-shadow:0 2px 0 #fff8, 0 3px 6px rgba(0,0,0,.15);
+    letter-spacing:.5px;
+  }
+  #stars{
+    font-family:'Baloo 2',sans-serif; font-weight:700; font-size:20px;
+    background:var(--paper); border:3px solid var(--wood-edge); border-radius:999px;
+    padding:5px 16px; color:var(--ink); box-shadow:0 3px 0 rgba(0,0,0,.15);
+    display:flex; align-items:center; gap:6px;
+  }
+
+  #board{ position:absolute; top:0; left:0; width:100%; height:100%; touch-action:none; }
+  .plank{
+    position:absolute; left:5%; right:5%; top:13%; bottom:15%;
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.04) 0 2px, transparent 2px 64px),
+      linear-gradient(180deg, var(--wood), #d99a4e);
+    border:6px solid var(--wood-edge);
+    border-radius:28px;
+    box-shadow: inset 0 0 0 6px rgba(255,255,255,.15), 0 10px 0 rgba(0,0,0,.12);
+  }
+
+  #hint{
+    position:absolute; left:0; right:0; top:calc(13% + 10px);
+    text-align:center; z-index:15; pointer-events:none;
+    font-family:'Baloo 2',sans-serif; font-weight:600; font-size:15px;
+    color:#5b3d1a;
+  }
+
+  svg#stage{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; }
+  .grabbable{ touch-action:none; }
+
+  #celebrate{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; z-index:30; opacity:0;
+  }
+  #celebrate .msg{
+    font-family:'Baloo 2',sans-serif; font-weight:800; font-size:40px;
+    color:#fff; -webkit-text-stroke:3px #ff6b6b; text-stroke:3px #ff6b6b;
+    text-shadow:0 6px 0 rgba(0,0,0,.15);
+    transform:scale(.6); opacity:0;
+  }
+  #celebrate.show{ opacity:1; }
+  #celebrate.show .msg{ animation:pop .55s cubic-bezier(.34,1.56,.64,1) forwards; }
+  @keyframes pop{ to{ transform:scale(1); opacity:1; } }
+
+  .confetti{ position:absolute; top:-20px; width:12px; height:12px; border-radius:3px; opacity:.95; }
+
+  #footer{
+    position:absolute; left:0; right:0; bottom:calc(8px + env(safe-area-inset-bottom));
+    text-align:center; z-index:15; pointer-events:none;
+    font-size:12px; color:#5b3d1a; opacity:.75; font-weight:700;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="board">
+    <div class="plank"></div>
+    <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div id="hint">Move and twist each shape into its spot to complete the picture!</div>
+  <div id="topbar">
+    <div id="title">🧩 Twist &amp; Fit</div>
+    <div id="stars">⭐ <span id="starcount">0</span></div>
+  </div>
+  <div id="celebrate"><div class="msg">Yay!</div></div>
+  <div id="footer">touch a shape to move it • touch its knob to twist it</div>
+</div>
+
+<script>
+(function(){
+  const svg = document.getElementById('stage');
+  const NS = 'http://www.w3.org/2000/svg';
+  const starcountEl = document.getElementById('starcount');
+  const hintEl = document.getElementById('hint');
+  const celebrateEl = document.getElementById('celebrate');
+  let stars = 0;
+
+  const NUM_SHAPES = 3;
+  const COLORS = ['#FF6B6B','#4ECB71','#9B5DE5','#FF9F1C','#F15BB5','#3AB0FF'];
+  const PRAISE = ['Yay!','Nice fit!','Woohoo!','You did it!','Perfect!','Great twist!'];
+
+  const SHAPES = [
+    { name:'house', symmetry:360, pts:[[0,-52],[48,-4],[48,48],[-48,48],[-48,-4]] },
+    { name:'lshape', symmetry:360, pts:[[-44,-44],[8,-44],[8,8],[44,8],[44,44],[-44,44]] },
+    { name:'tshape', symmetry:360, pts:[[-48,-44],[48,-44],[48,-12],[16,-12],[16,44],[-16,44],[-16,-12],[-48,-12]] },
+    { name:'kite', symmetry:360, pts:[[0,-60],[32,-4],[0,16],[-32,-4]] },
+  ];
+
+  function ptsToPath(pts){
+    return 'M' + pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L') + ' Z';
+  }
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+  function clamp(v,min,max){ return Math.max(min, Math.min(max,v)); }
+  function angleDiff(a,b,period){
+    let d = ((a-b) % period + period) % period;
+    return Math.min(d, period-d);
+  }
+
+  let W,H, targetY, pieceRowY;
+  function layout(){
+    W = window.innerWidth; H = window.innerHeight;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    targetY = H*0.32;
+    pieceRowY = H*0.72;
+  }
+  layout();
+  window.addEventListener('resize', layout);
+
+  let items = [];
+  let fittedCount = 0;
+  let slotX, slotY;
+  let audioCtx = null;
+
+  // relative offsets that make the three shapes overlap into one combined silhouette
+  const CLUSTER_OFFSETS = [ [-26,-14], [26,-14], [0,30] ];
+
+  function beep(freqs, dur){
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      let t = audioCtx.currentTime;
+      freqs.forEach((f,i)=>{
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type='sine'; o.frequency.value=f;
+        g.gain.setValueAtTime(0.0001, t+i*dur);
+        g.gain.exponentialRampToValueAtTime(0.25, t+i*dur+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+i*dur+dur);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(t+i*dur); o.stop(t+i*dur+dur+0.02);
+      });
+    }catch(e){}
+  }
+
+  function localPointFromEvent(e){
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const ctm = svg.getScreenCTM().inverse();
+    return pt.matrixTransform(ctm);
+  }
+
+  function newRound(){
+    svg.innerHTML = '';
+    items = [];
+    fittedCount = 0;
+    hintEl.style.display = 'block';
+    slotX = W/2; slotY = targetY;
+
+    // filter: dilate the union's alpha, flood it dark, then lay the true fill on top —
+    // this traces just the OUTER boundary of all 3 overlapping shapes, no internal seams
+    const defs = document.createElementNS(NS,'defs');
+    defs.innerHTML = `
+      <filter id="unionOutline" x="-60%" y="-60%" width="220%" height="220%">
+        <feMorphology in="SourceAlpha" operator="dilate" radius="3.5" result="dilated"/>
+        <feFlood flood-color="#5b3d1a" result="col"/>
+        <feComposite in="col" in2="dilated" operator="in" result="ring"/>
+        <feMerge>
+          <feMergeNode in="ring"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>`;
+    svg.appendChild(defs);
+
+    const outlineCluster = document.createElementNS(NS,'g');
+    outlineCluster.setAttribute('filter','url(#unionOutline)');
+    svg.appendChild(outlineCluster);
+
+    const chosenShapes = shuffle(SHAPES).slice(0, NUM_SHAPES);
+    const offsets = shuffle(CLUSTER_OFFSETS);
+    const slotW = W / (NUM_SHAPES+1);
+    const pieceXs = [];
+    for(let i=1;i<=NUM_SHAPES;i++) pieceXs.push(slotW*i + (Math.random()*30-15));
+    const pieceOrder = shuffle([...Array(NUM_SHAPES).keys()]);
+
+    chosenShapes.forEach((def, idx)=>{
+      const color = COLORS[idx % COLORS.length];
+      const targetRot = Math.floor(Math.random()*12)*30;
+      let offset = 70 + Math.floor(Math.random()*160);
+      if(Math.random()<0.5) offset = -offset;
+      const pieceRot = targetRot + offset;
+      const startX = clamp(pieceXs[pieceOrder[idx]], 70, W-70);
+      const targetX = slotX + offsets[idx][0];
+      const targetY2 = slotY + offsets[idx][1];
+
+      const item = {
+        def, color, targetX, targetY: targetY2, pieceRot, targetRot,
+        cx: startX, cy: pieceRowY + (Math.random()*20-10),
+        fitted:false
+      };
+
+      // this shape's fill, merged into the shared cluster (no individual stroke —
+      // same flat color means overlaps blend with no visible seam)
+      const tg = document.createElementNS(NS,'g');
+      tg.setAttribute('transform', `translate(${targetX},${targetY2}) rotate(${targetRot})`);
+      const tpath = document.createElementNS(NS,'path');
+      tpath.setAttribute('d', ptsToPath(def.pts));
+      tpath.setAttribute('fill', '#fff3d6');
+      tg.appendChild(tpath);
+      outlineCluster.appendChild(tg);
+
+      // piece group
+      const pg = document.createElementNS(NS,'g');
+      pg.setAttribute('class','grabbable');
+      svg.appendChild(pg);
+      item.pieceEl = pg;
+
+      const ppath = document.createElementNS(NS,'path');
+      ppath.setAttribute('d', ptsToPath(def.pts));
+      ppath.setAttribute('fill', color);
+      ppath.setAttribute('stroke', '#2b2b2b');
+      ppath.setAttribute('stroke-width', '5');
+      ppath.setAttribute('pointer-events','all');
+      pg.appendChild(ppath);
+      item.ppath = ppath;
+
+      const handleDist = 78;
+      const stick = document.createElementNS(NS,'line');
+      stick.setAttribute('x1',0); stick.setAttribute('y1',0);
+      stick.setAttribute('x2',handleDist); stick.setAttribute('y2',0);
+      stick.setAttribute('stroke','#2b2b2b'); stick.setAttribute('stroke-width','6');
+      stick.setAttribute('pointer-events','none');
+      pg.appendChild(stick);
+
+      const knob = document.createElementNS(NS,'circle');
+      knob.setAttribute('cx', handleDist); knob.setAttribute('cy',0);
+      knob.setAttribute('r', 16);
+      knob.setAttribute('fill', '#fff8ea');
+      knob.setAttribute('stroke', '#2b2b2b');
+      knob.setAttribute('stroke-width', '5');
+      knob.setAttribute('pointer-events','none');
+      pg.appendChild(knob);
+
+      const hitCircle = document.createElementNS(NS,'circle');
+      hitCircle.setAttribute('cx', handleDist);
+      hitCircle.setAttribute('cy', 0);
+      hitCircle.setAttribute('r', 28);
+      hitCircle.setAttribute('fill', '#ffffff');
+      hitCircle.setAttribute('fill-opacity', '0.001');
+      hitCircle.setAttribute('pointer-events','all');
+      pg.appendChild(hitCircle);
+      item.handleHit = hitCircle;
+
+      updateTransform(item);
+      attachHandlers(item);
+      items.push(item);
+    });
+  }
+
+  function updateTransform(item){
+    item.pieceEl.setAttribute('transform',
+      `translate(${item.cx},${item.cy}) rotate(${item.pieceRot})`);
+  }
+
+  function attachHandlers(item){
+    let mode = null;
+    let grabOffset = {x:0,y:0};
+    let grabAngle0 = 0, rot0 = 0;
+    let activePointerId = null;
+
+    function onDown(e, which){
+      if(item.fitted) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(err){} }
+      hintEl.style.display = 'none';
+      activePointerId = e.pointerId;
+      try{ item.pieceEl.setPointerCapture(activePointerId); }catch(err){}
+      const p = localPointFromEvent(e);
+      if(which==='rotate'){
+        mode = 'rotate';
+        grabAngle0 = Math.atan2(p.y-item.cy, p.x-item.cx) * 180/Math.PI;
+        rot0 = item.pieceRot;
+      } else {
+        mode = 'move';
+        grabOffset.x = p.x - item.cx;
+        grabOffset.y = p.y - item.cy;
+      }
+    }
+    function onMove(e){
+      if(!mode || e.pointerId !== activePointerId) return;
+      e.preventDefault();
+      const p = localPointFromEvent(e);
+      if(mode==='move'){
+        item.cx = clamp(p.x - grabOffset.x, 55, W-55);
+        item.cy = clamp(p.y - grabOffset.y, 60, H-25);
+      } else if(mode==='rotate'){
+        const a = Math.atan2(p.y-item.cy, p.x-item.cx) * 180/Math.PI;
+        item.pieceRot = rot0 + (a - grabAngle0);
+      }
+      updateTransform(item);
+    }
+    function onUp(e){
+      if(e.pointerId !== activePointerId) return;
+      mode = null;
+      activePointerId = null;
+      checkFit(item);
+    }
+    item.pieceEl.addEventListener('pointerdown', (e)=>{
+      if(e.target===item.handleHit) onDown(e,'rotate');
+      else onDown(e,'move');
+    });
+    item.pieceEl.addEventListener('pointermove', onMove);
+    item.pieceEl.addEventListener('pointerup', onUp);
+    item.pieceEl.addEventListener('pointercancel', onUp);
+  }
+
+  function checkFit(item){
+    if(item.fitted) return;
+    const dx = item.cx - item.targetX, dy = item.cy - item.targetY;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    const rd = angleDiff(item.pieceRot, item.targetRot, item.def.symmetry);
+    if(dist < 26 && rd < 9){
+      item.fitted = true;
+      item.cx = item.targetX; item.cy = item.targetY; item.pieceRot = item.targetRot;
+      updateTransform(item);
+      item.ppath.setAttribute('opacity','.92');
+      item.handleHit.setAttribute('pointer-events','none');
+      fittedCount++;
+      if(fittedCount >= NUM_SHAPES){
+        celebrate();
+      } else {
+        littleBeep();
+      }
+    }
+  }
+
+  function littleBeep(){ beep([660,880], 0.09); }
+
+  function celebrate(){
+    stars += 1;
+    starcountEl.textContent = stars;
+    beep([523,659,784,1047], 0.13);
+    const msg = celebrateEl.querySelector('.msg');
+    msg.textContent = PRAISE[Math.floor(Math.random()*PRAISE.length)];
+    celebrateEl.classList.remove('show'); void celebrateEl.offsetWidth;
+    celebrateEl.classList.add('show');
+    spawnConfetti();
+    setTimeout(()=>{ celebrateEl.classList.remove('show'); }, 900);
+    setTimeout(newRound, 1150);
+  }
+
+  function spawnConfetti(){
+    for(let i=0;i<30;i++){
+      const c = document.createElement('div');
+      c.className='confetti';
+      c.style.left = (Math.random()*100)+'%';
+      c.style.background = COLORS[Math.floor(Math.random()*COLORS.length)];
+      c.style.transform = `rotate(${Math.random()*360}deg)`;
+      document.getElementById('app').appendChild(c);
+      const dur = 900 + Math.random()*700;
+      const drift = (Math.random()-0.5)*160;
+      c.animate([
+        { transform:`translate(0,0) rotate(0deg)`, opacity:1 },
+        { transform:`translate(${drift}px, ${window.innerHeight}px) rotate(${360+Math.random()*360}deg)`, opacity:1 }
+      ], { duration:dur, easing:'cubic-bezier(.2,.6,.4,1)' });
+      setTimeout(()=>c.remove(), dur+50);
+    }
+  }
+
+  newRound();
+})();
+</script>
+</body>
+</html>
