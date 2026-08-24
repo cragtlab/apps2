@@ -74,12 +74,12 @@
 
     let needsFileSave = false;
     let isSavingToFile = false;
-    let currentView = "tasks";
+    let currentView = "ops";
 
     container.innerHTML = `
         <div class="nav-tabs">
-            <div class="nav-tab active" data-view="tasks">Monthly Tasks</div>
-            <div class="nav-tab" data-view="ops">Actual Ops</div>
+            <div class="nav-tab" data-view="tasks">Monthly Tasks</div>
+            <div class="nav-tab active" data-view="ops">Actual Ops</div>
             <div class="nav-tab" data-view="officers">Officer View</div>
         </div>
 
@@ -89,14 +89,14 @@
             <label class="toggle-container">
                 <input type="checkbox" id="hide-done-toggle"> Hide Done
             </label>
-            <button id="add-ops-btn" class="add-btn" style="display:none;">+ Add Ops Task</button>
+            <button id="add-ops-btn" class="add-btn" style="display:inline-block;">+ Add Ops Task</button>
         </div>
 
-        <div id="tasks-view" class="view-section active">
+        <div id="tasks-view" class="view-section">
             <div id="recurring-calendar" class="calendar-grid"></div>
         </div>
 
-        <div id="ops-view" class="view-section">
+        <div id="ops-view" class="view-section active">
             <h3 style="margin-top:0; color: #d9534f;">⚠️ Due / Overdue</h3>
             <table class="ops-table" style="margin-bottom: 20px;">
                 <thead>
@@ -614,6 +614,14 @@
 
     function renderUI() {
         hideDoneToggle.checked = state.hideDone;
+
+        const currentMonth = new Date().getMonth();
+        const remainingCount = state.recurringTasks.filter(t => parseInt(t.month) === currentMonth && !t.done).length;
+        const tasksTab = container.querySelector('.nav-tab[data-view="tasks"]');
+        if (tasksTab) {
+            tasksTab.textContent = `Monthly (${remainingCount} remaining)`;
+        }
+
         if (currentView === "tasks") renderRecurringCalendar();
         else if (currentView === "ops") renderOpsListing();
         else if (currentView === "officers") renderOfficerUI();
