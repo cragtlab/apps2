@@ -35,7 +35,6 @@
         #${tabId} .ops-table input, #${tabId} .ops-table textarea, #${tabId} .remarks-input, #${tabId} .task-name-input, #${tabId} .officers-input { width: 100%; border: 1px solid transparent; background: transparent; box-sizing: border-box; }
         #${tabId} .ops-table input:focus, #${tabId} .ops-table textarea:focus, #${tabId} .remarks-input:focus, #${tabId} .task-name-input:focus, #${tabId} .officers-input:focus { background: white; border-color: #007BFF; outline: none; }
         #${tabId} .remarks-input, #${tabId} .task-name-input, #${tabId} .officers-input { min-height: 20px; word-break: break-word; white-space: pre-wrap; font-family: inherit; font-size: inherit; }
-        #${tabId} .remarks-input { resize: none; overflow: hidden; display: block; }
         #${tabId} .ops-table .done-row { background-color: #f9f9f9; color: #888; }
         #${tabId} .ops-table .done-row input, #${tabId} .ops-table .done-row textarea, #${tabId} .ops-table .done-row .remarks-input, #${tabId} .ops-table .done-row .task-name-input, #${tabId} .ops-table .done-row .officers-input { color: #888; }
         #${tabId} .ops-table .done-row .task-name-input { text-decoration: line-through; }
@@ -492,14 +491,15 @@
             offInp.textContent = task.officers || '';
             offInp.onblur = () => { task.officers = offInp.textContent; saveData(); renderUI(); };
 
-            const remInp = document.createElement('textarea');
+            const remInp = document.createElement('div');
+            remInp.contentEditable = "true";
             remInp.className = 'remarks-input';
-            remInp.value = task.remarks || '';
+            remInp.textContent = task.remarks || '';
             if (task.remarks && task.remarks.trim()) {
                 remInp.title = task.remarks;
             }
             remInp.onblur = () => {
-                task.remarks = remInp.value;
+                task.remarks = remInp.textContent;
                 if (task.remarks && task.remarks.trim()) {
                     remInp.title = task.remarks;
                     if (remInp.parentElement) {
@@ -528,13 +528,6 @@
             } else {
                 futureTbody.appendChild(tr);
             }
-
-            const adjustHeight = (el) => {
-                el.style.height = 'auto';
-                el.style.height = el.scrollHeight + 'px';
-            };
-            adjustHeight(remInp);
-            remInp.addEventListener('input', () => adjustHeight(remInp));
         });
     }
 
