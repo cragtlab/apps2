@@ -630,10 +630,13 @@ $form.Controls.Add($deleteScraperButton)
 $form.Controls.Add($logBox)
 
 $script:runHistory = @{}
-$script:schedulerEnabled = $false
+$script:schedulerEnabled = $true
 Refresh-Grid
 Update-SchedulerButton
 Append-Log "Loaded scraper runner"
+$schedulerTimer.Start()
+Append-Log "Daily scheduler started. Checking every hour."
+Run-EligibleScrapers
 
 [void]$form.Add_FormClosing({
     $schedulerTimer.Stop()
