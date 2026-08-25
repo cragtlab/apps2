@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Letter Hunt — A Home Treasure Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#f4ecd8;
+    --parchment-dark:#e6d8b8;
+    --ink:#2b2320;
+    --teal:#1f6f6b;
+    --teal-dark:#134f4c;
+    --coral:#e8613f;
+    --mustard:#e0a527;
+    --navy:#233a5e;
+    --line:#c9b88f;
+    --success:#3f8f4f;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 20% 10%, rgba(224,165,39,0.10), transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(31,111,107,0.12), transparent 45%),
+      var(--parchment);
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(224,165,39,0.10), transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(31,111,107,0.12), transparent 45%),
+      repeating-linear-gradient(0deg, transparent, transparent 38px, rgba(43,35,32,0.025) 39px),
+      var(--parchment);
+    color:var(--ink);
+    font-family:'Space Grotesk', sans-serif;
+    min-height:100vh;
+    padding:18px 14px 60px;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+
+  /* Header */
+  header{text-align:center; margin-bottom:18px;}
+  .eyebrow{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--teal-dark);
+    opacity:0.75;
+  }
+  h1{
+    font-family:'Bungee', cursive;
+    font-size:clamp(28px, 8vw, 40px);
+    color:var(--navy);
+    margin:6px 0 4px;
+    text-shadow: 2px 2px 0 var(--mustard);
+    letter-spacing:1px;
+  }
+  .subtitle{font-size:14px; color:var(--ink); opacity:0.7; max-width:420px; margin:0 auto;}
+
+  /* Trail map */
+  .trail-card{
+    background:rgba(255,255,255,0.45);
+    border:2px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px;
+    margin-bottom:18px;
+  }
+  .trail-title{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--teal-dark);
+    margin-bottom:10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  #progressCount{color:var(--coral); font-weight:700;}
+  .trail{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(40px, 1fr));
+    gap:6px;
+  }
+  .stop{
+    aspect-ratio:1;
+    border-radius:10px;
+    border:2px solid var(--line);
+    background:var(--parchment);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Bungee', cursive;
+    font-size:15px;
+    color:var(--navy);
+    cursor:pointer;
+    position:relative;
+    transition:transform .15s ease;
+  }
+  .stop:active{transform:scale(0.92);}
+  .stop.active{
+    background:var(--coral);
+    color:#fff;
+    border-color:var(--coral);
+    box-shadow:0 0 0 3px rgba(232,97,63,0.25);
+  }
+  .stop.done{
+    background:var(--teal);
+    color:#fff;
+    border-color:var(--teal-dark);
+  }
+  .stop.done::after{
+    content:"✓";
+    position:absolute;
+    top:-6px; right:-6px;
+    background:var(--success);
+    color:#fff;
+    width:16px; height:16px;
+    border-radius:50%;
+    font-size:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:2px solid var(--parchment);
+  }
+
+  /* Hunt card */
+  .hunt-card{
+    background:#fff;
+    border-radius:var(--radius);
+    border:2px solid var(--line);
+    padding:20px 18px 22px;
+    box-shadow:0 6px 0 var(--line);
+    margin-bottom:16px;
+  }
+  .hunt-top{display:flex; align-items:center; gap:16px; margin-bottom:14px;}
+  .big-letter{
+    font-family:'Bungee', cursive;
+    font-size:64px;
+    line-height:1;
+    color:var(--navy);
+    background:var(--mustard);
+    width:88px; height:88px;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    box-shadow:3px 3px 0 var(--coral);
+  }
+  .big-letter small{font-family:'Bungee', cursive; font-size:34px; margin-left:2px; opacity:0.8;}
+  .hunt-copy .label{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--coral);
+    margin-bottom:4px;
+  }
+  .hunt-copy .prompt{font-size:16px; font-weight:600; line-height:1.35;}
+  .word-hint{
+    font-size:13px;
+    color:var(--ink);
+    opacity:0.7;
+    margin-top:4px;
+  }
+
+  .trace-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:14px 0;
+    padding:10px 12px;
+    background:var(--parchment);
+    border-radius:10px;
+    border:1px dashed var(--line);
+  }
+  .trace-row .tip-emoji{font-size:20px;}
+  .trace-row p{margin:0; font-size:13px; color:var(--ink); opacity:0.8;}
+  .trace-letters{
+    display:flex;
+    gap:6px;
+    font-family:'Bungee', cursive;
+    font-size:22px;
+    color:transparent;
+    -webkit-text-stroke:1.4px var(--navy);
+  }
+
+  .nav-row{display:flex; gap:8px; margin-bottom:14px;}
+  .nav-btn{
+    flex:1;
+    padding:9px 6px;
+    border-radius:10px;
+    border:2px solid var(--line);
+    background:var(--parchment);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    color:var(--navy);
+    cursor:pointer;
+  }
+  .nav-btn:active{transform:translateY(1px);}
+
+  /* Camera area */
+  .camera-zone{
+    border:3px solid var(--navy);
+    border-radius:14px;
+    background:var(--navy);
+    aspect-ratio:4/3;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    position:relative;
+    margin-bottom:14px;
+  }
+  .camera-zone img{width:100%; height:100%; object-fit:cover; display:block;}
+  .camera-placeholder{
+    color:#cfe0e6;
+    text-align:center;
+    font-size:13px;
+    padding:20px;
+  }
+  .camera-placeholder .binoc{font-size:38px; display:block; margin-bottom:8px;}
+  .corner{position:absolute; width:22px; height:22px; border-color:var(--mustard); border-style:solid; opacity:.9;}
+  .corner.tl{top:8px; left:8px; border-width:3px 0 0 3px;}
+  .corner.tr{top:8px; right:8px; border-width:3px 3px 0 0;}
+  .corner.bl{bottom:8px; left:8px; border-width:0 0 3px 3px;}
+  .corner.br{bottom:8px; right:8px; border-width:0 3px 3px 0;}
+
+  input[type=file]{display:none;}
+  .action-row{display:flex; gap:10px;}
+  .btn{
+    flex:1;
+    padding:14px 10px;
+    border-radius:12px;
+    border:none;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--coral); color:#fff; box-shadow:0 4px 0 #b8492f;}
+  .btn-secondary{background:var(--teal); color:#fff; box-shadow:0 4px 0 var(--teal-dark);}
+  .btn-ghost{background:var(--parchment); color:var(--navy); border:2px solid var(--line); box-shadow:none;}
+  .btn:disabled{opacity:0.45; pointer-events:none;}
+
+  .toast{
+    position:fixed;
+    left:50%;
+    bottom:22px;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--navy);
+    color:#fff;
+    padding:12px 20px;
+    border-radius:30px;
+    font-weight:600;
+    font-size:14px;
+    opacity:0;
+    transition:all .25s ease;
+    pointer-events:none;
+    white-space:nowrap;
+    box-shadow:0 6px 18px rgba(0,0,0,0.25);
+    z-index:20;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .footer-note{
+    text-align:center;
+    font-size:12px;
+    color:var(--ink);
+    opacity:0.55;
+    margin-top:6px;
+  }
+
+  .complete-banner{
+    display:none;
+    text-align:center;
+    background:var(--mustard);
+    border:2px solid var(--coral);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-bottom:16px;
+    font-family:'Bungee', cursive;
+    color:var(--navy);
+    font-size:18px;
+    line-height:1.4;
+  }
+  .complete-banner.show{display:block;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">A Home Treasure Hunt</div>
+    <h1>Letter Hunt!</h1>
+    <p class="subtitle">Find something that starts with each letter, snap a photo, and fill your treasure map!</p>
+  </header>
+
+  <div class="complete-banner" id="completeBanner">🏆 You found all 26 letters! You're an A–Z Treasure Champion!</div>
+
+  <div class="trail-card">
+    <div class="trail-title">
+      <span>Your Trail Map</span>
+      <span><span id="progressCount">0</span>/26 found</span>
+    </div>
+    <div class="trail" id="trail"></div>
+  </div>
+
+  <div class="hunt-card">
+    <div class="hunt-top">
+      <div class="big-letter" id="bigLetter">A<small>a</small></div>
+      <div class="hunt-copy">
+        <div class="label">Go find something...</div>
+        <div class="prompt" id="prompt">that starts with the letter A!</div>
+        <div class="word-hint" id="wordHint">Try: apple, avocado, ant</div>
+      </div>
+    </div>
+
+    <div class="trace-row">
+      <span class="tip-emoji">✍️</span>
+      <div>
+        <div class="trace-letters" id="traceLetters">A a</div>
+        <p>That's how to write it — trace it in the air with your finger first!</p>
+      </div>
+    </div>
+
+    <div class="nav-row">
+      <button class="nav-btn" id="prevBtn">← Prev Letter</button>
+      <button class="nav-btn" id="nextBtn">Next Letter →</button>
+    </div>
+
+    <div class="camera-zone" id="cameraZone">
+      <div class="camera-placeholder" id="cameraPlaceholder">
+        <span class="binoc">📸</span>
+        No photo yet — go on your hunt!
+      </div>
+      <img id="previewImg" style="display:none;">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*" capture="environment">
+
+    <div class="action-row">
+      <button class="btn btn-primary" id="takePhotoBtn">📷 Take Photo</button>
+      <button class="btn btn-secondary" id="saveBtn" disabled>💾 Save to Map</button>
+    </div>
+    <div class="action-row" style="margin-top:8px;">
+      <button class="btn btn-ghost" id="viewSavedBtn" style="display:none;">🔍 View Saved Photo</button>
+      <button class="btn btn-ghost" id="deleteBtn" style="display:none;">🗑️ Retake / Delete</button>
+    </div>
+
+    <p class="footer-note">Photos are saved only on this device, in this browser.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const HINTS = {
+  A:"apple, avocado, ant", B:"banana, ball, book", C:"cup, chair, carrot",
+  D:"door, dog toy, drawer", E:"egg, elbow, envelope", F:"fork, flower, fan",
+  G:"glass, grapes, game", H:"hat, hairbrush, hanger", I:"ice cube, iron",
+  J:"jar, jacket, juice", K:"key, kettle, kite", L:"lamp, lemon, ladder",
+  M:"mirror, mug, mango", N:"napkin, nail, notebook", O:"orange, oven, owl toy",
+  P:"pillow, plate, pencil", Q:"quilt, quarter coin", R:"rug, remote, radish",
+  S:"spoon, shoe, sock", T:"towel, table, toy", U:"umbrella, USB cable",
+  V:"vase, vegetable", W:"window, watch, wallet", X:"box (x-tra!), xylophone toy",
+  Y:"yogurt, yarn", Z:"zipper, zebra toy"
+};
+const STORAGE_KEY = "letterHunt-progress";
+let progress = {};
+try { progress = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e){ progress = {}; }
+
+let currentIndex = 0;
+let pendingPhoto = null; // dataURL not yet saved
+
+const trailEl = document.getElementById('trail');
+const bigLetterEl = document.getElementById('bigLetter');
+const promptEl = document.getElementById('prompt');
+const wordHintEl = document.getElementById('wordHint');
+const traceLettersEl = document.getElementById('traceLetters');
+const progressCountEl = document.getElementById('progressCount');
+const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+const previewImg = document.getElementById('previewImg');
+const fileInput = document.getElementById('fileInput');
+const takePhotoBtn = document.getElementById('takePhotoBtn');
+const saveBtn = document.getElementById('saveBtn');
+const viewSavedBtn = document.getElementById('viewSavedBtn');
+const deleteBtn = document.getElementById('deleteBtn');
+const toastEl = document.getElementById('toast');
+const completeBanner = document.getElementById('completeBanner');
+
+function buildTrail(){
+  trailEl.innerHTML = "";
+  LETTERS.forEach((L, i) => {
+    const stop = document.createElement('div');
+    stop.className = 'stop' + (progress[L] ? ' done' : '') + (i === currentIndex ? ' active' : '');
+    stop.textContent = L;
+    stop.addEventListener('click', () => { currentIndex = i; render(); });
+    trailEl.appendChild(stop);
+  });
+  const doneCount = Object.keys(progress).length;
+  progressCountEl.textContent = doneCount;
+  completeBanner.classList.toggle('show', doneCount === 26);
+}
+
+function render(){
+  const L = LETTERS[currentIndex];
+  bigLetterEl.innerHTML = L + '<small>' + L.toLowerCase() + '</small>';
+  promptEl.textContent = 'that starts with the letter ' + L + '!';
+  wordHintEl.textContent = 'Try: ' + HINTS[L];
+  traceLettersEl.textContent = L + ' ' + L.toLowerCase();
+
+  pendingPhoto = null;
+  const saved = progress[L];
+  if (saved) {
+    previewImg.src = saved.photo;
+    previewImg.style.display = 'block';
+    cameraPlaceholder.style.display = 'none';
+    viewSavedBtn.style.display = 'flex';
+    deleteBtn.style.display = 'flex';
+    saveBtn.disabled = true;
+    saveBtn.textContent = '✔️ Saved!';
+  } else {
+    previewImg.style.display = 'none';
+    cameraPlaceholder.style.display = 'block';
+    viewSavedBtn.style.display = 'none';
+    deleteBtn.style.display = 'none';
+    saveBtn.disabled = true;
+    saveBtn.textContent = '💾 Save to Map';
+  }
+  buildTrail();
+}
+
+function showToast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 1800);
+}
+
+// compress image before storing
+function compressImage(dataUrl, maxWidth, quality){
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataUrl;
+  });
+}
+
+takePhotoBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const compressed = await compressImage(ev.target.result, 640, 0.72);
+    pendingPhoto = compressed;
+    previewImg.src = compressed;
+    previewImg.style.display = 'block';
+    cameraPlaceholder.style.display = 'none';
+    saveBtn.disabled = false;
+    saveBtn.textContent = '💾 Save to Map';
+  };
+  reader.readAsDataURL(file);
+  fileInput.value = '';
+});
+
+saveBtn.addEventListener('click', () => {
+  if (!pendingPhoto) return;
+  const L = LETTERS[currentIndex];
+  progress[L] = { photo: pendingPhoto, savedAt: new Date().toISOString() };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  } catch(err) {
+    showToast("Storage full — try deleting an old photo.");
+    return;
+  }
+  pendingPhoto = null;
+  showToast(L + ' added to your treasure map! 🎉');
+  render();
+  if (Object.keys(progress).length === 26) {
+    setTimeout(() => showToast('🏆 All 26 letters found!'), 900);
+  } else if (currentIndex < LETTERS.length - 1) {
+    setTimeout(() => { currentIndex++; render(); }, 900);
+  }
+});
+
+viewSavedBtn.addEventListener('click', () => {
+  const L = LETTERS[currentIndex];
+  const saved = progress[L];
+  if (saved) window.open(saved.photo, '_blank');
+});
+
+deleteBtn.addEventListener('click', () => {
+  const L = LETTERS[currentIndex];
+  if (confirm('Delete the saved photo for ' + L + ' and take a new one?')) {
+    delete progress[L];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    render();
+  }
+});
+
+document.getElementById('prevBtn').addEventListener('click', () => {
+  currentIndex = (currentIndex - 1 + LETTERS.length) % LETTERS.length;
+  render();
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  currentIndex = (currentIndex + 1) % LETTERS.length;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
