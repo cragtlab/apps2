@@ -141,6 +141,53 @@
         return counts;
     }
 
+    function parseTopGames(rows) {
+        if (!rows || rows.length === 0) return [];
+        let headerIdx = -1;
+        let gameIdx = -1;
+        let versionIdx = -1;
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const gIdx = row.findIndex(h => {
+                const s = String(h).toLowerCase();
+                return s.includes('game') || s.includes('theme') || s.includes('title');
+            });
+            if (gIdx >= 0) {
+                headerIdx = i;
+                gameIdx = gIdx;
+                versionIdx = row.findIndex(h => {
+                    const s = String(h).toLowerCase();
+                    return s.includes('version') || s === 'ver' || s.startsWith('ver.') || s.startsWith('ver ');
+                });
+                break;
+            }
+        }
+        if (headerIdx < 0 || gameIdx < 0) return [];
+
+        const gameCounts = {};
+        rows.slice(headerIdx + 1).forEach(row => {
+            const firstVal = (row[0] != null ? String(row[0]) : '').trim().toLowerCase();
+            if (firstVal === 'total' || firstVal === '' || firstVal === 'no.' || firstVal === 'no' || firstVal === 'undefined') return;
+
+            const gameName = String(row[gameIdx] || '').trim();
+            if (!gameName || gameName === 'undefined') return;
+            const version = versionIdx >= 0 ? String(row[versionIdx] || '').trim() : '';
+
+            const key = version ? `${gameName} [${version}]` : gameName;
+            if (!gameCounts[key]) {
+                gameCounts[key] = { gameName, version, count: 0 };
+            }
+            gameCounts[key].count += 1;
+        });
+
+        const sorted = Object.values(gameCounts).sort((a, b) => b.count - a.count);
+        if (sorted.length <= 10) return sorted;
+
+        const cutoffCount = sorted[9].count;
+        return sorted.filter((item, idx) => idx < 10 || item.count === cutoffCount);
+    }
+
     function buildTable(headers, rows, footerRow) {
         const t = document.createElement('table');
         const thead = t.createTHead();
@@ -256,6 +303,43 @@
             });
             output.appendChild(tabsContainer);
             output.appendChild(contentContainer);
+
+            // Top 10 Active EGMs Games Sections
+            const mbsTopGames = parseTopGames(mbsWB[EGM_TAB]);
+            const divTopMBS = document.createElement('div'); divTopMBS.className = 'section-title'; divTopMBS.textContent = 'Top 10 Active EGMs Games (MBS)'; output.appendChild(divTopMBS);
+            if (mbsTopGames.length === 0) {
+                const noData = document.createElement('div'); noData.style.padding = '10px'; noData.textContent = 'No game data available.'; output.appendChild(noData);
+            } else {
+                let currentRank = 0;
+                let lastCount = -1;
+                const rows = mbsTopGames.map((g, idx) => {
+                    if (g.count !== lastCount) {
+                        currentRank = idx + 1;
+                        lastCount = g.count;
+                    }
+                    return [currentRank, g.gameName, g.version || '-', g.count];
+                });
+                const totalMBSCount = mbsTopGames.reduce((acc, curr) => acc + curr.count, 0);
+                output.appendChild(buildTable(['Rank', 'Game Name', 'Version', 'Count'], rows, ['Total (Top Games)', '', '', totalMBSCount]));
+            }
+
+            const rwsTopGames = parseTopGames(rwsWB[EGM_TAB]);
+            const divTopRWS = document.createElement('div'); divTopRWS.className = 'section-title'; divTopRWS.textContent = 'Top 10 Active EGMs Games (RWS)'; output.appendChild(divTopRWS);
+            if (rwsTopGames.length === 0) {
+                const noData = document.createElement('div'); noData.style.padding = '10px'; noData.textContent = 'No game data available.'; output.appendChild(noData);
+            } else {
+                let currentRank = 0;
+                let lastCount = -1;
+                const rows = rwsTopGames.map((g, idx) => {
+                    if (g.count !== lastCount) {
+                        currentRank = idx + 1;
+                        lastCount = g.count;
+                    }
+                    return [currentRank, g.gameName, g.version || '-', g.count];
+                });
+                const totalRWSCount = rwsTopGames.reduce((acc, curr) => acc + curr.count, 0);
+                output.appendChild(buildTable(['Rank', 'Game Name', 'Version', 'Count'], rows, ['Total (Top Games)', '', '', totalRWSCount]));
+            }
 
             isLoaded = true;
         } catch (err) {
