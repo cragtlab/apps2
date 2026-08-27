@@ -160,18 +160,24 @@
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            const gIdx = row.findIndex(h => {
-                const s = String(h).toLowerCase();
-                return s.includes('game') || s.includes('theme') || s.includes('title');
-            });
-            if (gIdx >= 0) {
+            const mIdx = row.findIndex(h => ['manufacturer', 'make', 'brand', 'supplier', 'mfr'].some(k => String(h).toLowerCase().includes(k)));
+            if (mIdx >= 0) {
                 headerIdx = i;
-                gameIdx = gIdx;
-                mfgIdx = row.findIndex(h => ['manufacturer', 'make', 'brand', 'supplier'].some(k => String(h).toLowerCase().includes(k)));
+                mfgIdx = mIdx;
+                gameIdx = row.findIndex(h => {
+                    const s = String(h).toLowerCase();
+                    return s.includes('game name') || s.includes('game_name') || s.includes('theme') || s.includes('game title') || s === 'game' || s === 'title';
+                });
                 versionIdx = row.findIndex(h => {
                     const s = String(h).toLowerCase();
-                    return s.includes('version') || s === 'ver' || s.startsWith('ver.') || s.startsWith('ver ');
+                    return s.includes('game id') || s.includes('game_id') || s.includes('gameid') || s.includes('version') || s === 'ver' || s.startsWith('ver.') || s.startsWith('ver ');
                 });
+                if (gameIdx < 0) {
+                    gameIdx = row.findIndex(h => {
+                        const s = String(h).toLowerCase();
+                        return s.includes('game');
+                    });
+                }
                 break;
             }
         }
@@ -184,7 +190,8 @@
 
             const gameName = String(row[gameIdx] || '').trim();
             if (!gameName || gameName === 'undefined') return;
-            const mfg = mfgIdx >= 0 ? resolveManufacturer(row[mfgIdx], aliasMap) : 'Unknown';
+            const rawMfg = mfgIdx >= 0 ? row[mfgIdx] : '';
+            const mfg = resolveManufacturer(rawMfg, aliasMap);
             const version = versionIdx >= 0 ? String(row[versionIdx] || '').trim() : '';
 
             const key = `${mfg} | ${gameName} | ${version}`;
@@ -358,7 +365,7 @@
             } else {
                 const rows = mbsTopGames.map(g => [g.mfg, g.gameName, g.version || '-', g.count]);
                 const totalMBSCount = mbsTopGames.reduce((acc, curr) => acc + curr.count, 0);
-                mbsCol.appendChild(buildGameTable(['Manufacturer', 'Game Name', 'Version', 'Count'], rows, ['Total (Top Games)', '', '', totalMBSCount]));
+                mbsCol.appendChild(buildGameTable(['Manufacturer', 'Game Name', 'Game ID', 'Count'], rows, ['Total (Top Games)', '', '', totalMBSCount]));
             }
             sideBySideDiv.appendChild(mbsCol);
 
@@ -371,7 +378,7 @@
             } else {
                 const rows = rwsTopGames.map(g => [g.mfg, g.gameName, g.version || '-', g.count]);
                 const totalRWSCount = rwsTopGames.reduce((acc, curr) => acc + curr.count, 0);
-                rwsCol.appendChild(buildGameTable(['Manufacturer', 'Game Name', 'Version', 'Count'], rows, ['Total (Top Games)', '', '', totalRWSCount]));
+                rwsCol.appendChild(buildGameTable(['Manufacturer', 'Game Name', 'Game ID', 'Count'], rows, ['Total (Top Games)', '', '', totalRWSCount]));
             }
             sideBySideDiv.appendChild(rwsCol);
 
