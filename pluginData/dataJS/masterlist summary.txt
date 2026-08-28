@@ -311,13 +311,31 @@
                 return Array.from(keys).map(k => ({ name: k, mbs: m1[k]||0, rws: m2[k]||0, total: (m1[k]||0)+(m2[k]||0) })).sort((a,b)=>b.total-a.total);
             };
 
+            const egmOverallTotal = mbsEGMTotal + rwsEGMTotal;
             const egmMerged = merge(mbsEGM, rwsEGM);
             const div2 = document.createElement('div'); div2.className = 'section-title'; div2.textContent = 'EGM Manufacturers'; output.appendChild(div2);
-            output.appendChild(buildTable(['Manufacturer', 'MBS', 'RWS', 'Total'], egmMerged.map(r=>[r.name, r.mbs, r.rws, r.total]), ['Total', mbsEGMTotal, rwsEGMTotal, mbsEGMTotal+rwsEGMTotal]));
+            const egmRows = egmMerged.map(r => {
+                const pct = egmOverallTotal > 0 ? (r.total / egmOverallTotal * 100).toFixed(1) : '0.0';
+                return [r.name, r.mbs, r.rws, `${r.total.toLocaleString()} (${pct}%)`];
+            });
+            output.appendChild(buildTable(
+                ['Manufacturer', 'MBS', 'RWS', 'Total (% of Total Active EGMs)'],
+                egmRows,
+                ['Total', mbsEGMTotal, rwsEGMTotal, `${egmOverallTotal.toLocaleString()} (100.0%)`]
+            ));
 
+            const etgOverallTotal = mbsETGTotal + rwsETGTotal;
             const etgMerged = merge(mbsETG, rwsETG);
             const div3 = document.createElement('div'); div3.className = 'section-title'; div3.textContent = 'ETG Manufacturers'; output.appendChild(div3);
-            output.appendChild(buildTable(['Manufacturer', 'MBS', 'RWS', 'Total'], etgMerged.map(r=>[r.name, r.mbs, r.rws, r.total]), ['Total', mbsETGTotal, rwsETGTotal, mbsETGTotal+rwsETGTotal]));
+            const etgRows = etgMerged.map(r => {
+                const pct = etgOverallTotal > 0 ? (r.total / etgOverallTotal * 100).toFixed(1) : '0.0';
+                return [r.name, r.mbs, r.rws, `${r.total.toLocaleString()} (${pct}%)`];
+            });
+            output.appendChild(buildTable(
+                ['Manufacturer', 'MBS', 'RWS', 'Total (% of Total Active ETGs)'],
+                etgRows,
+                ['Total', mbsETGTotal, rwsETGTotal, `${etgOverallTotal.toLocaleString()} (100.0%)`]
+            ));
 
             const div4 = document.createElement('div'); div4.className = 'section-title'; div4.textContent = 'Per-Casino Breakdown'; output.appendChild(div4);
             const tabsContainer = document.createElement('div'); tabsContainer.className = 'tabs';
@@ -363,9 +381,17 @@
             if (mbsTopGames.length === 0) {
                 const noData = document.createElement('div'); noData.style.padding = '10px'; noData.textContent = 'No game data available.'; mbsCol.appendChild(noData);
             } else {
-                const rows = mbsTopGames.map(g => [g.mfg, g.gameName, g.version || '-', g.count]);
+                const rows = mbsTopGames.map(g => {
+                    const pct = mbsEGMTotal > 0 ? (g.count / mbsEGMTotal * 100).toFixed(1) : '0.0';
+                    return [g.mfg, g.gameName, g.version || '-', `${g.count.toLocaleString()} (${pct}%)`];
+                });
                 const totalMBSCount = mbsTopGames.reduce((acc, curr) => acc + curr.count, 0);
-                mbsCol.appendChild(buildGameTable(['Manufacturer', 'Game Name', 'Game ID', 'Count'], rows, ['Total (Top Games)', '', '', totalMBSCount]));
+                const totalMBSPct = mbsEGMTotal > 0 ? (totalMBSCount / mbsEGMTotal * 100).toFixed(1) : '0.0';
+                mbsCol.appendChild(buildGameTable(
+                    ['Manufacturer', 'Game Name', 'Game ID', 'Count (% of Total Active EGMs)'],
+                    rows,
+                    ['Total (Top Games)', '', '', `${totalMBSCount.toLocaleString()} (${totalMBSPct}%)`]
+                ));
             }
             sideBySideDiv.appendChild(mbsCol);
 
@@ -376,9 +402,17 @@
             if (rwsTopGames.length === 0) {
                 const noData = document.createElement('div'); noData.style.padding = '10px'; noData.textContent = 'No game data available.'; rwsCol.appendChild(noData);
             } else {
-                const rows = rwsTopGames.map(g => [g.mfg, g.gameName, g.version || '-', g.count]);
+                const rows = rwsTopGames.map(g => {
+                    const pct = rwsEGMTotal > 0 ? (g.count / rwsEGMTotal * 100).toFixed(1) : '0.0';
+                    return [g.mfg, g.gameName, g.version || '-', `${g.count.toLocaleString()} (${pct}%)`];
+                });
                 const totalRWSCount = rwsTopGames.reduce((acc, curr) => acc + curr.count, 0);
-                rwsCol.appendChild(buildGameTable(['Manufacturer', 'Game Name', 'Game ID', 'Count'], rows, ['Total (Top Games)', '', '', totalRWSCount]));
+                const totalRWSPct = rwsEGMTotal > 0 ? (totalRWSCount / rwsEGMTotal * 100).toFixed(1) : '0.0';
+                rwsCol.appendChild(buildGameTable(
+                    ['Manufacturer', 'Game Name', 'Game ID', 'Count (% of Total Active EGMs)'],
+                    rows,
+                    ['Total (Top Games)', '', '', `${totalRWSCount.toLocaleString()} (${totalRWSPct}%)`]
+                ));
             }
             sideBySideDiv.appendChild(rwsCol);
 
