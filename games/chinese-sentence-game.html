@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>拼句子游戏 Sentence Builder</title>
+<style>
+  :root{
+    --bg1:#ffe9c7;
+    --bg2:#c7f0ff;
+    --accent:#ff8a5b;
+    --accent-dark:#e06a3a;
+    --good:#3fb96f;
+    --bad:#e5534b;
+    --slot-empty:#ffffff;
+    --card:#2b6ea5;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(160deg,var(--bg1),var(--bg2));
+  }
+  #app{
+    max-width:520px;
+    margin:0 auto;
+    padding:14px 12px 30px;
+    display:flex; flex-direction:column;
+    min-height:100vh;
+  }
+  header{ text-align:center; margin-bottom:6px; }
+  header h1{ margin:0; font-size:1.2rem; color:#37425a; }
+  #progress{ font-size:.8rem; color:#5a6480; margin-top:2px; }
+
+  #card{
+    background:rgba(255,255,255,.55);
+    border-radius:18px;
+    padding:14px 12px 18px;
+    margin-top:10px;
+    box-shadow:0 6px 16px rgba(0,0,0,.08);
+    flex:1 1 auto;
+    display:flex;
+    flex-direction:column;
+  }
+
+  #instructions{
+    text-align:center;
+    font-size:.85rem;
+    color:#4a5570;
+    margin-bottom:10px;
+  }
+
+  #slots{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    justify-content:center;
+    min-height:64px;
+    padding:10px;
+    border-radius:14px;
+    background:rgba(255,255,255,.5);
+    margin-bottom:16px;
+  }
+  .slot{
+    min-width:52px;
+    height:52px;
+    border:2px dashed #b9c2d6;
+    border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--slot-empty);
+  }
+  .slot.filled{ border-style:solid; border-color:transparent; padding:0; }
+
+  #tray{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    padding:8px 4px;
+  }
+
+  .tile{
+    min-width:52px;
+    height:52px;
+    padding:0 12px;
+    border-radius:12px;
+    background:linear-gradient(180deg,var(--card),#1f507d);
+    color:#fff;
+    font-size:1.25rem;
+    font-weight:600;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 3px 6px rgba(0,0,0,.25);
+    cursor:pointer;
+    transition:transform .1s ease, box-shadow .1s ease, opacity .15s ease;
+  }
+  .tile:active{ transform:scale(.93); }
+  .tile.correct-flash{ background:linear-gradient(180deg,var(--good),#2c8f56); }
+  .tile.wrong-flash{ background:linear-gradient(180deg,var(--bad),#b8362f); }
+
+  #feedback{
+    text-align:center;
+    min-height:26px;
+    font-size:.95rem;
+    font-weight:700;
+    margin-top:14px;
+    color:#37425a;
+  }
+  #feedback.win{ color:var(--good); }
+  #feedback.lose{ color:var(--bad); }
+
+  #controls{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin-top:16px;
+    flex-wrap:wrap;
+  }
+  button.ctrl{
+    border:none;
+    border-radius:22px;
+    padding:10px 18px;
+    font-size:.9rem;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,.15);
+  }
+  #listenBtn{ background:#ffd166; color:#5a4200; }
+  #resetBtn{ background:#e0e6f0; color:#37425a; }
+  #nextBtn{ background:var(--accent); color:#fff; }
+
+  #pinyinNote{
+    text-align:center;
+    font-size:.72rem;
+    color:#7a839c;
+    margin-top:10px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🀄 拼句子 Sentence Builder</h1>
+    <div id="progress">第 1 句 / 共 100 句</div>
+  </header>
+
+  <div id="card">
+    <div id="instructions">点一点词语卡片，把句子排好吧！<br><span style="font-size:.75rem;">Tap the word tiles in order to build the sentence. Tap any tile to hear it out loud.</span></div>
+
+    <div id="slots"></div>
+    <div id="tray"></div>
+
+    <div id="feedback"></div>
+
+    <div id="controls">
+      <button class="ctrl" id="listenBtn">🔊 听句子</button>
+      <button class="ctrl" id="resetBtn">↺ 重来</button>
+      <button class="ctrl" id="nextBtn">🎲 换一句</button>
+    </div>
+    <div id="pinyinNote">提示：点击词语卡片可以听发音 / Tap any tile to hear its pronunciation.</div>
+  </div>
+</div>
+
+<script>
+const SENTENCES = [{"s": "哥哥喜欢足球", "t": ["哥哥", "喜欢", "足球"]}, {"s": "姐姐在公园吃饭", "t": ["姐姐", "在", "公园", "吃", "饭"]}, {"s": "明天姐姐看电视", "t": ["明天", "姐姐", "看", "电视"]}, {"s": "姐姐明天睡觉", "t": ["姐姐", "明天", "睡觉"]}, {"s": "他在家里跑步", "t": ["他", "在", "家里", "跑步"]}, {"s": "晚上他睡觉", "t": ["晚上", "他", "睡觉"]}, {"s": "我在家里起床", "t": ["我", "在", "家里", "起床"]}, {"s": "小鸟在公园刷牙", "t": ["小鸟", "在", "公园", "刷", "牙"]}, {"s": "小狗今天骑车", "t": ["小狗", "今天", "骑", "车"]}, {"s": "我现在玩球", "t": ["我", "现在", "玩", "球"]}, {"s": "今天我们种花", "t": ["今天", "我们", "种", "花"]}, {"s": "晚上你休息", "t": ["晚上", "你", "休息"]}, {"s": "我在公园玩球", "t": ["我", "在", "公园", "玩", "球"]}, {"s": "我现在帮妈妈", "t": ["我", "现在", "帮", "妈妈"]}, {"s": "哥哥在学校看书", "t": ["哥哥", "在", "学校", "看", "书"]}, {"s": "他早上骑车", "t": ["他", "早上", "骑", "车"]}, {"s": "今天他看电视", "t": ["今天", "他", "看", "电视"]}, {"s": "他今天画画", "t": ["他", "今天", "画", "画"]}, {"s": "他现在唱歌", "t": ["他", "现在", "唱", "歌"]}, {"s": "他明天跑步", "t": ["他", "明天", "跑步"]}, {"s": "妈妈现在吃饭", "t": ["妈妈", "现在", "吃", "饭"]}, {"s": "我在学校看书", "t": ["我", "在", "学校", "看", "书"]}, {"s": "弟弟明天洗手", "t": ["弟弟", "明天", "洗", "手"]}, {"s": "她晚上骑车", "t": ["她", "晚上", "骑", "车"]}, {"s": "早上小狗休息", "t": ["早上", "小狗", "休息"]}, {"s": "晚上她休息", "t": ["晚上", "她", "休息"]}, {"s": "爸爸会跳舞", "t": ["爸爸", "会", "跳", "舞"]}, {"s": "小狗在学校玩球", "t": ["小狗", "在", "学校", "玩", "球"]}, {"s": "姐姐今天做作业", "t": ["姐姐", "今天", "做", "作业"]}, {"s": "妈妈今天玩球", "t": ["妈妈", "今天", "玩", "球"]}, {"s": "老师在花园跳舞", "t": ["老师", "在", "花园", "跳", "舞"]}, {"s": "你现在扫地", "t": ["你", "现在", "扫", "地"]}, {"s": "早上他唱歌", "t": ["早上", "他", "唱", "歌"]}, {"s": "哥哥在学校种花", "t": ["哥哥", "在", "学校", "种", "花"]}, {"s": "我们明天休息", "t": ["我们", "明天", "休息"]}, {"s": "姐姐在学校骑车", "t": ["姐姐", "在", "学校", "骑", "车"]}, {"s": "弟弟晚上写字", "t": ["弟弟", "晚上", "写", "字"]}, {"s": "你在学校玩球", "t": ["你", "在", "学校", "玩", "球"]}, {"s": "老师今天喂小狗", "t": ["老师", "今天", "喂", "小狗"]}, {"s": "小鸟很漂亮", "t": ["小鸟", "很", "漂亮"]}, {"s": "今天弟弟帮妈妈", "t": ["今天", "弟弟", "帮", "妈妈"]}, {"s": "弟弟在花园洗手", "t": ["弟弟", "在", "花园", "洗", "手"]}, {"s": "你现在跑步", "t": ["你", "现在", "跑步"]}, {"s": "爸爸很健康", "t": ["爸爸", "很", "健康"]}, {"s": "我们会游泳", "t": ["我们", "会", "游泳"]}, {"s": "弟弟会玩球", "t": ["弟弟", "会", "玩", "球"]}, {"s": "妹妹在公园起床", "t": ["妹妹", "在", "公园", "起床"]}, {"s": "妹妹在家里骑车", "t": ["妹妹", "在", "家里", "骑", "车"]}, {"s": "她在公园写字", "t": ["她", "在", "公园", "写", "字"]}, {"s": "他今天跳舞", "t": ["他", "今天", "跳", "舞"]}, {"s": "我晚上唱歌", "t": ["我", "晚上", "唱", "歌"]}, {"s": "哥哥明天爬山", "t": ["哥哥", "明天", "爬山"]}, {"s": "他今天踢球", "t": ["他", "今天", "踢", "球"]}, {"s": "今天姐姐洗手", "t": ["今天", "姐姐", "洗", "手"]}, {"s": "我们现在玩球", "t": ["我们", "现在", "玩", "球"]}, {"s": "明天她刷牙", "t": ["明天", "她", "刷", "牙"]}, {"s": "小猫在花园跳舞", "t": ["小猫", "在", "花园", "跳", "舞"]}, {"s": "妈妈晚上喂小狗", "t": ["妈妈", "晚上", "喂", "小狗"]}, {"s": "现在小狗写字", "t": ["现在", "小狗", "写", "字"]}, {"s": "今天小狗游泳", "t": ["今天", "小狗", "游泳"]}, {"s": "你晚上爬山", "t": ["你", "晚上", "爬山"]}, {"s": "老师会睡觉", "t": ["老师", "会", "睡觉"]}, {"s": "小猫在家里爬山", "t": ["小猫", "在", "家里", "爬山"]}, {"s": "晚上弟弟游泳", "t": ["晚上", "弟弟", "游泳"]}, {"s": "明天老师写字", "t": ["明天", "老师", "写", "字"]}, {"s": "明天老师跑步", "t": ["明天", "老师", "跑步"]}, {"s": "早上爸爸看书", "t": ["早上", "爸爸", "看", "书"]}, {"s": "我们在家里扫地", "t": ["我们", "在", "家里", "扫", "地"]}, {"s": "今天小猫休息", "t": ["今天", "小猫", "休息"]}, {"s": "我们在操场看书", "t": ["我们", "在", "操场", "看", "书"]}, {"s": "你明天喂小狗", "t": ["你", "明天", "喂", "小狗"]}, {"s": "明天妹妹踢球", "t": ["明天", "妹妹", "踢", "球"]}, {"s": "小猫现在浇花", "t": ["小猫", "现在", "浇", "花"]}, {"s": "你在花园看书", "t": ["你", "在", "花园", "看", "书"]}, {"s": "小狗今天玩球", "t": ["小狗", "今天", "玩", "球"]}, {"s": "哥哥会爬山", "t": ["哥哥", "会", "爬山"]}, {"s": "明天妈妈玩球", "t": ["明天", "妈妈", "玩", "球"]}, {"s": "早上爸爸帮妈妈", "t": ["早上", "爸爸", "帮", "妈妈"]}, {"s": "我们会踢球", "t": ["我们", "会", "踢", "球"]}, {"s": "晚上姐姐扫地", "t": ["晚上", "姐姐", "扫", "地"]}, {"s": "姐姐在操场读书", "t": ["姐姐", "在", "操场", "读", "书"]}, {"s": "我在公园唱歌", "t": ["我", "在", "公园", "唱", "歌"]}, {"s": "姐姐今天画画", "t": ["姐姐", "今天", "画", "画"]}, {"s": "小猫今天起床", "t": ["小猫", "今天", "起床"]}, {"s": "小鸟在公园唱歌", "t": ["小鸟", "在", "公园", "唱", "歌"]}, {"s": "你晚上吃苹果", "t": ["你", "晚上", "吃", "苹果"]}, {"s": "早上哥哥浇花", "t": ["早上", "哥哥", "浇", "花"]}, {"s": "小狗今天看电视", "t": ["小狗", "今天", "看", "电视"]}, {"s": "小鸟在学校跑步", "t": ["小鸟", "在", "学校", "跑步"]}, {"s": "早上哥哥喝牛奶", "t": ["早上", "哥哥", "喝", "牛奶"]}, {"s": "他晚上画画", "t": ["他", "晚上", "画", "画"]}, {"s": "老师在家里玩球", "t": ["老师", "在", "家里", "玩", "球"]}, {"s": "你今天做作业", "t": ["你", "今天", "做", "作业"]}, {"s": "早上姐姐洗手", "t": ["早上", "姐姐", "洗", "手"]}, {"s": "弟弟今天帮妈妈", "t": ["弟弟", "今天", "帮", "妈妈"]}, {"s": "现在老师喝牛奶", "t": ["现在", "老师", "喝", "牛奶"]}, {"s": "小狗喜欢苹果", "t": ["小狗", "喜欢", "苹果"]}, {"s": "现在小狗喂小狗", "t": ["现在", "小狗", "喂", "小狗"]}, {"s": "现在妹妹唱歌", "t": ["现在", "妹妹", "唱", "歌"]}, {"s": "早上他跑步", "t": ["早上", "他", "跑步"]}];
+
+let currentIndex = -1;
+let correctTokens = [];   // e.g. ["我","在","学校","看","书"]
+let slotState = [];       // array same length as correctTokens, each either null or {text, id}
+let trayTiles = [];       // array of {text, id} still in tray
+
+const slotsEl = document.getElementById('slots');
+const trayEl = document.getElementById('tray');
+const feedbackEl = document.getElementById('feedback');
+const progressEl = document.getElementById('progress');
+const listenBtn = document.getElementById('listenBtn');
+const resetBtn = document.getElementById('resetBtn');
+const nextBtn = document.getElementById('nextBtn');
+
+let voicesReady = false;
+function ensureVoices(){
+  if (typeof speechSynthesis === 'undefined') return;
+  speechSynthesis.getVoices();
+}
+if (typeof speechSynthesis !== 'undefined') {
+  speechSynthesis.onvoiceschanged = ensureVoices;
+  ensureVoices();
+}
+
+function speak(text){
+  try{
+    if (typeof speechSynthesis === 'undefined') return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.rate = 0.85;
+    const voices = speechSynthesis.getVoices();
+    const zhVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('zh'));
+    if (zhVoice) u.voice = zhVoice;
+    speechSynthesis.speak(u);
+  }catch(e){ /* speech not supported, ignore */ }
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function pickSentence(){
+  let idx;
+  do { idx = Math.floor(Math.random()*SENTENCES.length); } while (idx === currentIndex && SENTENCES.length > 1);
+  currentIndex = idx;
+  const item = SENTENCES[idx];
+  correctTokens = item.t;
+  progressEl.textContent = `第 ${idx+1} 句 / 共 ${SENTENCES.length} 句`;
+}
+
+function newRound(){
+  feedbackEl.textContent = '';
+  feedbackEl.className = '';
+  pickSentence();
+
+  slotState = correctTokens.map(()=>null);
+
+  let tiles = correctTokens.map((text, i) => ({ text, id: 'tile'+i }));
+  let shuffled;
+  do {
+    shuffled = shuffle(tiles);
+  } while (tiles.length > 1 && shuffled.every((t,i)=> t.text === tiles[i].text));
+  trayTiles = shuffled;
+
+  render();
+}
+
+function render(){
+  // slots
+  slotsEl.innerHTML = '';
+  slotState.forEach((slot, i) => {
+    const div = document.createElement('div');
+    div.className = 'slot' + (slot ? ' filled' : '');
+    if (slot) {
+      const tile = makeTile(slot, () => returnToTray(i));
+      div.appendChild(tile);
+    }
+    slotsEl.appendChild(div);
+  });
+
+  // tray
+  trayEl.innerHTML = '';
+  trayTiles.forEach((t) => {
+    const tile = makeTile(t, () => placeInSlot(t));
+    trayEl.appendChild(tile);
+  });
+}
+
+function makeTile(tileObj, onClick){
+  const el = document.createElement('div');
+  el.className = 'tile';
+  el.textContent = tileObj.text;
+  el.addEventListener('click', () => {
+    speak(tileObj.text);
+    onClick();
+  });
+  return el;
+}
+
+function placeInSlot(tileObj){
+  const emptyIdx = slotState.findIndex(s => s === null);
+  if (emptyIdx === -1) return;
+  slotState[emptyIdx] = tileObj;
+  trayTiles = trayTiles.filter(t => t.id !== tileObj.id);
+  render();
+  checkIfComplete();
+}
+
+function returnToTray(slotIdx){
+  const tileObj = slotState[slotIdx];
+  if (!tileObj) return;
+  slotState[slotIdx] = null;
+  trayTiles.push(tileObj);
+  feedbackEl.textContent = '';
+  feedbackEl.className = '';
+  render();
+}
+
+function checkIfComplete(){
+  if (slotState.some(s => s === null)) return;
+  const arrangement = slotState.map(s => s.text);
+  const isCorrect = arrangement.join('') === correctTokens.join('');
+  if (isCorrect) {
+    feedbackEl.textContent = '🎉 太棒了！句子正确！';
+    feedbackEl.className = 'win';
+    flashSlots('correct-flash');
+    speak(correctTokens.join(''));
+  } else {
+    feedbackEl.textContent = '再试试看，顺序不太对哦～';
+    feedbackEl.className = 'lose';
+    flashSlots('wrong-flash');
+  }
+}
+
+function flashSlots(cls){
+  const tiles = slotsEl.querySelectorAll('.tile');
+  tiles.forEach(t => t.classList.add(cls));
+  setTimeout(() => tiles.forEach(t => t.classList.remove(cls)), 500);
+}
+
+listenBtn.addEventListener('click', () => {
+  speak(correctTokens.join(''));
+});
+
+resetBtn.addEventListener('click', () => {
+  slotState = correctTokens.map(()=>null);
+  trayTiles = shuffle(correctTokens.map((text,i)=>({text,id:'tile'+i})));
+  feedbackEl.textContent = '';
+  feedbackEl.className = '';
+  render();
+});
+
+nextBtn.addEventListener('click', newRound);
+
+newRound();
+</script>
+</body>
+</html>
