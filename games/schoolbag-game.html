@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Pack Your Schoolbag</title>
+<style>
+  :root{
+    --bg1:#8ec5fc;
+    --bg2:#e0c3fc;
+    --wood1:#c68b56;
+    --wood2:#a86b3c;
+    --bag:#3b6ea5;
+    --bag-dark:#2b527d;
+    --good:#3fb96f;
+    --bad:#e5534b;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body{
+    margin:0; padding:0; height:100%;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(160deg,var(--bg1),var(--bg2));
+    overflow:hidden;
+    touch-action:none;
+  }
+  #app{ position:relative; width:100%; height:100vh; display:flex; flex-direction:column; }
+
+  header{
+    padding:8px 14px 4px;
+    text-align:center;
+    color:#26314d;
+    flex:0 0 auto;
+  }
+  header h1{ margin:0; font-size:1.05rem; letter-spacing:.3px; }
+  #stats{
+    display:flex; justify-content:center; gap:10px;
+    margin-top:5px; font-size:.78rem; font-weight:600; color:#26314d;
+    flex-wrap:wrap;
+  }
+  #stats span{ background:rgba(255,255,255,.55); padding:3px 9px; border-radius:20px; }
+
+  #tableWrap{
+    flex:1 1 auto;
+    margin:6px 10px;
+    border-radius:18px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    box-shadow: inset 0 0 0 4px rgba(0,0,0,.08), 0 6px 14px rgba(0,0,0,.15);
+    background:
+      repeating-linear-gradient(90deg, var(--wood1) 0 40px, var(--wood2) 40px 42px);
+  }
+  #table{
+    position:relative;
+    width:100%;
+  }
+
+  .item{
+    position:absolute;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.9);
+    border-radius:14px;
+    box-shadow:0 3px 6px rgba(0,0,0,.25);
+    cursor:grab;
+    touch-action:none;
+    transition:transform .12s ease, box-shadow .12s ease, opacity .2s ease;
+    z-index:5;
+  }
+  .item.dragging{
+    cursor:grabbing;
+    transform:scale(1.2);
+    box-shadow:0 10px 18px rgba(0,0,0,.35);
+    z-index:50;
+  }
+  .item.placed{
+    pointer-events:none;
+    opacity:0;
+    transform:scale(.3);
+  }
+  .item.reject{
+    animation:shake .4s ease;
+  }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-8px) rotate(-6deg); }
+    40%{ transform:translateX(8px) rotate(6deg); }
+    60%{ transform:translateX(-6px) rotate(-4deg); }
+    80%{ transform:translateX(6px) rotate(4deg); }
+  }
+
+  #bagWrap{
+    flex:0 0 auto;
+    display:flex;
+    justify-content:center;
+    padding:6px 0 12px;
+  }
+  #bag{
+    position:relative;
+    width:130px; height:104px;
+    background:linear-gradient(180deg,var(--bag),var(--bag-dark));
+    border-radius:20px 20px 26px 26px;
+    box-shadow:0 6px 14px rgba(0,0,0,.25);
+  }
+  #bag::before{
+    content:"";
+    position:absolute;
+    top:-14px; left:50%; transform:translateX(-50%);
+    width:60px; height:22px;
+    border:7px solid var(--bag-dark);
+    border-bottom:none;
+    border-radius:20px 20px 0 0;
+  }
+  #bag::after{
+    content:"🎒";
+    position:absolute;
+    inset:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:44px;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.2));
+  }
+  #bag.hover{ transform:scale(1.08); }
+  #bag.good-flash{ box-shadow:0 0 0 6px rgba(63,185,111,.6),0 6px 14px rgba(0,0,0,.25); }
+  #bag.bad-flash{ box-shadow:0 0 0 6px rgba(229,83,75,.6),0 6px 14px rgba(0,0,0,.25); }
+
+  #toast{
+    position:fixed;
+    left:50%; top:14px; transform:translate(-50%,-60px);
+    background:#26314d; color:#fff;
+    padding:8px 16px; border-radius:20px;
+    font-size:.8rem; font-weight:600;
+    opacity:0; transition:transform .3s ease, opacity .3s ease;
+    z-index:100; pointer-events:none;
+    white-space:nowrap;
+    max-width:90vw;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  #toast.show{ transform:translate(-50%,0); opacity:1; }
+
+  #winOverlay{
+    position:fixed; inset:0;
+    background:rgba(20,26,40,.55);
+    display:none;
+    align-items:center; justify-content:center;
+    z-index:200;
+  }
+  #winOverlay.show{ display:flex; }
+  #winCard{
+    background:#fff; border-radius:18px;
+    padding:26px 24px; text-align:center;
+    width:82%; max-width:320px;
+    box-shadow:0 12px 30px rgba(0,0,0,.3);
+  }
+  #winCard h2{ margin:0 0 6px; color:#26314d; }
+  #winCard p{ margin:4px 0 18px; color:#4a5570; font-size:.9rem; }
+  #winCard button{
+    background:var(--bag); color:#fff; border:none;
+    padding:10px 22px; border-radius:24px;
+    font-size:.95rem; font-weight:600;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🎒 Pack Your Schoolbag</h1>
+    <div id="stats">
+      <span id="packedStat">Packed: 0/0</span>
+      <span id="mistakeStat">Oops: 0</span>
+      <span id="totalStat">Items: 0</span>
+    </div>
+  </header>
+
+  <div id="tableWrap"><div id="table"></div></div>
+
+  <div id="bagWrap">
+    <div id="bag"></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="winOverlay">
+    <div id="winCard">
+      <h2>Bag's packed! 🎉</h2>
+      <p id="winText"></p>
+      <button id="playAgainBtn">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Big pools so every game is a different mix
+  const CORRECT_POOL = [
+    { emoji:'📚', name:'Textbook' },
+    { emoji:'✏️', name:'Pencil Case' },
+    { emoji:'🍱', name:'Lunchbox' },
+    { emoji:'📁', name:'Homework' },
+    { emoji:'🧮', name:'Calculator' },
+    { emoji:'📏', name:'Ruler' },
+    { emoji:'📓', name:'Notebook' },
+    { emoji:'🖊️', name:'Pen' },
+    { emoji:'✂️', name:'Scissors' },
+    { emoji:'🧷', name:'Glue Stick' },
+    { emoji:'🗂️', name:'Folder' },
+    { emoji:'🔖', name:'Bookmark' },
+    { emoji:'🖍️', name:'Crayons' },
+    { emoji:'📐', name:'Set Square' },
+    { emoji:'🧻', name:'Tissues' },
+    { emoji:'🍎', name:'Snack Apple' },
+    { emoji:'💧', name:'Water Bottle' },
+    { emoji:'🪪', name:'Student ID' },
+  ];
+  const WRONG_POOL = [
+    { emoji:'🧸', name:'Teddy Bear' },
+    { emoji:'🎮', name:'Game Console' },
+    { emoji:'🛹', name:'Skateboard' },
+    { emoji:'🍳', name:'Frying Pan' },
+    { emoji:'🏀', name:'Basketball' },
+    { emoji:'🎸', name:'Guitar' },
+    { emoji:'📺', name:'TV Remote' },
+    { emoji:'🪀', name:'Yo-Yo' },
+    { emoji:'🎧', name:'Headphones' },
+    { emoji:'🦖', name:'Toy Dinosaur' },
+    { emoji:'🍕', name:'Pizza Slice' },
+    { emoji:'🧦', name:'Dirty Sock' },
+    { emoji:'🪁', name:'Kite' },
+    { emoji:'🐟', name:'Pet Fish' },
+    { emoji:'🔨', name:'Hammer' },
+    { emoji:'🚽', name:'Toilet Plunger' },
+    { emoji:'🎂', name:'Birthday Cake' },
+    { emoji:'🛁', name:'Bathtub Duck' },
+  ];
+
+  const table = document.getElementById('table');
+  const tableWrap = document.getElementById('tableWrap');
+  const bag = document.getElementById('bag');
+  const toastEl = document.getElementById('toast');
+  const packedStat = document.getElementById('packedStat');
+  const mistakeStat = document.getElementById('mistakeStat');
+  const totalStat = document.getElementById('totalStat');
+  const winOverlay = document.getElementById('winOverlay');
+  const winText = document.getElementById('winText');
+  const playAgainBtn = document.getElementById('playAgainBtn');
+
+  let totalCorrect = 0;
+  let packedCount = 0;
+  let mistakes = 0;
+  let toastTimer = null;
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+
+  function pickRandomGameSet(){
+    // Randomize how many correct vs wrong items appear each game, and which ones
+    const correctCount = 8 + Math.floor(Math.random()*(CORRECT_POOL.length-8+1)); // 8..18
+    const wrongCount = 8 + Math.floor(Math.random()*(WRONG_POOL.length-8+1));     // 8..18
+    const correctChosen = shuffle(CORRECT_POOL).slice(0, correctCount).map(i => ({...i, correct:true}));
+    const wrongChosen = shuffle(WRONG_POOL).slice(0, wrongCount).map(i => ({...i, correct:false}));
+    return shuffle(correctChosen.concat(wrongChosen));
+  }
+
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), 900);
+  }
+
+  function flashBag(cls){
+    bag.classList.add(cls);
+    setTimeout(()=> bag.classList.remove(cls), 350);
+  }
+
+  function updateStats(){
+    packedStat.textContent = `Packed: ${packedCount}/${totalCorrect}`;
+    mistakeStat.textContent = `Oops: ${mistakes}`;
+  }
+
+  function layoutItems(items){
+    const wrapRect = tableWrap.getBoundingClientRect();
+    const count = items.length;
+    // Smaller tiles and more columns as item count grows
+    const size = count > 24 ? 46 : count > 18 ? 52 : 58;
+    const cols = Math.max(4, Math.floor(wrapRect.width / (size + 10)));
+    const rows = Math.ceil(count / cols);
+    const pad = 8;
+    const cellW = (wrapRect.width - pad*2) / cols;
+    const cellH = size + 22; // vertical spacing per row
+    const tableHeight = Math.max(wrapRect.height, rows*cellH + pad*2);
+    table.style.height = tableHeight + 'px';
+
+    const order = shuffle(items.map((_,i)=>i));
+    const positions = [];
+    order.forEach((itemIndex, slot) => {
+      const col = slot % cols;
+      const row = Math.floor(slot / cols);
+      const jitterX = (Math.random()-0.5) * Math.max(0, cellW - size) * 0.7;
+      const jitterY = (Math.random()-0.5) * Math.max(0, cellH - size) * 0.6;
+      const x = pad + col*cellW + (cellW-size)/2 + jitterX;
+      const y = pad + row*cellH + (cellH-size)/2 + jitterY;
+      const rot = (Math.random()-0.5) * 18;
+      positions[itemIndex] = {
+        x: Math.max(pad, Math.min(x, wrapRect.width - size - pad)),
+        y: Math.max(pad, y),
+        size, rot
+      };
+    });
+    return positions;
+  }
+
+  function init(){
+    table.innerHTML = '';
+    mistakes = 0;
+    packedCount = 0;
+    winOverlay.classList.remove('show');
+    tableWrap.scrollTop = 0;
+
+    const items = pickRandomGameSet();
+    totalCorrect = items.filter(i => i.correct).length;
+    totalStat.textContent = `Items: ${items.length}`;
+    updateStats();
+
+    const positions = layoutItems(items);
+
+    items.forEach((item, idx) => {
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.textContent = item.emoji;
+      const p = positions[idx];
+      el.style.left = p.x + 'px';
+      el.style.top = p.y + 'px';
+      el.style.width = p.size + 'px';
+      el.style.height = p.size + 'px';
+      el.style.fontSize = Math.round(p.size*0.52) + 'px';
+      el.style.transform = `rotate(${p.rot}deg)`;
+      el.dataset.correct = item.correct ? '1' : '0';
+      el.dataset.name = item.name;
+      table.appendChild(el);
+      makeDraggable(el);
+    });
+  }
+
+  function makeDraggable(el){
+    let startX, startY, origLeft, origTop, dragging = false;
+
+    el.addEventListener('pointerdown', (e) => {
+      if (el.classList.contains('placed')) return;
+      dragging = true;
+      el.setPointerCapture(e.pointerId);
+      el.classList.add('dragging');
+      el.style.transform = 'none';
+      startX = e.clientX;
+      startY = e.clientY;
+      origLeft = parseFloat(el.style.left);
+      origTop = parseFloat(el.style.top);
+      el.style.zIndex = 50;
+    });
+
+    el.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      el.style.left = (origLeft + dx) + 'px';
+      el.style.top = (origTop + dy) + 'px';
+
+      const bagRect = bag.getBoundingClientRect();
+      const cx = e.clientX, cy = e.clientY;
+      const overBag = cx > bagRect.left - 10 && cx < bagRect.right + 10 &&
+                       cy > bagRect.top - 10 && cy < bagRect.bottom + 10;
+      bag.classList.toggle('hover', overBag);
+    });
+
+    el.addEventListener('pointerup', (e) => {
+      if (!dragging) return;
+      dragging = false;
+      el.classList.remove('dragging');
+      bag.classList.remove('hover');
+
+      const bagRect = bag.getBoundingClientRect();
+      const cx = e.clientX, cy = e.clientY;
+      const overBag = cx > bagRect.left - 10 && cx < bagRect.right + 10 &&
+                       cy > bagRect.top - 10 && cy < bagRect.bottom + 10;
+
+      if (overBag) {
+        const isCorrect = el.dataset.correct === '1';
+        if (isCorrect) {
+          el.classList.add('placed');
+          packedCount++;
+          flashBag('good-flash');
+          showToast(`${el.dataset.name} packed! ✅`);
+          updateStats();
+          checkWin();
+        } else {
+          mistakes++;
+          flashBag('bad-flash');
+          el.classList.add('reject');
+          showToast(`${el.dataset.name} doesn't belong! ❌`);
+          updateStats();
+          setTimeout(() => {
+            el.classList.remove('reject');
+            el.style.left = origLeft + 'px';
+            el.style.top = origTop + 'px';
+          }, 350);
+        }
+      } else {
+        el.style.left = origLeft + 'px';
+        el.style.top = origTop + 'px';
+      }
+    });
+
+    el.addEventListener('pointercancel', () => {
+      dragging = false;
+      el.classList.remove('dragging');
+      el.style.left = origLeft + 'px';
+      el.style.top = origTop + 'px';
+    });
+  }
+
+  function checkWin(){
+    if (packedCount >= totalCorrect) {
+      setTimeout(() => {
+        winText.textContent = mistakes === 0
+          ? "Perfect! You packed everything right and made no mistakes."
+          : `You packed all the right things with ${mistakes} mistake${mistakes===1?'':'s'}.`;
+        winOverlay.classList.add('show');
+      }, 400);
+    }
+  }
+
+  playAgainBtn.addEventListener('click', init);
+  window.addEventListener('resize', init);
+
+  init();
+})();
+</script>
+</body>
+</html>
