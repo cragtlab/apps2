@@ -53,6 +53,16 @@
         .masterlist-plugin .tab-btn.active { background: #1a1a2e; color: white; }
         .masterlist-plugin .tab-content { display: none; background: white; padding: 20px; border-radius: 0 10px 10px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
         .masterlist-plugin .tab-content.active { display: block; }
+
+        .masterlist-plugin .side-by-side { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+        .masterlist-plugin .side-by-side > div { flex: 1; min-width: 320px; }
+        .masterlist-plugin .column-title { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+        .masterlist-plugin table.game-table thead th { text-align: left; }
+        .masterlist-plugin table.game-table thead th:last-child { text-align: right; }
+        .masterlist-plugin table.game-table tbody td { text-align: left; }
+        .masterlist-plugin table.game-table tbody td:last-child { text-align: right; font-weight: 600; }
+        .masterlist-plugin table.game-table tfoot td { text-align: left; }
+        .masterlist-plugin table.game-table tfoot td:last-child { text-align: right; }
     `;
     document.head.appendChild(style);
 
@@ -141,6 +151,90 @@
         return counts;
     }
 
+    function parseTopGames(rows, aliasMap) {
+        if (!rows || rows.length === 0) return [];
+        let headerIdx = -1;
+        let mfgIdx = -1;
+        let gameIdx = -1;
+        let versionIdx = -1;
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const mIdx = row.findIndex(h => ['manufacturer', 'make', 'brand', 'supplier', 'mfr'].some(k => String(h).toLowerCase().includes(k)));
+            if (mIdx >= 0) {
+                headerIdx = i;
+                mfgIdx = mIdx;
+                gameIdx = row.findIndex(h => {
+                    const s = String(h).toLowerCase();
+                    return s.includes('game name') || s.includes('game_name') || s.includes('theme') || s.includes('game title') || s === 'game' || s === 'title';
+                });
+                versionIdx = row.findIndex(h => {
+                    const s = String(h).toLowerCase();
+                    return s.includes('game id') || s.includes('game_id') || s.includes('gameid') || s.includes('version') || s === 'ver' || s.startsWith('ver.') || s.startsWith('ver ');
+                });
+                if (gameIdx < 0) {
+                    gameIdx = row.findIndex(h => {
+                        const s = String(h).toLowerCase();
+                        return s.includes('game');
+                    });
+                }
+                break;
+            }
+        }
+        if (headerIdx < 0 || gameIdx < 0) return [];
+
+        const gameCounts = {};
+        rows.slice(headerIdx + 1).forEach(row => {
+            const firstVal = (row[0] != null ? String(row[0]) : '').trim().toLowerCase();
+            if (firstVal === 'total' || firstVal === '' || firstVal === 'no.' || firstVal === 'no' || firstVal === 'undefined') return;
+
+            const gameName = String(row[gameIdx] || '').trim();
+            if (!gameName || gameName === 'undefined') return;
+            const rawMfg = mfgIdx >= 0 ? row[mfgIdx] : '';
+            const mfg = resolveManufacturer(rawMfg, aliasMap);
+            const version = versionIdx >= 0 ? String(row[versionIdx] || '').trim() : '';
+
+            const key = `${mfg} | ${gameName} | ${version}`;
+            if (!gameCounts[key]) {
+                gameCounts[key] = { mfg, gameName, version, count: 0 };
+            }
+            gameCounts[key].count += 1;
+        });
+
+        const sorted = Object.values(gameCounts).sort((a, b) => b.count - a.count);
+        if (sorted.length <= 10) return sorted;
+
+        const cutoffCount = sorted[9].count;
+        return sorted.filter((item, idx) => idx < 10 || item.count === cutoffCount);
+    }
+
+    function buildGameTable(headers, rows, footerRow) {
+        const t = document.createElement('table');
+        t.className = 'game-table';
+        const thead = t.createTHead();
+        const hr = thead.insertRow();
+        headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
+        const tbody = t.createTBody();
+        rows.forEach(row => {
+            const tr = tbody.insertRow();
+            row.forEach((cell, i) => {
+                const td = tr.insertCell();
+                td.textContent = (typeof cell === 'number' ? cell.toLocaleString() : cell);
+            });
+        });
+        if (footerRow) {
+            const tfoot = document.createElement('tfoot');
+            const fr = tfoot.insertRow();
+            footerRow.forEach((cell, i) => {
+                const td = document.createElement('td');
+                td.textContent = (typeof cell === 'number' ? cell.toLocaleString() : cell);
+                fr.appendChild(td);
+            });
+            t.appendChild(tfoot);
+        }
+        return t;
+    }
+
     function buildTable(headers, rows, footerRow) {
         const t = document.createElement('table');
         const thead = t.createTHead();
@@ -217,13 +311,31 @@
                 return Array.from(keys).map(k => ({ name: k, mbs: m1[k]||0, rws: m2[k]||0, total: (m1[k]||0)+(m2[k]||0) })).sort((a,b)=>b.total-a.total);
             };
 
+            const egmOverallTotal = mbsEGMTotal + rwsEGMTotal;
             const egmMerged = merge(mbsEGM, rwsEGM);
             const div2 = document.createElement('div'); div2.className = 'section-title'; div2.textContent = 'EGM Manufacturers'; output.appendChild(div2);
-            output.appendChild(buildTable(['Manufacturer', 'MBS', 'RWS', 'Total'], egmMerged.map(r=>[r.name, r.mbs, r.rws, r.total]), ['Total', mbsEGMTotal, rwsEGMTotal, mbsEGMTotal+rwsEGMTotal]));
+            const egmRows = egmMerged.map(r => {
+                const pct = egmOverallTotal > 0 ? (r.total / egmOverallTotal * 100).toFixed(1) : '0.0';
+                return [r.name, r.mbs, r.rws, `${r.total.toLocaleString()} (${pct}%)`];
+            });
+            output.appendChild(buildTable(
+                ['Manufacturer', 'MBS', 'RWS', 'Total (% of Total Active EGMs)'],
+                egmRows,
+                ['Total', mbsEGMTotal, rwsEGMTotal, `${egmOverallTotal.toLocaleString()} (100.0%)`]
+            ));
 
+            const etgOverallTotal = mbsETGTotal + rwsETGTotal;
             const etgMerged = merge(mbsETG, rwsETG);
             const div3 = document.createElement('div'); div3.className = 'section-title'; div3.textContent = 'ETG Manufacturers'; output.appendChild(div3);
-            output.appendChild(buildTable(['Manufacturer', 'MBS', 'RWS', 'Total'], etgMerged.map(r=>[r.name, r.mbs, r.rws, r.total]), ['Total', mbsETGTotal, rwsETGTotal, mbsETGTotal+rwsETGTotal]));
+            const etgRows = etgMerged.map(r => {
+                const pct = etgOverallTotal > 0 ? (r.total / etgOverallTotal * 100).toFixed(1) : '0.0';
+                return [r.name, r.mbs, r.rws, `${r.total.toLocaleString()} (${pct}%)`];
+            });
+            output.appendChild(buildTable(
+                ['Manufacturer', 'MBS', 'RWS', 'Total (% of Total Active ETGs)'],
+                etgRows,
+                ['Total', mbsETGTotal, rwsETGTotal, `${etgOverallTotal.toLocaleString()} (100.0%)`]
+            ));
 
             const div4 = document.createElement('div'); div4.className = 'section-title'; div4.textContent = 'Per-Casino Breakdown'; output.appendChild(div4);
             const tabsContainer = document.createElement('div'); tabsContainer.className = 'tabs';
@@ -256,6 +368,55 @@
             });
             output.appendChild(tabsContainer);
             output.appendChild(contentContainer);
+
+            // Top 10 Active EGMs Games Section (Side-by-Side)
+            const divTopSection = document.createElement('div'); divTopSection.className = 'section-title'; divTopSection.textContent = 'Top 10 Active EGMs Games'; output.appendChild(divTopSection);
+
+            const sideBySideDiv = document.createElement('div'); sideBySideDiv.className = 'side-by-side';
+
+            // MBS Column
+            const mbsCol = document.createElement('div');
+            const mbsTitle = document.createElement('div'); mbsTitle.className = 'column-title'; mbsTitle.textContent = 'MBS'; mbsCol.appendChild(mbsTitle);
+            const mbsTopGames = parseTopGames(mbsWB[EGM_TAB], aliasMap);
+            if (mbsTopGames.length === 0) {
+                const noData = document.createElement('div'); noData.style.padding = '10px'; noData.textContent = 'No game data available.'; mbsCol.appendChild(noData);
+            } else {
+                const rows = mbsTopGames.map(g => {
+                    const pct = mbsEGMTotal > 0 ? (g.count / mbsEGMTotal * 100).toFixed(1) : '0.0';
+                    return [g.mfg, g.gameName, g.version || '-', `${g.count.toLocaleString()} (${pct}%)`];
+                });
+                const totalMBSCount = mbsTopGames.reduce((acc, curr) => acc + curr.count, 0);
+                const totalMBSPct = mbsEGMTotal > 0 ? (totalMBSCount / mbsEGMTotal * 100).toFixed(1) : '0.0';
+                mbsCol.appendChild(buildGameTable(
+                    ['Manufacturer', 'Game Name', 'Game ID', 'Count (% of Total Active EGMs)'],
+                    rows,
+                    ['Total (Top Games)', '', '', `${totalMBSCount.toLocaleString()} (${totalMBSPct}%)`]
+                ));
+            }
+            sideBySideDiv.appendChild(mbsCol);
+
+            // RWS Column
+            const rwsCol = document.createElement('div');
+            const rwsTitle = document.createElement('div'); rwsTitle.className = 'column-title'; rwsTitle.textContent = 'RWS'; rwsCol.appendChild(rwsTitle);
+            const rwsTopGames = parseTopGames(rwsWB[EGM_TAB], aliasMap);
+            if (rwsTopGames.length === 0) {
+                const noData = document.createElement('div'); noData.style.padding = '10px'; noData.textContent = 'No game data available.'; rwsCol.appendChild(noData);
+            } else {
+                const rows = rwsTopGames.map(g => {
+                    const pct = rwsEGMTotal > 0 ? (g.count / rwsEGMTotal * 100).toFixed(1) : '0.0';
+                    return [g.mfg, g.gameName, g.version || '-', `${g.count.toLocaleString()} (${pct}%)`];
+                });
+                const totalRWSCount = rwsTopGames.reduce((acc, curr) => acc + curr.count, 0);
+                const totalRWSPct = rwsEGMTotal > 0 ? (totalRWSCount / rwsEGMTotal * 100).toFixed(1) : '0.0';
+                rwsCol.appendChild(buildGameTable(
+                    ['Manufacturer', 'Game Name', 'Game ID', 'Count (% of Total Active EGMs)'],
+                    rows,
+                    ['Total (Top Games)', '', '', `${totalRWSCount.toLocaleString()} (${totalRWSPct}%)`]
+                ));
+            }
+            sideBySideDiv.appendChild(rwsCol);
+
+            output.appendChild(sideBySideDiv);
 
             isLoaded = true;
         } catch (err) {
