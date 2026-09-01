@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Trace &amp; Draw — Little Artist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FFFCF5;
+    --paper-line:#EFE6D6;
+    --ink:#2B2A28;
+    --purple:#8B6FB3;
+    --purple-dark:#6B4F91;
+    --red:#E85C4A;
+    --sun:#F2B33D;
+    --sky:#5B9BC7;
+    --green:#6FA88A;
+    --pink:#E37FA1;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:
+      radial-gradient(circle at 10% 8%, #FDEFE0 0%, transparent 40%),
+      radial-gradient(circle at 90% 92%, #E9F2ED 0%, transparent 40%),
+      var(--paper);
+    font-family:'Baloo 2', sans-serif;
+    color:var(--ink);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:18px 14px 40px;
+    overflow-x:hidden;
+  }
+
+  .title-wrap{
+    text-align:center;
+    margin-bottom:10px;
+  }
+  .title-wrap h1{
+    font-size:clamp(26px,7vw,40px);
+    margin:0;
+    font-weight:800;
+    color:var(--purple-dark);
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.06);
+  }
+  .title-wrap p{
+    margin:4px 0 0;
+    font-size:14px;
+    color:#948a78;
+    font-weight:600;
+  }
+
+  /* difficulty tabs */
+  .tabs{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .tab{
+    border:2px solid var(--paper-line);
+    background:#fffdf8;
+    padding:8px 16px;
+    border-radius:20px;
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    color:#948a78;
+  }
+  .tab.active{
+    background:var(--purple);
+    border-color:var(--purple-dark);
+    color:#fff;
+  }
+
+  /* word rail */
+  .rail-wrap{
+    width:100%;
+    max-width:720px;
+    margin-bottom:14px;
+  }
+  .rail{
+    display:flex;
+    gap:10px;
+    overflow-x:auto;
+    padding:6px 4px 12px;
+    scroll-snap-type:x proximity;
+  }
+  .rail::-webkit-scrollbar{height:6px;}
+  .rail::-webkit-scrollbar-thumb{background:var(--paper-line);border-radius:4px;}
+
+  .pic-card{
+    flex:0 0 auto;
+    scroll-snap-align:start;
+    width:70px;
+    height:82px;
+    border-radius:14px;
+    border:2px solid var(--paper-line);
+    background:#fffdf7;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+    position:relative;
+  }
+  .pic-card .em{
+    font-size:28px;
+    line-height:1;
+  }
+  .pic-card .lvl{
+    font-size:11px;
+    margin-top:3px;
+    font-weight:700;
+  }
+  .pic-card.active{
+    border-color: var(--purple);
+    background:#F3EEFA;
+    transform:translateY(-3px);
+    box-shadow:0 4px 0 var(--purple);
+  }
+  .pic-card .star-badge{
+    position:absolute;
+    top:-7px;
+    right:-6px;
+    font-size:14px;
+    filter:drop-shadow(0 1px 0 rgba(0,0,0,0.15));
+  }
+
+  /* main card */
+  .stage{
+    width:100%;
+    max-width:520px;
+    background:#fffdf7;
+    border-radius:26px;
+    border:2px solid var(--paper-line);
+    box-shadow:0 10px 0 rgba(0,0,0,0.05), 0 14px 30px rgba(0,0,0,0.06);
+    padding:20px 20px 22px;
+    position:relative;
+  }
+
+  .score-badge{
+    position:absolute;
+    top:16px;
+    right:16px;
+    background:#EFE6D6;
+    color:#948a78;
+    font-weight:800;
+    font-size:15px;
+    padding:6px 12px;
+    border-radius:20px;
+    transition:background .15s ease, color .15s ease, transform .15s ease;
+    z-index:2;
+  }
+  .score-badge.positive{ background:#DEF2E4; color:var(--green); }
+  .score-badge.negative{ background:#FBDFDA; color:var(--red); }
+  .score-badge.pulse{ transform:scale(1.12); }
+
+  .word-info{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+    padding-right:70px;
+  }
+  .word-info .meta{
+    display:flex;
+    flex-direction:column;
+  }
+  .name{
+    font-size:22px;
+    font-weight:800;
+    color:var(--purple-dark);
+  }
+  .level-tag{
+    font-size:13px;
+    font-weight:700;
+  }
+  .level-tag.easy{ color:var(--green); }
+  .level-tag.hard{ color:var(--red); }
+
+  .canvas-wrap{
+    position:relative;
+    width:100%;
+    aspect-ratio:1/1;
+    border-radius:18px;
+    background:
+      linear-gradient(#fbf3df 1px, transparent 1px) 0 0/100% 12.5%,
+      linear-gradient(90deg, #fbf3df 1px, transparent 1px) 0 0/12.5% 100%,
+      #fffefb;
+    border:2px dashed #E4D6B0;
+    touch-action:none;
+    overflow:hidden;
+  }
+  canvas{
+    position:absolute;
+    top:0;left:0;
+    width:100%;
+    height:100%;
+  }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    margin-top:16px;
+  }
+  .btn{
+    flex:1;
+    border:none;
+    border-radius:14px;
+    padding:13px 10px;
+    font-family:'Baloo 2',sans-serif;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    color:#fff;
+    transition:transform .08s ease;
+  }
+  .btn:active{transform:translateY(3px);}
+  .btn-clear{ background:#C9C1AE; box-shadow:0 4px 0 #a89f8c; }
+  .btn-next{ background:var(--purple); box-shadow:0 4px 0 var(--purple-dark); }
+
+  .stars-row{
+    display:flex;
+    justify-content:center;
+    gap:6px;
+    margin-top:14px;
+    font-size:16px;
+    font-weight:700;
+    color:var(--green);
+    min-height:22px;
+  }
+
+  .toast{
+    position:fixed;
+    bottom:26px;
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--purple-dark);
+    color:#fff;
+    padding:12px 22px;
+    border-radius:30px;
+    font-weight:700;
+    font-size:16px;
+    opacity:0;
+    transition:opacity .25s ease, transform .25s ease;
+    pointer-events:none;
+    white-space:nowrap;
+    z-index:10;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .progress-wrap{
+    width:100%;
+    max-width:520px;
+    margin-top:14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .progress-track{
+    flex:1;
+    height:10px;
+    background:#EFE6D6;
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--sun), var(--pink));
+    border-radius:6px;
+    transition:width .3s ease;
+  }
+  .progress-label{
+    font-size:13px;
+    font-weight:700;
+    color:#948a78;
+    white-space:nowrap;
+  }
+
+  @media (max-width:400px){
+    .pic-card{width:62px;height:74px;}
+    .pic-card .em{font-size:24px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="title-wrap">
+    <h1>🎨 Trace &amp; Draw</h1>
+    <p>Warm up your pencil, little artist!</p>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-level="all">All</div>
+    <div class="tab" data-level="easy">⭐ Easy</div>
+    <div class="tab" data-level="hard">🔥 Hard</div>
+  </div>
+
+  <div class="rail-wrap">
+    <div class="rail" id="rail"></div>
+  </div>
+
+  <div class="stage">
+    <div class="score-badge" id="scoreBadge">0</div>
+    <div class="word-info">
+      <div class="meta">
+        <div class="name" id="nameEl">Sun</div>
+        <div class="level-tag easy" id="levelEl">⭐ Easy</div>
+      </div>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="guideCanvas"></canvas>
+      <canvas id="drawCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-clear" id="clearBtn">↺ Clear</button>
+      <button class="btn btn-next" id="nextBtn">Next →</button>
+    </div>
+
+    <div class="stars-row" id="starsRow"></div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label" id="progressLabel">0 / 0 traced</div>
+  </div>
+
+  <div class="toast" id="toast">Great job! ⭐</div>
+
+<script>
+const INK_COLORS = ['#E85C4A','#5B9BC7','#6FA88A','#B4629A','#F2B33D','#3E7C8C','#E37FA1'];
+
+/* ---------- Drawing definitions ----------
+   Each draw(ctx) issues path commands in a normalized 0-300 x 0-300 box.
+   Coordinates get scaled to fit the actual canvas at render time. */
+
+function loop(n, fn){ for(let i=0;i<n;i++) fn(i); }
+function deg(d){ return d * Math.PI/180; }
+
+const DRAWINGS = [
+  { id:'sun', name:'Sun', emoji:'☀️', level:'easy', maskWidth:42, coverage:0.6, draw(ctx){
+      ctx.arc(150,150,45,0,Math.PI*2);
+      loop(8,i=>{
+        const a = deg(i*45);
+        const x1=150+62*Math.cos(a), y1=150+62*Math.sin(a);
+        const x2=150+96*Math.cos(a), y2=150+96*Math.sin(a);
+        ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+      });
+  }},
+  { id:'heart', name:'Heart', emoji:'❤️', level:'easy', maskWidth:42, coverage:0.6, draw(ctx){
+      ctx.moveTo(150,80);
+      ctx.bezierCurveTo(150,50,100,20,60,60);
+      ctx.bezierCurveTo(20,100,20,150,60,190);
+      ctx.bezierCurveTo(90,220,130,245,150,265);
+      ctx.bezierCurveTo(170,245,210,220,240,190);
+      ctx.bezierCurveTo(280,150,280,100,240,60);
+      ctx.bezierCurveTo(200,20,150,50,150,80);
+      ctx.closePath();
+  }},
+  { id:'star', name:'Star', emoji:'⭐', level:'easy', maskWidth:42, coverage:0.6, draw(ctx){
+      const outer=100, inner=42;
+      loop(10,i=>{
+        const a = deg(-90 + i*36);
+        const r = i%2===0 ? outer : inner;
+        const x = 150+r*Math.cos(a), y=150+r*Math.sin(a);
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.closePath();
+  }},
+  { id:'flower', name:'Flower', emoji:'🌸', level:'easy', maskWidth:40, coverage:0.6, draw(ctx){
+      ctx.arc(150,145,26,0,Math.PI*2);
+      loop(5,i=>{
+        const a = deg(-90 + i*72);
+        const cx = 150+62*Math.cos(a), cy=145+62*Math.sin(a);
+        ctx.moveTo(cx+34,cy);
+        ctx.arc(cx,cy,34,0,Math.PI*2);
+      });
+      ctx.moveTo(150,171); ctx.lineTo(150,265);
+      ctx.moveTo(150,215); ctx.quadraticCurveTo(180,220,185,240);
+  }},
+  { id:'fish', name:'Fish', emoji:'🐟', level:'easy', maskWidth:40, coverage:0.6, draw(ctx){
+      ctx.moveTo(70,150);
+      ctx.quadraticCurveTo(95,90,180,100);
+      ctx.quadraticCurveTo(235,110,235,150);
+      ctx.quadraticCurveTo(235,190,180,200);
+      ctx.quadraticCurveTo(95,210,70,150);
+      ctx.moveTo(70,150); ctx.lineTo(25,120); ctx.lineTo(25,180); ctx.closePath();
+      ctx.moveTo(140,100); ctx.quadraticCurveTo(152,72,168,100);
+      ctx.moveTo(178,138); ctx.arc(178,138,6,0,Math.PI*2);
+  }},
+  { id:'balloon', name:'Balloon', emoji:'🎈', level:'easy', maskWidth:42, coverage:0.6, draw(ctx){
+      ctx.arc(150,115,56,0,Math.PI*2);
+      ctx.moveTo(144,169); ctx.lineTo(156,169); ctx.lineTo(150,182); ctx.closePath();
+      ctx.moveTo(150,182);
+      ctx.bezierCurveTo(135,205,165,225,150,250);
+      ctx.bezierCurveTo(135,270,165,275,155,290);
+  }},
+  { id:'apple', name:'Apple', emoji:'🍎', level:'easy', maskWidth:40, coverage:0.6, draw(ctx){
+      ctx.moveTo(150,95);
+      ctx.bezierCurveTo(110,75,60,105,65,155);
+      ctx.bezierCurveTo(70,215,110,245,150,245);
+      ctx.bezierCurveTo(190,245,230,215,235,155);
+      ctx.bezierCurveTo(240,105,190,75,150,95);
+      ctx.closePath();
+      ctx.moveTo(150,95); ctx.lineTo(148,68);
+      ctx.moveTo(148,78); ctx.quadraticCurveTo(175,62,182,84); ctx.quadraticCurveTo(160,95,148,78);
+  }},
+  { id:'cloud', name:'Cloud', emoji:'☁️', level:'easy', maskWidth:42, coverage:0.6, draw(ctx){
+      ctx.moveTo(70,180);
+      ctx.quadraticCurveTo(55,140,100,133);
+      ctx.quadraticCurveTo(110,95,152,102);
+      ctx.quadraticCurveTo(182,75,212,108);
+      ctx.quadraticCurveTo(252,105,248,148);
+      ctx.quadraticCurveTo(272,160,250,182);
+      ctx.lineTo(70,182);
+      ctx.closePath();
+  }},
+  { id:'moon', name:'Moon', emoji:'🌙', level:'easy', maskWidth:42, coverage:0.55, draw(ctx){
+      ctx.moveTo(150,75);
+      ctx.arc(150,150,75, -Math.PI/2, Math.PI/2, false);
+      ctx.arc(128,150,58, Math.PI/2, -Math.PI/2, true);
+      ctx.closePath();
+      ctx.moveTo(215,90); ctx.lineTo(215,102);
+      ctx.moveTo(209,96); ctx.lineTo(221,96);
+      ctx.moveTo(235,130); ctx.lineTo(235,140);
+      ctx.moveTo(230,135); ctx.lineTo(240,135);
+  }},
+  { id:'house', name:'House', emoji:'🏠', level:'easy', maskWidth:40, coverage:0.55, draw(ctx){
+      ctx.moveTo(80,225); ctx.lineTo(80,140); ctx.lineTo(150,80); ctx.lineTo(220,140); ctx.lineTo(220,225); ctx.closePath();
+      ctx.moveTo(133,225); ctx.lineTo(133,178); ctx.lineTo(167,178); ctx.lineTo(167,225);
+      ctx.moveTo(95,155); ctx.rect(95,155,32,32);
+      ctx.moveTo(111,155); ctx.lineTo(111,187);
+      ctx.moveTo(95,171); ctx.lineTo(127,171);
+      ctx.moveTo(182,95); ctx.rect(182,95,18,35);
+  }},
+  { id:'umbrella', name:'Umbrella', emoji:'☂️', level:'easy', maskWidth:40, coverage:0.55, draw(ctx){
+      ctx.moveTo(65,150);
+      loop(4,i=>{
+        const x0=65+i*42.5, x1=65+(i+1)*42.5;
+        ctx.quadraticCurveTo((x0+x1)/2, 105, x1,150);
+      });
+      ctx.moveTo(150,150); ctx.lineTo(150,235);
+      ctx.moveTo(150,235); ctx.quadraticCurveTo(150,255,128,250);
+  }},
+  { id:'tree', name:'Tree', emoji:'🌳', level:'easy', maskWidth:42, coverage:0.55, draw(ctx){
+      ctx.rect(137,185,26,70);
+      ctx.moveTo(160,150); ctx.arc(115,150,46,0,Math.PI*2);
+      ctx.moveTo(196,140); ctx.arc(150,110,52,0,Math.PI*2);
+      ctx.moveTo(230,150); ctx.arc(185,150,46,0,Math.PI*2);
+  }},
+  { id:'icecream', name:'Ice Cream', emoji:'🍦', level:'easy', maskWidth:40, coverage:0.55, draw(ctx){
+      ctx.moveTo(128,175); ctx.lineTo(150,260); ctx.lineTo(172,175); ctx.closePath();
+      ctx.moveTo(192,155); ctx.arc(150,155,42,0,Math.PI*2);
+      ctx.moveTo(178,110); ctx.arc(150,110,28,Math.PI*0.15,Math.PI*0.85,true);
+  }},
+
+  { id:'turtle', name:'Turtle', emoji:'🐢', level:'easy', maskWidth:40, coverage:0.55, draw(ctx){
+      ctx.moveTo(90,150);
+      ctx.quadraticCurveTo(90,95,150,95);
+      ctx.quadraticCurveTo(210,95,210,150);
+      ctx.quadraticCurveTo(210,190,150,190);
+      ctx.quadraticCurveTo(90,190,90,150);
+      ctx.closePath();
+      ctx.moveTo(150,95); ctx.lineTo(150,190);
+      ctx.moveTo(90,150); ctx.lineTo(210,150);
+      ctx.moveTo(88,150); ctx.arc(70,150,20,0,Math.PI*2);
+      ctx.moveTo(95,120); ctx.lineTo(75,100);
+      ctx.moveTo(95,180); ctx.lineTo(75,200);
+      ctx.moveTo(205,120); ctx.lineTo(225,105);
+      ctx.moveTo(205,180); ctx.lineTo(225,195);
+      ctx.moveTo(210,150); ctx.lineTo(232,150);
+  }},
+
+  { id:'butterfly', name:'Butterfly', emoji:'🦋', level:'hard', maskWidth:20, coverage:0.5, draw(ctx){
+      ctx.moveTo(148,90); ctx.quadraticCurveTo(140,150,148,210);
+      ctx.quadraticCurveTo(160,150,152,90);
+      ctx.moveTo(148,60); ctx.quadraticCurveTo(135,40,122,32);
+      ctx.moveTo(152,60); ctx.quadraticCurveTo(165,40,178,32);
+      ctx.moveTo(148,118);
+      ctx.bezierCurveTo(100,55,25,68,32,128);
+      ctx.bezierCurveTo(36,168,100,158,148,138);
+      ctx.moveTo(148,150);
+      ctx.bezierCurveTo(105,172,62,232,102,248);
+      ctx.bezierCurveTo(132,258,148,200,148,170);
+      ctx.moveTo(152,118);
+      ctx.bezierCurveTo(200,55,275,68,268,128);
+      ctx.bezierCurveTo(264,168,200,158,152,138);
+      ctx.moveTo(152,150);
+      ctx.bezierCurveTo(195,172,238,232,198,248);
+      ctx.bezierCurveTo(168,258,152,200,152,170);
+  }},
+  { id:'castle', name:'Castle', emoji:'🏰', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      // main wall with crenellations
+      ctx.moveTo(80,230); ctx.lineTo(80,150);
+      let x=80, top=150, merlonTop=132, merlon=18, gap=12;
+      while(x < 220){
+        ctx.lineTo(x, merlonTop);
+        ctx.lineTo(Math.min(x+merlon,220), merlonTop);
+        ctx.lineTo(Math.min(x+merlon,220), top);
+        x += merlon+gap;
+      }
+      ctx.lineTo(220,230); ctx.closePath();
+      // door
+      ctx.moveTo(130,230); ctx.lineTo(130,195);
+      ctx.quadraticCurveTo(150,175,170,195);
+      ctx.lineTo(170,230);
+      // left tower
+      ctx.moveTo(55,230); ctx.lineTo(55,95); ctx.lineTo(75,65); ctx.lineTo(95,95); ctx.lineTo(95,230);
+      ctx.moveTo(75,65); ctx.lineTo(75,45);
+      ctx.moveTo(75,45); ctx.lineTo(90,50); ctx.lineTo(75,58);
+      // right tower
+      ctx.moveTo(205,230); ctx.lineTo(205,95); ctx.lineTo(225,65); ctx.lineTo(245,95); ctx.lineTo(245,230);
+      // windows
+      ctx.moveTo(66,130); ctx.rect(62,120,16,20);
+      ctx.moveTo(216,130); ctx.rect(212,120,16,20);
+      ctx.moveTo(140,150); ctx.rect(136,145,10,14);
+      ctx.moveTo(160,150); ctx.rect(156,145,10,14);
+  }},
+  { id:'dragon', name:'Dragon', emoji:'🐉', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      ctx.moveTo(50,220);
+      ctx.quadraticCurveTo(85,245,120,215);
+      ctx.quadraticCurveTo(150,190,138,150);
+      ctx.quadraticCurveTo(128,105,168,80);
+      ctx.quadraticCurveTo(188,68,208,88);
+      ctx.lineTo(232,105);
+      ctx.lineTo(214,118);
+      ctx.quadraticCurveTo(190,108,168,118);
+      ctx.quadraticCurveTo(150,148,152,188);
+      ctx.quadraticCurveTo(150,212,118,214);
+      ctx.lineTo(95,226);
+      // horn + eye
+      ctx.moveTo(196,78); ctx.lineTo(202,55); ctx.lineTo(210,80);
+      ctx.moveTo(200,95); ctx.arc(200,95,4,0,Math.PI*2);
+      // back spikes
+      loop(4,i=>{
+        const t = i/3;
+        const x = 150 - t*24, y = 150 - t*45 + 5;
+        ctx.moveTo(x,y); ctx.lineTo(x-6,y-18); ctx.lineTo(x+10,y-6);
+      });
+      // wing
+      ctx.moveTo(150,140);
+      ctx.quadraticCurveTo(190,95,235,112);
+      ctx.quadraticCurveTo(205,145,160,155);
+      ctx.closePath();
+      // legs
+      ctx.moveTo(110,205); ctx.quadraticCurveTo(105,225,90,232);
+      ctx.moveTo(140,208); ctx.quadraticCurveTo(138,228,150,235);
+  }},
+  { id:'unicorn', name:'Unicorn', emoji:'🦄', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      // body
+      ctx.moveTo(80,175);
+      ctx.quadraticCurveTo(70,135,115,125);
+      ctx.quadraticCurveTo(160,115,195,135);
+      ctx.quadraticCurveTo(215,148,208,178);
+      ctx.quadraticCurveTo(200,198,155,202);
+      ctx.quadraticCurveTo(105,205,80,175);
+      ctx.closePath();
+      // neck + head
+      ctx.moveTo(190,140);
+      ctx.quadraticCurveTo(210,110,232,88);
+      ctx.quadraticCurveTo(248,78,258,92);
+      ctx.lineTo(262,104);
+      ctx.quadraticCurveTo(250,116,236,110);
+      ctx.quadraticCurveTo(222,128,205,148);
+      // horn + ear
+      ctx.moveTo(238,88); ctx.lineTo(244,58); ctx.lineTo(250,90);
+      ctx.moveTo(222,90); ctx.lineTo(214,72); ctx.lineTo(228,82);
+      // mane
+      loop(3,i=>{
+        const x = 205+i*14, y=100+i*8;
+        ctx.moveTo(x,y); ctx.quadraticCurveTo(x-14,y+10,x-4,y+24);
+      });
+      // legs
+      loop(4,i=>{
+        const x = 100+i*32;
+        ctx.moveTo(x,198); ctx.lineTo(x-4,245);
+        ctx.moveTo(x-10,245); ctx.lineTo(x+4,245);
+      });
+      // tail
+      ctx.moveTo(82,168);
+      ctx.quadraticCurveTo(55,175,60,200);
+      ctx.quadraticCurveTo(45,205,55,220);
+  }},
+  { id:'dino', name:'Dinosaur', emoji:'🦕', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      // body
+      ctx.moveTo(110,190);
+      ctx.quadraticCurveTo(95,140,150,130);
+      ctx.quadraticCurveTo(205,120,220,160);
+      ctx.quadraticCurveTo(228,190,190,205);
+      ctx.quadraticCurveTo(140,215,110,190);
+      ctx.closePath();
+      // neck + head
+      ctx.moveTo(150,132);
+      ctx.quadraticCurveTo(130,95,90,80);
+      ctx.quadraticCurveTo(70,73,60,85);
+      ctx.quadraticCurveTo(65,98,85,100);
+      ctx.quadraticCurveTo(115,105,140,145);
+      // tail
+      ctx.moveTo(210,175);
+      ctx.quadraticCurveTo(260,175,278,150);
+      ctx.moveTo(278,150); ctx.lineTo(268,142);
+      // back spikes
+      loop(4,i=>{
+        const x = 150+i*20, y=124 - i*2;
+        ctx.moveTo(x,y); ctx.lineTo(x+4,y-16); ctx.lineTo(x+14,y+2);
+      });
+      // legs
+      loop(2,i=>{
+        const x = 135+i*55;
+        ctx.moveTo(x,205); ctx.lineTo(x-2,240);
+        ctx.moveTo(x-14,240); ctx.lineTo(x+10,240);
+      });
+      // eye
+      ctx.moveTo(72,86); ctx.arc(72,86,3,0,Math.PI*2);
+  }},
+  { id:'robot', name:'Robot', emoji:'🤖', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      // head
+      ctx.rect(105,55,90,60);
+      ctx.moveTo(150,55); ctx.lineTo(150,35);
+      ctx.moveTo(150,35); ctx.arc(150,30,5,0,Math.PI*2);
+      ctx.moveTo(128,85); ctx.arc(128,85,8,0,Math.PI*2);
+      ctx.moveTo(172,85); ctx.arc(172,85,8,0,Math.PI*2);
+      ctx.moveTo(135,105); ctx.lineTo(165,105);
+      // body
+      ctx.rect(90,120,120,90);
+      ctx.moveTo(90,150); ctx.lineTo(210,150);
+      ctx.moveTo(150,150); ctx.lineTo(150,210);
+      ctx.moveTo(150,180); ctx.arc(150,180,12,0,Math.PI*2);
+      // arms
+      ctx.rect(58,130,28,70);
+      ctx.rect(214,130,28,70);
+      // legs
+      ctx.rect(105,210,32,45);
+      ctx.rect(163,210,32,45);
+      ctx.moveTo(100,255); ctx.lineTo(145,255);
+      ctx.moveTo(155,255); ctx.lineTo(200,255);
+  }},
+  { id:'boat', name:'Sailboat', emoji:'⛵', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      // hull
+      ctx.moveTo(60,215); ctx.lineTo(240,215);
+      ctx.lineTo(210,245); ctx.lineTo(90,245); ctx.closePath();
+      // mast
+      ctx.moveTo(150,215); ctx.lineTo(150,55);
+      // main sail
+      ctx.moveTo(150,65); ctx.lineTo(150,190); ctx.lineTo(225,180); ctx.closePath();
+      // jib sail
+      ctx.moveTo(148,100); ctx.lineTo(148,195); ctx.lineTo(88,185); ctx.closePath();
+      // flag
+      ctx.moveTo(150,55); ctx.lineTo(175,62); ctx.lineTo(150,70);
+      // waves
+      loop(3,i=>{
+        const y = 255+i*10;
+        ctx.moveTo(40,y);
+        ctx.quadraticCurveTo(70,y-10,100,y);
+        ctx.quadraticCurveTo(130,y+10,160,y);
+        ctx.quadraticCurveTo(190,y-10,220,y);
+        ctx.quadraticCurveTo(240,y+5,260,y);
+      });
+  }},
+  { id:'owl', name:'Owl', emoji:'🦉', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      ctx.moveTo(100,220);
+      ctx.quadraticCurveTo(80,150,100,100);
+      ctx.quadraticCurveTo(120,70,150,70);
+      ctx.quadraticCurveTo(180,70,200,100);
+      ctx.quadraticCurveTo(220,150,200,220);
+      ctx.quadraticCurveTo(150,240,100,220);
+      ctx.closePath();
+      ctx.moveTo(154,120); ctx.arc(128,120,26,0,Math.PI*2);
+      ctx.moveTo(198,120); ctx.arc(172,120,26,0,Math.PI*2);
+      ctx.moveTo(136,120); ctx.arc(128,120,8,0,Math.PI*2);
+      ctx.moveTo(180,120); ctx.arc(172,120,8,0,Math.PI*2);
+      ctx.moveTo(142,140); ctx.lineTo(158,140); ctx.lineTo(150,158); ctx.closePath();
+      ctx.moveTo(112,75); ctx.lineTo(118,50); ctx.lineTo(126,72);
+      ctx.moveTo(174,72); ctx.lineTo(182,50); ctx.lineTo(188,75);
+      ctx.moveTo(100,150); ctx.quadraticCurveTo(85,190,100,215);
+      ctx.moveTo(200,150); ctx.quadraticCurveTo(215,190,200,215);
+      ctx.moveTo(130,220); ctx.lineTo(125,235);
+      ctx.moveTo(130,220); ctx.lineTo(135,235);
+      ctx.moveTo(170,220); ctx.lineTo(165,235);
+      ctx.moveTo(170,220); ctx.lineTo(175,235);
+  }},
+  { id:'elephant', name:'Elephant', emoji:'🐘', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      ctx.moveTo(90,190);
+      ctx.quadraticCurveTo(70,140,110,120);
+      ctx.quadraticCurveTo(150,100,190,120);
+      ctx.quadraticCurveTo(220,135,215,175);
+      ctx.quadraticCurveTo(210,205,170,210);
+      ctx.quadraticCurveTo(120,215,90,190);
+      ctx.closePath();
+      ctx.moveTo(150,120);
+      ctx.quadraticCurveTo(120,90,90,110);
+      ctx.quadraticCurveTo(85,145,120,150);
+      ctx.quadraticCurveTo(140,140,150,120);
+      ctx.closePath();
+      ctx.moveTo(190,150);
+      ctx.quadraticCurveTo(215,160,210,190);
+      ctx.quadraticCurveTo(205,215,180,220);
+      loop(4,i=>{
+        const x=110+i*30;
+        ctx.moveTo(x,205); ctx.lineTo(x-3,240);
+      });
+      ctx.moveTo(169,140); ctx.arc(165,140,4,0,Math.PI*2);
+      ctx.moveTo(90,180); ctx.quadraticCurveTo(70,190,75,210);
+  }},
+  { id:'lion', name:'Lion', emoji:'🦁', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      loop(12,i=>{
+        const a = deg(i*30);
+        const x1=150+55*Math.cos(a), y1=150+55*Math.sin(a);
+        const x2=150+88*Math.cos(a), y2=150+88*Math.sin(a);
+        ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+      });
+      ctx.moveTo(200,150); ctx.arc(150,150,50,0,Math.PI*2);
+      ctx.moveTo(132,110); ctx.arc(120,110,12,0,Math.PI*2);
+      ctx.moveTo(192,110); ctx.arc(180,110,12,0,Math.PI*2);
+      ctx.moveTo(140,145); ctx.arc(135,145,5,0,Math.PI*2);
+      ctx.moveTo(170,145); ctx.arc(165,145,5,0,Math.PI*2);
+      ctx.moveTo(142,162); ctx.lineTo(158,162); ctx.lineTo(150,172); ctx.closePath();
+      ctx.moveTo(150,172); ctx.lineTo(150,180);
+      ctx.moveTo(150,180); ctx.quadraticCurveTo(135,190,125,182);
+      ctx.moveTo(150,180); ctx.quadraticCurveTo(165,190,175,182);
+      ctx.moveTo(110,165); ctx.lineTo(85,160);
+      ctx.moveTo(110,172); ctx.lineTo(85,175);
+      ctx.moveTo(190,165); ctx.lineTo(215,160);
+      ctx.moveTo(190,172); ctx.lineTo(215,175);
+  }},
+  { id:'rocket', name:'Rocket', emoji:'🚀', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      ctx.moveTo(130,230);
+      ctx.lineTo(130,120);
+      ctx.quadraticCurveTo(130,65,150,45);
+      ctx.quadraticCurveTo(170,65,170,120);
+      ctx.lineTo(170,230);
+      ctx.closePath();
+      ctx.moveTo(168,120); ctx.arc(150,120,18,0,Math.PI*2);
+      ctx.moveTo(130,190); ctx.lineTo(100,225); ctx.lineTo(130,220); ctx.closePath();
+      ctx.moveTo(170,190); ctx.lineTo(200,225); ctx.lineTo(170,220); ctx.closePath();
+      ctx.moveTo(138,230); ctx.quadraticCurveTo(150,262,162,230); ctx.quadraticCurveTo(150,246,138,230);
+  }},
+  { id:'octopus', name:'Octopus', emoji:'🐙', level:'hard', maskWidth:18, coverage:0.4, draw(ctx){
+      ctx.moveTo(90,140);
+      ctx.quadraticCurveTo(90,68,150,68);
+      ctx.quadraticCurveTo(210,68,210,140);
+      ctx.closePath();
+      ctx.moveTo(138,110); ctx.arc(130,110,8,0,Math.PI*2);
+      ctx.moveTo(178,110); ctx.arc(170,110,8,0,Math.PI*2);
+      loop(8,i=>{
+        const x0 = 95 + i*15.7;
+        const bend = (i%2===0) ? -14 : 14;
+        ctx.moveTo(x0,140);
+        ctx.quadraticCurveTo(x0+bend,190,x0,232+(i%3)*8);
+      });
+  }},
+  { id:'peacock', name:'Peacock', emoji:'🦚', level:'hard', maskWidth:18, coverage:0.4, draw(ctx){
+      ctx.moveTo(160,190); ctx.arc(150,190,30,0,Math.PI*2);
+      ctx.moveTo(150,165); ctx.quadraticCurveTo(140,130,155,100);
+      ctx.moveTo(172,92); ctx.arc(158,92,14,0,Math.PI*2);
+      ctx.moveTo(158,78); ctx.lineTo(155,58);
+      ctx.moveTo(163,80); ctx.lineTo(170,62);
+      ctx.moveTo(153,80); ctx.lineTo(145,64);
+      ctx.moveTo(170,90); ctx.lineTo(184,95); ctx.lineTo(170,99); ctx.closePath();
+      loop(7,i=>{
+        const a = deg(160 + i*15);
+        const baseX=132, baseY=192, len=95;
+        const tipX = baseX + len*Math.cos(a), tipY = baseY + len*Math.sin(a);
+        const midX = baseX + len*0.6*Math.cos(a-0.12), midY = baseY + len*0.6*Math.sin(a-0.12);
+        ctx.moveTo(baseX,baseY);
+        ctx.quadraticCurveTo(midX,midY,tipX,tipY);
+        ctx.moveTo(tipX+7,tipY);
+        ctx.arc(tipX,tipY,7,0,Math.PI*2);
+      });
+  }},
+  { id:'trex', name:'T-Rex', emoji:'🦖', level:'hard', maskWidth:18, coverage:0.45, draw(ctx){
+      ctx.moveTo(90,200);
+      ctx.quadraticCurveTo(70,150,110,130);
+      ctx.quadraticCurveTo(140,110,175,120);
+      ctx.quadraticCurveTo(200,128,195,160);
+      ctx.quadraticCurveTo(190,195,150,205);
+      ctx.quadraticCurveTo(115,212,90,200);
+      ctx.closePath();
+      ctx.moveTo(175,120);
+      ctx.quadraticCurveTo(200,95,225,105);
+      ctx.lineTo(232,120);
+      ctx.quadraticCurveTo(215,128,195,122);
+      ctx.closePath();
+      loop(4,i=>{
+        const x=205+i*6;
+        ctx.moveTo(x,122); ctx.lineTo(x+3,130);
+      });
+      ctx.moveTo(203,112); ctx.arc(200,112,3,0,Math.PI*2);
+      ctx.moveTo(175,155); ctx.lineTo(160,165);
+      ctx.moveTo(160,165); ctx.lineTo(155,170);
+      ctx.moveTo(110,205); ctx.lineTo(100,245);
+      ctx.moveTo(90,245); ctx.lineTo(120,245);
+      ctx.moveTo(150,208); ctx.lineTo(160,245);
+      ctx.moveTo(145,245); ctx.lineTo(175,245);
+      ctx.moveTo(90,195); ctx.quadraticCurveTo(50,190,35,170);
+  }}
+];
+
+let filterLevel = 'all';
+let filtered = DRAWINGS.slice();
+let current = 0;
+let traced = new Set(); // ids the child has completed
+let strokeColor = INK_COLORS[0];
+
+const rail = document.getElementById('rail');
+const guideCanvas = document.getElementById('guideCanvas');
+const drawCanvas = document.getElementById('drawCanvas');
+const gctx = guideCanvas.getContext('2d');
+const dctx = drawCanvas.getContext('2d');
+const canvasWrap = document.getElementById('canvasWrap');
+const nameEl = document.getElementById('nameEl');
+const levelEl = document.getElementById('levelEl');
+const starsRow = document.getElementById('starsRow');
+const toast = document.getElementById('toast');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+const scoreBadge = document.getElementById('scoreBadge');
+const tabsEl = document.getElementById('tabs');
+
+const maskCanvas = document.createElement('canvas');
+const maskCtx = maskCanvas.getContext('2d');
+let maskData = null;
+let maskW = 0, maskH = 0;
+let maskInsideCount = 0;
+
+const covCanvas = document.createElement('canvas');
+const covCtx = covCanvas.getContext('2d');
+
+let score = 0;
+let sampleCount = 0;
+let drawing = false;
+let lastPoint = null;
+let advanceTimer = null;
+
+const MIN_SAMPLES_TO_JUDGE = 40;
+const STEP_PX = 3;
+
+function applyFilter(level){
+  filterLevel = level;
+  filtered = level === 'all' ? DRAWINGS.slice() : DRAWINGS.filter(d => d.level === level);
+  [...tabsEl.children].forEach(t => t.classList.toggle('active', t.dataset.level === level));
+  current = 0;
+  buildRail();
+  selectDrawing(0);
+}
+
+tabsEl.addEventListener('click', (e) => {
+  const tab = e.target.closest('.tab');
+  if(!tab) return;
+  applyFilter(tab.dataset.level);
+});
+
+function buildRail(){
+  rail.innerHTML = '';
+  filtered.forEach((d, i) => {
+    const card = document.createElement('div');
+    card.className = 'pic-card' + (i === current ? ' active' : '');
+    const lvlLabel = d.level === 'easy' ? '⭐' : '🔥';
+    card.innerHTML = `<div class="em">${d.emoji}</div><div class="lvl">${lvlLabel}</div>` +
+      (traced.has(d.id) ? '<div class="star-badge">✅</div>' : '');
+    card.addEventListener('click', () => selectDrawing(i));
+    rail.appendChild(card);
+  });
+}
+
+function sizeCanvases(){
+  const rect = canvasWrap.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  [guideCanvas, drawCanvas].forEach(c => {
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+  });
+  gctx.setTransform(dpr,0,0,dpr,0,0);
+  dctx.setTransform(dpr,0,0,dpr,0,0);
+  drawGuide();
+}
+
+function drawGuide(){
+  const rect = canvasWrap.getBoundingClientRect();
+  const w = rect.width, h = rect.height;
+  gctx.clearRect(0,0,w,h);
+  const item = filtered[current];
+  if(!item) return;
+
+  const scale = Math.min(w,h) / 300;
+
+  gctx.save();
+  gctx.scale(scale, scale);
+  gctx.lineWidth = 8;
+  gctx.lineCap = 'round';
+  gctx.lineJoin = 'round';
+  gctx.strokeStyle = 'rgba(43,42,40,0.20)';
+  gctx.beginPath();
+  item.draw(gctx);
+  gctx.stroke();
+  gctx.restore();
+
+  // start dot hint
+  gctx.fillStyle = 'rgba(232,92,74,0.5)';
+  gctx.beginPath();
+  gctx.arc(w*0.5, h*0.18, 5, 0, Math.PI*2);
+  gctx.fill();
+
+  buildMask(item, w, h, scale);
+}
+
+function buildMask(item, w, h, scale){
+  maskCanvas.width = Math.max(1, Math.round(w));
+  maskCanvas.height = Math.max(1, Math.round(h));
+  maskW = maskCanvas.width;
+  maskH = maskCanvas.height;
+  maskCtx.clearRect(0,0,maskW,maskH);
+  maskCtx.save();
+  maskCtx.scale(scale, scale);
+  maskCtx.lineWidth = item.maskWidth;
+  maskCtx.lineCap = 'round';
+  maskCtx.lineJoin = 'round';
+  maskCtx.strokeStyle = '#000';
+  maskCtx.beginPath();
+  item.draw(maskCtx);
+  maskCtx.stroke();
+  maskCtx.restore();
+  maskData = maskCtx.getImageData(0,0,maskW,maskH).data;
+
+  maskInsideCount = 0;
+  for(let i = 3; i < maskData.length; i += 4){
+    if(maskData[i] > 60) maskInsideCount++;
+  }
+
+  covCanvas.width = maskW;
+  covCanvas.height = maskH;
+  covCtx.clearRect(0,0,maskW,maskH);
+}
+
+function isInsideMask(x,y){
+  const px = Math.round(x), py = Math.round(y);
+  if(px < 0 || py < 0 || px >= maskW || py >= maskH || !maskData) return false;
+  const idx = (py*maskW + px) * 4 + 3;
+  return maskData[idx] > 60;
+}
+
+function clearDrawing(){
+  const rect = canvasWrap.getBoundingClientRect();
+  dctx.clearRect(0,0,rect.width, rect.height);
+  covCtx.clearRect(0,0,covCanvas.width, covCanvas.height);
+  score = 0;
+  sampleCount = 0;
+  clearTimeout(advanceTimer);
+  renderScore();
+}
+
+function renderScore(){
+  scoreBadge.textContent = (score > 0 ? '+' : '') + score;
+  scoreBadge.classList.remove('positive','negative','pulse');
+  if(score > 0) scoreBadge.classList.add('positive');
+  else if(score < 0) scoreBadge.classList.add('negative');
+  void scoreBadge.offsetWidth;
+  scoreBadge.classList.add('pulse');
+  setTimeout(() => scoreBadge.classList.remove('pulse'), 140);
+}
+
+function selectDrawing(i){
+  current = i;
+  const item = filtered[i];
+  if(!item) return;
+  nameEl.textContent = item.name + ' ' + item.emoji;
+  levelEl.textContent = item.level === 'easy' ? '⭐ Easy' : '🔥 Hard';
+  levelEl.className = 'level-tag ' + item.level;
+  strokeColor = INK_COLORS[i % INK_COLORS.length];
+  clearTimeout(advanceTimer);
+  drawGuide();
+  clearDrawing();
+  buildRail();
+  centerRailOnActive();
+  renderStars();
+}
+
+function centerRailOnActive(){
+  const active = rail.querySelector('.pic-card.active');
+  if(active) active.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+}
+
+function renderStars(){
+  const item = filtered[current];
+  starsRow.textContent = item && traced.has(item.id) ? 'You drew this one! ✅' : '';
+  const count = traced.size;
+  progressFill.style.width = `${(count / DRAWINGS.length) * 100}%`;
+  progressLabel.textContent = `${count} / ${DRAWINGS.length} traced`;
+}
+
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 1400);
+}
+
+function getPos(evt){
+  const rect = drawCanvas.getBoundingClientRect();
+  const point = evt.touches ? evt.touches[0] : evt;
+  return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+}
+
+function startDraw(evt){
+  evt.preventDefault();
+  drawing = true;
+  lastPoint = getPos(evt);
+}
+
+function moveDraw(evt){
+  if(!drawing) return;
+  evt.preventDefault();
+  const pos = getPos(evt);
+
+  dctx.strokeStyle = strokeColor;
+  dctx.lineWidth = 14;
+  dctx.lineCap = 'round';
+  dctx.lineJoin = 'round';
+  dctx.beginPath();
+  dctx.moveTo(lastPoint.x, lastPoint.y);
+  dctx.lineTo(pos.x, pos.y);
+  dctx.stroke();
+
+  covCtx.strokeStyle = '#000';
+  covCtx.lineWidth = 14;
+  covCtx.lineCap = 'round';
+  covCtx.lineJoin = 'round';
+  covCtx.beginPath();
+  covCtx.moveTo(lastPoint.x, lastPoint.y);
+  covCtx.lineTo(pos.x, pos.y);
+  covCtx.stroke();
+
+  scoreSegment(lastPoint, pos);
+  renderScore();
+
+  lastPoint = pos;
+}
+
+function scoreSegment(from, to){
+  const dist = Math.hypot(to.x - from.x, to.y - from.y);
+  const steps = Math.max(1, Math.round(dist / STEP_PX));
+  for(let s = 1; s <= steps; s++){
+    const t = s / steps;
+    const x = from.x + (to.x - from.x) * t;
+    const y = from.y + (to.y - from.y) * t;
+    score += isInsideMask(x, y) ? 1 : -1;
+    sampleCount++;
+  }
+}
+
+function endDraw(){
+  if(drawing) judgeAttempt();
+  drawing = false;
+  lastPoint = null;
+}
+
+function getCoverageFraction(){
+  if(maskInsideCount === 0) return 0;
+  const covData = covCtx.getImageData(0,0,covCanvas.width, covCanvas.height).data;
+  let coveredInside = 0;
+  for(let i = 3; i < maskData.length; i += 4){
+    if(maskData[i] > 60 && covData[i] > 0) coveredInside++;
+  }
+  return coveredInside / maskInsideCount;
+}
+
+function judgeAttempt(){
+  if(sampleCount < MIN_SAMPLES_TO_JUDGE) return;
+  const item = filtered[current];
+  const requiredCoverage = item.coverage || 0.6;
+  const coverage = getCoverageFraction();
+
+  if(score > 0 && coverage >= requiredCoverage){
+    traced.add(item.id);
+    renderStars();
+    buildRail();
+    centerRailOnActive();
+    showToast(`Beautiful! ${'+' + score} ⭐`);
+    clearTimeout(advanceTimer);
+    advanceTimer = setTimeout(() => {
+      selectDrawing((current + 1) % filtered.length);
+    }, 1000);
+  } else if(score > 0){
+    showToast(`Keep going — ${Math.round(coverage*100)}% traced`);
+  } else {
+    showToast('Try to stay on the lines! 💪');
+  }
+}
+
+drawCanvas.addEventListener('mousedown', startDraw);
+drawCanvas.addEventListener('mousemove', moveDraw);
+window.addEventListener('mouseup', endDraw);
+drawCanvas.addEventListener('touchstart', startDraw, {passive:false});
+drawCanvas.addEventListener('touchmove', moveDraw, {passive:false});
+drawCanvas.addEventListener('touchend', endDraw);
+
+document.getElementById('clearBtn').addEventListener('click', clearDrawing);
+document.getElementById('nextBtn').addEventListener('click', () => {
+  selectDrawing((current + 1) % filtered.length);
+});
+
+window.addEventListener('resize', sizeCanvases);
+
+buildRail();
+selectDrawing(0);
+sizeCanvases();
+</script>
+</body>
+</html>
