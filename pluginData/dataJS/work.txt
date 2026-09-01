@@ -2,7 +2,7 @@
     const title = "work";
 
     let isLoaded = false;
-    const reportsToLoad = ["LJA_KPI_Report", "GEGM_KPI_Report", "EGM_KPI_Report", "SDA_KPI_Report", "TA Report_"];
+    const reportsToLoad = ["LJA_KPI_Report", "GEGM_KPI_Report", "EGM_KPI_Report", "SDA_KPI_Report", "A&I Report_"];
     const loadedData = {};
     const officerIndex = {};
     const statusIndex = {};
@@ -135,8 +135,8 @@
                 log(`Pulling ${type}...`);
                 const data = await PluginAPI.pullData(type);
 
-                // Specific TA Report date formatting
-                if (type === "TA Report_" && data.length > 0) {
+                // Specific A&I Report date formatting
+                if (type === "A&I Report_" && data.length > 0) {
                     const header = data[0].map(h => String(h).toLowerCase().trim());
                     const dateCols = ["submission date", "date of incident", "closed date", "kpi date"];
                     const targetIndices = dateCols.map(c => header.indexOf(c)).filter(idx => idx !== -1);

@@ -103,7 +103,7 @@
       "GEGM_KPI_Report",
       "EGM_KPI_Report",
       "SDA_KPI_Report",
-      "TA Report_",
+      "A&I Report_",
       "GRAMBS",
       "GRARWS",
       "GRAMBSPR",
@@ -385,8 +385,8 @@
         } else {
           let latest = null;
           for (const file of found) {
-            if (type === "TA Report_") {
-              if (file.name.toLowerCase().startsWith("ta report_")) {
+            if (type === "A&I Report_") {
+              if (file.name.toLowerCase().startsWith("a&i report_")) {
                 if (!latest) {
                   latest = file;
                 } else {
@@ -438,7 +438,7 @@
     }
 
     function parseTAFile(filename) {
-      const m = filename.match(/TA Report_(\d{8})(?: \((\d+)\))?/i);
+      const m = filename.match(/A&I Report_(\d{8})(?: \((\d+)\))?/i);
       if (!m) return null;
       return { date: m[1], copy: parseInt(m[2] || 1) };
     }
