@@ -511,13 +511,13 @@
             titleInp.contentEditable = "true";
             titleInp.className = 'task-name-input';
             titleInp.textContent = task.title || '';
-            titleInp.onblur = () => { task.title = titleInp.textContent; saveData(); };
+            titleInp.onblur = () => { task.title = (titleInp.innerText !== undefined ? titleInp.innerText : titleInp.textContent).replace(/\r\n/g, '\n').replace(/\n$/, ''); saveData(); };
 
             const offInp = document.createElement('div');
             offInp.contentEditable = "true";
             offInp.className = 'officers-input';
             offInp.textContent = task.officers || '';
-            offInp.onblur = () => { task.officers = offInp.textContent; saveData(); renderUI(); };
+            offInp.onblur = () => { task.officers = (offInp.innerText !== undefined ? offInp.innerText : offInp.textContent).replace(/\r\n/g, '\n').replace(/\n$/, ''); saveData(); renderUI(); };
 
             const remInp = document.createElement('div');
             remInp.contentEditable = "true";
@@ -527,7 +527,7 @@
                 remInp.title = task.remarks;
             }
             remInp.onblur = () => {
-                task.remarks = remInp.textContent;
+                task.remarks = (remInp.innerText !== undefined ? remInp.innerText : remInp.textContent).replace(/\r\n/g, '\n').replace(/\n$/, '');
                 if (task.remarks && task.remarks.trim()) {
                     remInp.title = task.remarks;
                     if (remInp.parentElement) {
