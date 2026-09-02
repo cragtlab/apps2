@@ -16,10 +16,11 @@
       padding: 5px;
       width: 160px;
       min-width: 160px;
+font-size: 30px;
     }
     .tabButton {
       background: #555; color: white; padding: 8px 16px; margin-bottom: 5px;
-      border: none; cursor: pointer; text-align: left;
+      border: none; cursor: pointer; text-align: left; font-size:30px;
     }
     .tabButton.active { background: #007BFF; }
     #contentArea {
@@ -82,8 +83,8 @@
 <body>
   <div id="tabBar">
     <font color=white>Alt-L: Load, Alt-R: Refresh</font><br/>
-    <div id="passIndicator" style="color: yellow; margin: 5px 0; font-weight: bold; min-height: 20px; font-size: 16px;"></div>
-    <div id="passLabelsList" style="color: white; font-size: 30px; margin-bottom: 10px; display: block; background: #444; padding: 5px; border-radius: 4px;"></div>
+    <div id="passIndicator" style="color: yellow; margin: 5px 0; font-weight: bold; min-height: 20px; "></div>
+    <div id="passLabelsList" style="color: white;  margin-bottom: 10px; display: block; background: #444; padding: 5px; border-radius: 4px;"></div>
     <button id="loadBtn" class="controlBtn">Load Plugins</button>
     <button id="refreshBtn" class="controlBtn">Refresh Plugins</button>
     <font color=white>Press Alt-1 to go 1st</font><br/>
@@ -98,9 +99,10 @@
     let passBuffer = "";
     let lastCopiedText = "";
     const passData = [
-      { color: "green", label: "MBS", value: "123456" },
-      { color: "green", label: "RWS", value: "111111" },
-      { color: "green", label: "Ops", value: "123456" }
+ { color: "green", label: "Ops", value: "sgewqgeqgwgew" },
+    { color: "#C5A253", label: "MBS", value: "haha" },
+    { color: "#E31B23", label: "RWS", value: "geqwgewqgewqgewgewq" },
+   
     ];
 
     function copyText(text) {
@@ -139,7 +141,7 @@
     function updatePassUI() {
       const indicator = document.getElementById("passIndicator");
       const labelsList = document.getElementById("passLabelsList");
-
+      
       if (passBuffer) {
         indicator.textContent = `Pass for [${passBuffer}]`;
         indicator.style.color = "lightgreen";
@@ -158,6 +160,7 @@
         const itemDiv = document.createElement("div");
         itemDiv.style.cursor = "pointer";
         itemDiv.style.padding = "2px 0";
+        itemDiv.style.color = item.color; 
         itemDiv.textContent = `• ${item.label}`;
         itemDiv.onclick = () => handleLabelClick(item.label, item.value);
         labelsList.appendChild(itemDiv);
