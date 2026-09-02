@@ -99,12 +99,16 @@
     }
 
     function indexData(reportName, rows) {
-        if (!rows || rows.length === 0) return;
-        const header = rows[0];
+        const isAI = (reportName === "A&I Report_");
+        const headerIdx = isAI ? 1 : 0;
+        const startRowIdx = isAI ? 2 : 1;
+
+        if (!rows || rows.length <= headerIdx) return;
+        const header = rows[headerIdx];
         const officerCol = findOfficerColumn(header);
         const statusCol = findStatusColumn(header);
 
-        for (let i = 1; i < rows.length; i++) {
+        for (let i = startRowIdx; i < rows.length; i++) {
             const row = rows[i];
             let officer = normalizeOfficer(officerCol !== -1 ? row[officerCol] : null) || "no officer";
             const status = statusCol !== -1 ? (row[statusCol] || "").toString().trim() : null;
@@ -136,9 +140,13 @@
                 const data = await PluginAPI.pullData(type);
 
                 // Specific A&I Report date formatting
-                if (type === "A&I Report_" && data.length > 0) {
+                if (type === "A&I Report_" && data.length > 1) {
                     const header = data[1].map(h => String(h).toLowerCase().trim());
-                    const dateCols = ["submission date", "date of incident", "closed date", "kpi date"];
+                    const dateCols = [
+                        "submission date", "date of incident", "incident date", "closed date",
+                        "kpi date", "kpi start date", "kpi target date",
+                        "assessment approval date", "odm concurrence date"
+                    ];
                     const targetIndices = dateCols.map(c => header.indexOf(c)).filter(idx => idx !== -1);
                     for (let i = 2; i < data.length; i++) {
                         targetIndices.forEach(idx => { data[i][idx] = formatExcelDate(data[i][idx]); });
@@ -147,7 +155,8 @@
 
                 loadedData[type] = data;
                 indexData(type, data);
-                log(`✅ ${type} loaded (${data.length - 1} rows)`);
+                const rowCount = data.length - (type === "A&I Report_" ? 2 : 1);
+                log(`✅ ${type} loaded (${Math.max(0, rowCount)} rows)`);
             } catch (err) {
                 log(`❌ Error loading ${type}: ${err.message}`);
             }
@@ -255,12 +264,15 @@
 
         for (const type in loadedData) {
             const rows = loadedData[type];
-            if (!rows || rows.length < 2) continue;
-            const header = rows[0];
+            const isAI = (type === "A&I Report_");
+            const headerIdx = isAI ? 1 : 0;
+            const startRowIdx = isAI ? 2 : 1;
+            if (!rows || rows.length <= headerIdx) continue;
+            const header = rows[headerIdx];
             const officerCol = findOfficerColumn(header);
             const statusCol = findStatusColumn(header);
 
-            for (let i = 1; i < rows.length; i++) {
+            for (let i = startRowIdx; i < rows.length; i++) {
                 const row = rows[i];
                 if (officer) {
                     let rowOff = normalizeOfficer(officerCol !== -1 ? row[officerCol] : null) || "no officer";
