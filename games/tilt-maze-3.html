@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Tilt Maze</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0c12;
+    --panel:#12151f;
+    --line:#232838;
+    --wall:#2a3350;
+    --accent:#5eead4;
+    --plus:#7cf29c;
+    --minus:#ff6b81;
+    --ball:#ffd166;
+    --rival:#c084fc;
+    --text:#e8ecf5;
+    --muted:#7a8299;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%; overflow:hidden; overscroll-behavior:none;
+    background:var(--bg); color:var(--text);
+    font-family:'Space Grotesk',sans-serif;
+    touch-action:none;
+  }
+  #app{
+    display:flex; flex-direction:column; align-items:center;
+    height:100%; width:100%; padding:14px 10px; gap:10px;
+  }
+  header{
+    width:100%; max-width:480px;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px;
+  }
+  .brand{display:flex; flex-direction:column; line-height:1.1;}
+  .brand b{font-size:17px; font-weight:700; letter-spacing:0.2px;}
+  .brand span{font-size:11px; color:var(--muted);}
+  .stat{display:flex; flex-direction:column; align-items:flex-end; font-family:'Space Mono',monospace; font-size:14px;}
+  .stat small{color:var(--muted); font-size:9px; letter-spacing:0.5px;}
+  #status-line{
+    height:16px; font-size:12px; color:var(--accent); font-family:'Space Mono',monospace;
+  }
+  #canvasWrap{
+    position:relative; border-radius:14px; overflow:hidden;
+    background:var(--panel);
+    border:1px solid var(--line);
+    box-shadow:0 0 0 1px rgba(94,234,212,.05), 0 20px 50px -20px rgba(0,0,0,.7);
+  }
+  canvas{display:block;}
+  .btnrow{display:flex; gap:8px; width:100%; max-width:480px;}
+  button{
+    font-family:'Space Grotesk',sans-serif; font-weight:500; font-size:13px;
+    background:var(--line); color:var(--text); border:1px solid #2f3752;
+    border-radius:9px; padding:9px 14px; cursor:pointer;
+  }
+  button:active{background:#2a3149;}
+  button.primary{
+    background:var(--accent); color:#0a0c12; border:none; font-weight:700;
+  }
+  .overlay{
+    position:absolute; inset:0; background:rgba(8,10,16,.94);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:26px; gap:14px; z-index:5;
+  }
+  .overlay h1{font-size:22px; margin:0;}
+  .overlay p{font-size:13px; color:var(--muted); max-width:290px; margin:0; line-height:1.5;}
+  .overlay .legend{display:flex; gap:14px; font-size:11.5px; color:var(--text); margin-top:4px; flex-wrap:wrap; justify-content:center;}
+  .legend div{display:flex; flex-direction:column; align-items:center; gap:4px; width:64px;}
+  .dot{width:14px; height:14px; border-radius:50%;}
+  .hidden{display:none !important;}
+  #tiltDot{
+    position:absolute; bottom:10px; right:10px; width:44px; height:44px;
+    border-radius:50%; border:1px solid var(--line); background:rgba(18,21,31,.7);
+    z-index:3;
+  }
+  #tiltDot i{
+    position:absolute; width:10px; height:10px; border-radius:50%;
+    background:var(--accent); top:17px; left:17px; box-shadow:0 0 8px var(--accent);
+    transition:transform .05s linear;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><b>Tilt Maze</b><span>race the rival ball</span></div>
+    <div class="stat"><small>TIME</small><b id="timeVal">00:00</b></div>
+  </header>
+  <div id="status-line"></div>
+
+  <div id="canvasWrap">
+    <canvas id="maze"></canvas>
+    <div id="tiltDot"><i></i></div>
+
+    <div class="overlay" id="startOverlay">
+      <h1>Tilt Maze</h1>
+      <p>Tilt your phone to roll the <b style="color:var(--ball)">gold ball</b> from start to finish before the <b style="color:var(--rival)">purple rival</b> gets there first.</p>
+      <div class="legend">
+        <div><span class="dot" style="background:var(--accent)"></span>Start</div>
+        <div><span class="dot" style="background:#ffd166"></span>Finish</div>
+        <div><span class="dot" style="background:var(--plus)"></span>Speeds you up</div>
+        <div><span class="dot" style="background:var(--minus)"></span>Slows &amp; reverses you</div>
+        <div><span class="dot" style="background:var(--rival)"></span>Rival ball</div>
+      </div>
+      <button class="primary" id="beginBtn">Start &amp; enable motion</button>
+      <p style="font-size:11px;">No gyroscope? Arrow keys / WASD work too.</p>
+    </div>
+
+    <div class="overlay hidden" id="winOverlay">
+      <h1 id="winTitle">🏁 Finished!</h1>
+      <p id="winStats" style="font-family:'Space Mono',monospace; font-size:14px; color:var(--text);"></p>
+      <button class="primary" id="againBtn">Race again (new maze)</button>
+    </div>
+  </div>
+
+  <div class="btnrow">
+    <button id="recalBtn" style="flex:1;">Recalibrate tilt</button>
+    <button id="newMazeBtn" style="flex:1;">New maze</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const COLS = 9, ROWS = 13;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  const ITEM_SPAWN_INTERVAL = 1.4;
+  const MAX_ITEMS = 8;
+  const ITEM_LIFETIME = 6.5;
+
+  const canvas = document.getElementById('maze');
+  const ctx = canvas.getContext('2d');
+  const tiltDot = document.getElementById('tiltDot').querySelector('i');
+  const timeEl = document.getElementById('timeVal');
+  const statusEl = document.getElementById('status-line');
+  const startOverlay = document.getElementById('startOverlay');
+  const winOverlay = document.getElementById('winOverlay');
+  const winTitle = document.getElementById('winTitle');
+  const winStats = document.getElementById('winStats');
+
+  let cellSize, thickness, canvasW, canvasH;
+
+  function computeSizing(){
+    const availW = Math.min(window.innerWidth - 24, 460);
+    const availH = window.innerHeight - 190;
+    cellSize = Math.floor(Math.min(availW / COLS, availH / ROWS));
+    cellSize = Math.max(22, Math.min(cellSize, 44));
+    thickness = Math.max(4, Math.round(cellSize * 0.14));
+    canvasW = COLS * cellSize;
+    canvasH = ROWS * cellSize;
+    canvas.style.width = canvasW + 'px';
+    canvas.style.height = canvasH + 'px';
+    canvas.width = canvasW * DPR;
+    canvas.height = canvasH * DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+
+  function generateGrid(cols, rows){
+    const grid = [];
+    for(let r=0;r<rows;r++){
+      const row = [];
+      for(let c=0;c<cols;c++) row.push({N:true,S:true,E:true,W:true,visited:false});
+      grid.push(row);
+    }
+    const dirs = [
+      {dr:-1,dc:0,w:'N',o:'S'}, {dr:1,dc:0,w:'S',o:'N'},
+      {dr:0,dc:-1,w:'W',o:'E'}, {dr:0,dc:1,w:'E',o:'W'}
+    ];
+    const stack = [{r:0,c:0}];
+    grid[0][0].visited = true;
+    while(stack.length){
+      const {r,c} = stack[stack.length-1];
+      const opts = [];
+      for(const d of dirs){
+        const nr=r+d.dr, nc=c+d.dc;
+        if(nr>=0 && nr<rows && nc>=0 && nc<cols && !grid[nr][nc].visited) opts.push({nr,nc,...d});
+      }
+      if(!opts.length){ stack.pop(); continue; }
+      const pick = opts[(Math.random()*opts.length)|0];
+      grid[r][c][pick.w] = false;
+      grid[pick.nr][pick.nc][pick.o] = false;
+      grid[pick.nr][pick.nc].visited = true;
+      stack.push({r:pick.nr, c:pick.nc});
+    }
+    return grid;
+  }
+
+  function buildWallPath(grid){
+    const path = new Path2D();
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const cell = grid[r][c];
+        const x = c*cellSize, y = r*cellSize;
+        if(cell.N) path.rect(x, y, cellSize, thickness);
+        if(cell.S) path.rect(x, y+cellSize-thickness, cellSize, thickness);
+        if(cell.W) path.rect(x, y, thickness, cellSize);
+        if(cell.E) path.rect(x+cellSize-thickness, y, thickness, cellSize);
+      }
+    }
+    return path;
+  }
+
+  function collectWallRects(grid){
+    const rects = [];
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const cell = grid[r][c];
+        const x = c*cellSize, y = r*cellSize;
+        if(cell.N) rects.push({x, y, w:cellSize, h:thickness});
+        if(cell.S) rects.push({x, y:y+cellSize-thickness, w:cellSize, h:thickness});
+        if(cell.W) rects.push({x, y, w:thickness, h:cellSize});
+        if(cell.E) rects.push({x:x+cellSize-thickness, y, w:thickness, h:cellSize});
+      }
+    }
+    return rects;
+  }
+
+  function bfsPath(grid, start, end){
+    const key = (r,c)=>r+','+c;
+    const prev = new Map();
+    const visited = new Set([key(start.r,start.c)]);
+    const queue = [start];
+    while(queue.length){
+      const cur = queue.shift();
+      if(cur.r===end.r && cur.c===end.c) break;
+      const cell = grid[cur.r][cur.c];
+      const neighbors = [];
+      if(!cell.N) neighbors.push({r:cur.r-1,c:cur.c});
+      if(!cell.S) neighbors.push({r:cur.r+1,c:cur.c});
+      if(!cell.E) neighbors.push({r:cur.r,c:cur.c+1});
+      if(!cell.W) neighbors.push({r:cur.r,c:cur.c-1});
+      for(const n of neighbors){
+        const k = key(n.r,n.c);
+        if(!visited.has(k)){ visited.add(k); prev.set(k, cur); queue.push(n); }
+      }
+    }
+    const path = [end];
+    let cur = end;
+    while(!(cur.r===start.r && cur.c===start.c)){
+      const k = key(cur.r,cur.c);
+      const p = prev.get(k);
+      if(!p) break;
+      path.push(p);
+      cur = p;
+    }
+    path.reverse();
+    return path;
+  }
+
+  let grid, wallPath, wallRects, items, ball, rival, endCell, rivalWaypoints, rivalIdx, rivalSpeedMul;
+  let startTime = null, raceState = 'playing';
+  let boostUntil = 0, slowUntil = 0, reverseUntil = 0, itemSpawnTimer = 0;
+  const keys = {left:false, right:false, up:false, down:false};
+  const tilt = {gamma0:0, beta0:0, gamma:0, beta:0, ready:false, recalNext:false};
+
+  function trySpawnItem(now){
+    const activeCount = items.filter(it=>!it.taken).length;
+    if(activeCount >= MAX_ITEMS) return;
+    for(let tries=0; tries<20; tries++){
+      const r = (Math.random()*ROWS)|0, c = (Math.random()*COLS)|0;
+      if(r<2 && c<2) continue;
+      if(r>ROWS-3 && c>COLS-3) continue;
+      if(items.some(it=>!it.taken && it.r===r && it.c===c)) continue;
+      const type = Math.random()<0.5 ? 'plus' : 'minus';
+      items.push({r,c,type,taken:false,bornAt:now});
+      return;
+    }
+  }
+
+  function newMaze(){
+    computeSizing();
+    grid = generateGrid(COLS, ROWS);
+    wallPath = buildWallPath(grid);
+    wallRects = collectWallRects(grid);
+    endCell = {r:ROWS-1, c:COLS-1};
+    ball = { x:(0.5)*cellSize, y:(0.5)*cellSize, vx:0, vy:0, r:cellSize*0.26 };
+
+    const path = bfsPath(grid, {r:0,c:0}, endCell);
+    rivalWaypoints = path.map(cell => ({x:(cell.c+0.5)*cellSize, y:(cell.r+0.5)*cellSize}));
+    rivalIdx = 1;
+    rivalSpeedMul = 0.82 + Math.random()*0.32;
+    rival = { x:(0.5)*cellSize, y:(0.5)*cellSize, vx:0, vy:0, r:cellSize*0.24 };
+
+    items = [];
+    startTime = performance.now();
+    for(let i=0;i<4;i++) trySpawnItem(startTime);
+    itemSpawnTimer = 0;
+    raceState = 'playing';
+    boostUntil = 0; slowUntil = 0; reverseUntil = 0;
+    winOverlay.classList.add('hidden');
+    statusEl.textContent = '';
+  }
+
+  function circleRectHit(cx, cy, r, rect){
+    const nx = Math.max(rect.x, Math.min(cx, rect.x+rect.w));
+    const ny = Math.max(rect.y, Math.min(cy, rect.y+rect.h));
+    const dx = cx-nx, dy = cy-ny;
+    return (dx*dx + dy*dy) < r*r;
+  }
+  function hitsWall(x, y, r){
+    for(let i=0;i<wallRects.length;i++){
+      if(circleRectHit(x, y, r, wallRects[i])) return true;
+    }
+    return false;
+  }
+
+  function showWin(playerWon, now){
+    raceState = playerWon ? 'playerWon' : 'aiWon';
+    const secs = (now-startTime)/1000;
+    const mm = String(Math.floor(secs/60)).padStart(2,'0');
+    const ss = String(Math.floor(secs%60)).padStart(2,'0');
+    winTitle.textContent = playerWon ? '🏁 You win!' : '🤖 Rival wins!';
+    winStats.textContent = playerWon ? `You reached the end in ${mm}:${ss}` : `The rival beat you at ${mm}:${ss}`;
+    winOverlay.classList.remove('hidden');
+  }
+
+  function updateRival(dt, now){
+    const wp = rivalWaypoints[rivalIdx];
+    if(!wp) return;
+    const dx = wp.x-rival.x, dy = wp.y-rival.y;
+    const dist = Math.hypot(dx,dy);
+    if(dist < cellSize*0.22 && rivalIdx < rivalWaypoints.length-1) rivalIdx++;
+    const dirx = dist>0.001 ? dx/dist : 0, diry = dist>0.001 ? dy/dist : 0;
+    const accel = 560 * rivalSpeedMul;
+    rival.vx += dirx*accel*dt;
+    rival.vy += diry*accel*dt;
+    const damping = Math.exp(-3.4*dt);
+    rival.vx *= damping; rival.vy *= damping;
+    const maxV = 210 * rivalSpeedMul;
+    const sp = Math.hypot(rival.vx, rival.vy);
+    if(sp > maxV){ rival.vx *= maxV/sp; rival.vy *= maxV/sp; }
+    rival.x += rival.vx*dt;
+    rival.y += rival.vy*dt;
+
+    const ecx = (endCell.c+0.5)*cellSize, ecy = (endCell.r+0.5)*cellSize;
+    const edx = rival.x-ecx, edy = rival.y-ecy;
+    if(edx*edx+edy*edy < (cellSize*0.30)*(cellSize*0.30)) showWin(false, now);
+  }
+
+  function update(dt, now){
+    if(raceState !== 'playing') return;
+
+    itemSpawnTimer += dt;
+    if(itemSpawnTimer > ITEM_SPAWN_INTERVAL){
+      itemSpawnTimer = 0;
+      trySpawnItem(now);
+    }
+    items = items.filter(it => !it.taken && (now - it.bornAt) < ITEM_LIFETIME*1000);
+
+    let ax = 0, ay = 0;
+    if(tilt.ready){
+      ax = Math.max(-1, Math.min(1, (tilt.gamma - tilt.gamma0) / 22));
+      ay = Math.max(-1, Math.min(1, (tilt.beta - tilt.beta0) / 22));
+    }
+    if(keys.left) ax -= 1;
+    if(keys.right) ax += 1;
+    if(keys.up) ay -= 1;
+    if(keys.down) ay += 1;
+    ax = Math.max(-1, Math.min(1, ax));
+    ay = Math.max(-1, Math.min(1, ay));
+
+    if(now < reverseUntil){ ax = -ax; ay = -ay; }
+
+    if(now < reverseUntil) statusEl.textContent = 'slowed & reversed!';
+    else if(now < boostUntil) statusEl.textContent = 'speed boost!';
+    else statusEl.textContent = '';
+
+    tiltDot.style.transform = `translate(${ax*17}px, ${ay*17}px)`;
+
+    let speedFactor = 1;
+    if(now < boostUntil) speedFactor *= 1.7;
+    if(now < slowUntil) speedFactor *= 0.42;
+    const accel = 760 * speedFactor;
+    const damping = Math.exp(-2.6 * dt);
+    ball.vx = (ball.vx + ax*accel*dt) * damping;
+    ball.vy = (ball.vy + ay*accel*dt) * damping;
+    const maxV = Math.max(90, 320 * speedFactor);
+    const sp = Math.hypot(ball.vx, ball.vy);
+    if(sp > maxV){ ball.vx *= maxV/sp; ball.vy *= maxV/sp; }
+
+    const nx = ball.x + ball.vx*dt;
+    if(!hitsWall(nx, ball.y, ball.r)) ball.x = nx; else ball.vx *= -0.2;
+    const ny = ball.y + ball.vy*dt;
+    if(!hitsWall(ball.x, ny, ball.r)) ball.y = ny; else ball.vy *= -0.2;
+
+    ball.x = Math.max(ball.r, Math.min(canvasW-ball.r, ball.x));
+    ball.y = Math.max(ball.r, Math.min(canvasH-ball.r, ball.y));
+
+    for(const it of items){
+      if(it.taken) continue;
+      const icx = (it.c+0.5)*cellSize, icy = (it.r+0.5)*cellSize;
+      const dx = ball.x-icx, dy = ball.y-icy;
+      if(dx*dx+dy*dy < (ball.r+cellSize*0.2)*(ball.r+cellSize*0.2)){
+        it.taken = true;
+        if(it.type === 'plus'){
+          boostUntil = now + 2400;
+        } else {
+          slowUntil = now + 2400;
+          reverseUntil = now + 2400;
+        }
+      }
+    }
+
+    updateRival(dt, now);
+    if(raceState !== 'playing') return;
+
+    const ecx = (endCell.c+0.5)*cellSize, ecy = (endCell.r+0.5)*cellSize;
+    const edx = ball.x-ecx, edy = ball.y-ecy;
+    if(edx*edx+edy*edy < (cellSize*0.32)*(cellSize*0.32)) showWin(true, now);
+  }
+
+  function drawGlowCircle(x,y,r,color,alpha){
+    ctx.save();
+    const g = ctx.createRadialGradient(x,y,0,x,y,r*1.8);
+    g.addColorStop(0, hexToRgba(color, alpha));
+    g.addColorStop(1, hexToRgba(color, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x,y,r*1.8,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  function hexToRgba(hex, a){
+    const v = hex.replace('#','');
+    const r = parseInt(v.substring(0,2),16), g = parseInt(v.substring(2,4),16), b = parseInt(v.substring(4,6),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  function draw(now){
+    ctx.clearRect(0,0,canvasW,canvasH);
+    ctx.fillStyle = '#12151f';
+    ctx.fillRect(0,0,canvasW,canvasH);
+
+    const scx=(0.5)*cellSize, scy=(0.5)*cellSize;
+    drawGlowCircle(scx, scy, cellSize*0.34, '#5eead4', 0.18);
+    const ecx=(endCell.c+0.5)*cellSize, ecy=(endCell.r+0.5)*cellSize;
+    const pulse = 0.30 + Math.sin(now/220)*0.03;
+    drawGlowCircle(ecx, ecy, cellSize*pulse, '#ffd166', 0.22);
+    ctx.save();
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(ecx, ecy, cellSize*0.30, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+
+    for(const it of items){
+      if(it.taken) continue;
+      const icx=(it.c+0.5)*cellSize, icy=(it.r+0.5)*cellSize;
+      const age = (now-it.bornAt)/1000;
+      const fade = age > ITEM_LIFETIME-1.2 ? Math.max(0.15, (ITEM_LIFETIME-age)/1.2) : 1;
+      const color = it.type==='plus' ? '#7cf29c' : '#ff6b81';
+      ctx.save();
+      ctx.globalAlpha = fade;
+      ctx.shadowColor = color; ctx.shadowBlur = 10;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(icx, icy, cellSize*0.16, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#0a0c12'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(icx-cellSize*0.08, icy); ctx.lineTo(icx+cellSize*0.08, icy);
+      if(it.type==='plus'){ ctx.moveTo(icx, icy-cellSize*0.08); ctx.lineTo(icx, icy+cellSize*0.08); }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.shadowColor = '#5eead4';
+    ctx.shadowBlur = 7;
+    ctx.fillStyle = '#2a3350';
+    ctx.fill(wallPath);
+    ctx.restore();
+
+    ctx.save();
+    ctx.shadowColor = '#c084fc';
+    ctx.shadowBlur = 10;
+    const rg = ctx.createRadialGradient(rival.x-rival.r*0.3, rival.y-rival.r*0.3, rival.r*0.1, rival.x, rival.y, rival.r);
+    rg.addColorStop(0, '#efe0ff');
+    rg.addColorStop(1, '#c084fc');
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(rival.x, rival.y, rival.r, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.shadowColor = '#ffd166';
+    ctx.shadowBlur = 12;
+    const grad = ctx.createRadialGradient(ball.x-ball.r*0.3, ball.y-ball.r*0.3, ball.r*0.1, ball.x, ball.y, ball.r);
+    grad.addColorStop(0, '#fff6d8');
+    grad.addColorStop(1, '#ffd166');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  let lastT = null;
+  function loop(t){
+    if(lastT===null) lastT = t;
+    const dt = Math.min(0.033, (t-lastT)/1000);
+    lastT = t;
+    update(dt, t);
+    draw(t);
+    if(raceState === 'playing'){
+      const secs = (t-startTime)/1000;
+      const mm = String(Math.floor(secs/60)).padStart(2,'0');
+      const ss = String(Math.floor(secs%60)).padStart(2,'0');
+      timeEl.textContent = `${mm}:${ss}`;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function onOrientation(e){
+    if(e.gamma===null || e.beta===null) return;
+    if(!tilt.ready || tilt.recalNext){
+      tilt.gamma0 = e.gamma; tilt.beta0 = e.beta;
+      tilt.ready = true; tilt.recalNext = false;
+    }
+    tilt.gamma = e.gamma; tilt.beta = e.beta;
+  }
+
+  function enableGyro(){
+    window.addEventListener('deviceorientation', onOrientation, true);
+    setTimeout(()=>{
+      if(!tilt.ready) statusEl.textContent = 'no gyroscope detected — use arrow keys / WASD';
+    }, 1200);
+  }
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.key==='ArrowLeft'||e.key==='a') keys.left=true;
+    if(e.key==='ArrowRight'||e.key==='d') keys.right=true;
+    if(e.key==='ArrowUp'||e.key==='w') keys.up=true;
+    if(e.key==='ArrowDown'||e.key==='s') keys.down=true;
+  });
+  document.addEventListener('keyup', (e)=>{
+    if(e.key==='ArrowLeft'||e.key==='a') keys.left=false;
+    if(e.key==='ArrowRight'||e.key==='d') keys.right=false;
+    if(e.key==='ArrowUp'||e.key==='w') keys.up=false;
+    if(e.key==='ArrowDown'||e.key==='s') keys.down=false;
+  });
+
+  document.getElementById('beginBtn').addEventListener('click', async ()=>{
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      try{
+        const res = await DeviceOrientationEvent.requestPermission();
+        if(res === 'granted') enableGyro();
+        else statusEl.textContent = 'motion permission denied — use arrow keys / WASD';
+      }catch(err){ statusEl.textContent = 'motion unavailable — use arrow keys / WASD'; }
+    } else {
+      enableGyro();
+    }
+    startOverlay.classList.add('hidden');
+    newMaze();
+  });
+
+  document.getElementById('againBtn').addEventListener('click', ()=>{
+    tilt.recalNext = true;
+    newMaze();
+  });
+
+  document.getElementById('newMazeBtn').addEventListener('click', ()=>{
+    newMaze();
+  });
+
+  document.getElementById('recalBtn').addEventListener('click', ()=>{
+    tilt.recalNext = true;
+    statusEl.textContent = 'recalibrated';
+    setTimeout(()=>{ if(statusEl.textContent==='recalibrated') statusEl.textContent=''; }, 800);
+  });
+
+  window.addEventListener('resize', ()=>{ if(startOverlay.classList.contains('hidden')) newMaze(); });
+
+  computeSizing();
+  grid = generateGrid(COLS, ROWS);
+  wallPath = buildWallPath(grid);
+  wallRects = collectWallRects(grid);
+  endCell = {r:ROWS-1, c:COLS-1};
+  ball = { x:(0.5)*cellSize, y:(0.5)*cellSize, vx:0, vy:0, r:cellSize*0.26 };
+  const initPath = bfsPath(grid, {r:0,c:0}, endCell);
+  rivalWaypoints = initPath.map(cell => ({x:(cell.c+0.5)*cellSize, y:(cell.r+0.5)*cellSize}));
+  rivalIdx = 1;
+  rivalSpeedMul = 1;
+  rival = { x:(0.5)*cellSize, y:(0.5)*cellSize, vx:0, vy:0, r:cellSize*0.24 };
+  items = [];
+  startTime = performance.now();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
