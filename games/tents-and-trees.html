@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Camps & Trees</title>
+<style>
+  :root{
+    --bg:#1b2432;
+    --panel:#232f42;
+    --cell:#2c3a52;
+    --cell-hover:#37496a;
+    --tree:#2f6b4f;
+    --camp:#c9852f;
+    --grey:#5b6b85;
+    --green:#3ecf7e;
+    --red:#e15b5b;
+    --text:#eaf0fb;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px 12px 40px;
+  }
+  h1{font-size:20px;margin:4px 0 2px;letter-spacing:.5px;}
+  p.sub{margin:0 0 16px;color:#9db0cc;font-size:13px;text-align:center;max-width:340px;}
+  .board-wrap{
+    background:var(--panel);
+    padding:14px;
+    border-radius:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  .grid{
+    display:grid;
+    grid-template-columns: 30px repeat(8, 38px);
+    grid-template-rows: 30px repeat(8, 38px);
+    gap:3px;
+  }
+  .cell, .clue{
+    width:100%;
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:6px;
+    font-size:19px;
+    user-select:none;
+  }
+  .clue{
+    background:transparent;
+    font-size:14px;
+    font-weight:700;
+    color:var(--grey);
+    transition:color .15s, transform .15s;
+  }
+  .clue.corner{visibility:hidden;}
+  .clue.correct{color:var(--green);}
+  .clue.wrong{color:var(--red);transform:scale(1.08);}
+  .cell{
+    background:var(--cell);
+    cursor:pointer;
+    transition:background .12s;
+  }
+  .cell.tree{
+    background:var(--tree);
+    cursor:default;
+  }
+  .cell.camp{
+    background:var(--camp);
+  }
+  .cell:not(.tree):hover{
+    background:var(--cell-hover);
+  }
+  .controls{
+    margin-top:18px;
+    display:flex;
+    gap:10px;
+  }
+  button{
+    background:#324562;
+    color:var(--text);
+    border:none;
+    padding:10px 16px;
+    border-radius:8px;
+    font-size:14px;
+    cursor:pointer;
+  }
+  button:hover{background:#3d5478;}
+  #status{
+    margin-top:14px;
+    font-size:14px;
+    min-height:20px;
+    font-weight:600;
+  }
+  #status.win{color:var(--green);}
+  .legend{
+    margin-top:16px;
+    display:flex;
+    gap:18px;
+    font-size:12px;
+    color:#9db0cc;
+    align-items:center;
+  }
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .swatch{width:16px;height:16px;border-radius:4px;display:inline-block;}
+</style>
+</head>
+<body>
+
+<h1>🏕️ Camps & Trees</h1>
+<p class="sub">Every 🌳 needs one ⛺ camp next to it (up/down/left/right). Camps can never touch each other, even diagonally. Tap a cell to place a camp, tap again to remove. Row and column numbers turn <b style="color:#3ecf7e">green</b> when correct, <b style="color:#e15b5b">red</b> when wrong.</p>
+
+<div class="board-wrap">
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="controls">
+  <button id="newGameBtn">🔄 New Puzzle</button>
+  <button id="clearBtn">🧹 Clear Camps</button>
+</div>
+
+<div id="status"></div>
+
+<div class="legend">
+  <span><span class="swatch" style="background:#2f6b4f"></span>Tree</span>
+  <span><span class="swatch" style="background:#c9852f"></span>Camp</span>
+  <span><span class="swatch" style="background:#2c3a52"></span>Empty</span>
+</div>
+
+<script>
+const SIZE = 8;
+let grid = [];        // 'empty' | 'tree' | 'camp'
+let rowClue = [];
+let colClue = [];
+
+function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+function inBounds(r,c){ return r>=0 && r<SIZE && c>=0 && c<SIZE; }
+
+function hasAdjacentTent(tentSet, r, c){
+  for(let dr=-1; dr<=1; dr++){
+    for(let dc=-1; dc<=1; dc++){
+      if(dr===0 && dc===0) continue;
+      const nr=r+dr, nc=c+dc;
+      if(tentSet.has(nr+','+nc)) return true;
+    }
+  }
+  return false;
+}
+
+function generatePuzzle(){
+  const solutionGrid = Array.from({length:SIZE}, ()=>Array(SIZE).fill('empty'));
+  const tentSet = new Set();
+  const treeTarget = randInt(9, 13);
+  let placed = 0;
+  let tries = 0;
+
+  while(placed < treeTarget && tries < 800){
+    tries++;
+    const tr = randInt(0, SIZE-1);
+    const tc = randInt(0, SIZE-1);
+    if(solutionGrid[tr][tc] !== 'empty') continue;
+
+    const dirs = shuffle([[-1,0],[1,0],[0,-1],[0,1]]);
+    let placedPair = false;
+    for(const [dr,dc] of dirs){
+      const nr = tr+dr, nc = tc+dc;
+      if(!inBounds(nr,nc)) continue;
+      if(solutionGrid[nr][nc] !== 'empty') continue;
+      if(hasAdjacentTent(tentSet, nr, nc)) continue;
+
+      solutionGrid[tr][tc] = 'tree';
+      solutionGrid[nr][nc] = 'tree_tent_marker'; // temp marker, will convert
+      tentSet.add(nr+','+nc);
+      placedPair = true;
+      placed++;
+      break;
+    }
+    if(placedPair) continue;
+  }
+
+  // build clues from tentSet
+  rowClue = Array(SIZE).fill(0);
+  colClue = Array(SIZE).fill(0);
+  tentSet.forEach(key=>{
+    const [r,c] = key.split(',').map(Number);
+    rowClue[r]++;
+    colClue[c]++;
+  });
+
+  // visible grid: trees stay, tent markers become empty for the player to solve
+  grid = solutionGrid.map(row => row.map(cell => cell === 'tree' ? 'tree' : 'empty'));
+}
+
+function currentCamps(){
+  const set = new Set();
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) if(grid[r][c]==='camp') set.add(r+','+c);
+  return set;
+}
+
+function violatesAdjacency(campSet, r, c){
+  for(let dr=-1; dr<=1; dr++){
+    for(let dc=-1; dc<=1; dc++){
+      if(dr===0 && dc===0) continue;
+      const nr=r+dr, nc=c+dc;
+      if(campSet.has(nr+','+nc)) return true;
+    }
+  }
+  return false;
+}
+
+function render(){
+  const gridEl = document.getElementById('grid');
+  gridEl.innerHTML = '';
+
+  // corner
+  const corner = document.createElement('div');
+  corner.className = 'clue corner';
+  gridEl.appendChild(corner);
+
+  // top clues
+  for(let c=0;c<SIZE;c++){
+    const el = document.createElement('div');
+    el.className = 'clue';
+    el.id = 'col-clue-'+c;
+    el.textContent = colClue[c];
+    gridEl.appendChild(el);
+  }
+
+  for(let r=0;r<SIZE;r++){
+    const rowClueEl = document.createElement('div');
+    rowClueEl.className = 'clue';
+    rowClueEl.id = 'row-clue-'+r;
+    rowClueEl.textContent = rowClue[r];
+    gridEl.appendChild(rowClueEl);
+
+    for(let c=0;c<SIZE;c++){
+      const cellEl = document.createElement('div');
+      cellEl.className = 'cell';
+      cellEl.id = 'cell-'+r+'-'+c;
+      const val = grid[r][c];
+      if(val === 'tree'){
+        cellEl.classList.add('tree');
+        cellEl.textContent = '🌳';
+      } else if(val === 'camp'){
+        cellEl.classList.add('camp');
+        cellEl.textContent = '⛺';
+      }
+      cellEl.addEventListener('click', ()=> onCellClick(r,c));
+      gridEl.appendChild(cellEl);
+    }
+  }
+
+  updateIndicators();
+}
+
+function onCellClick(r,c){
+  if(grid[r][c] === 'tree') return; // fixed
+  grid[r][c] = grid[r][c] === 'camp' ? 'empty' : 'camp';
+
+  const cellEl = document.getElementById('cell-'+r+'-'+c);
+  if(grid[r][c] === 'camp'){
+    cellEl.classList.add('camp');
+    cellEl.textContent = '⛺';
+  } else {
+    cellEl.classList.remove('camp');
+    cellEl.textContent = '';
+  }
+  updateIndicators();
+}
+
+function updateIndicators(){
+  const campSet = currentCamps();
+
+  // adjacency violation lookup per camp
+  const violatingCells = new Set();
+  campSet.forEach(key=>{
+    const [r,c] = key.split(',').map(Number);
+    if(violatesAdjacency(campSet, r, c)) violatingCells.add(key);
+  });
+
+  let rowCounts = Array(SIZE).fill(0);
+  let colCounts = Array(SIZE).fill(0);
+  let rowHasViolation = Array(SIZE).fill(false);
+  let colHasViolation = Array(SIZE).fill(false);
+
+  campSet.forEach(key=>{
+    const [r,c] = key.split(',').map(Number);
+    rowCounts[r]++;
+    colCounts[c]++;
+    if(violatingCells.has(key)){
+      rowHasViolation[r] = true;
+      colHasViolation[c] = true;
+    }
+  });
+
+  let allCorrect = true;
+
+  for(let r=0;r<SIZE;r++){
+    const el = document.getElementById('row-clue-'+r);
+    el.classList.remove('correct','wrong');
+    const ok = rowCounts[r] === rowClue[r] && !rowHasViolation[r];
+    const over = rowCounts[r] > rowClue[r] || rowHasViolation[r];
+    if(ok){ el.classList.add('correct'); }
+    else if(over){ el.classList.add('wrong'); allCorrect = false; }
+    else { allCorrect = false; }
+  }
+
+  for(let c=0;c<SIZE;c++){
+    const el = document.getElementById('col-clue-'+c);
+    el.classList.remove('correct','wrong');
+    const ok = colCounts[c] === colClue[c] && !colHasViolation[c];
+    const over = colCounts[c] > colClue[c] || colHasViolation[c];
+    if(ok){ el.classList.add('correct'); }
+    else if(over){ el.classList.add('wrong'); allCorrect = false; }
+    else { allCorrect = false; }
+  }
+
+  // also every camp must touch at least one tree orthogonally, for a true win
+  let everyCampTouchesTree = true;
+  campSet.forEach(key=>{
+    const [r,c] = key.split(',').map(Number);
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    let touches = false;
+    for(const [dr,dc] of dirs){
+      const nr=r+dr, nc=c+dc;
+      if(inBounds(nr,nc) && grid[nr][nc]==='tree'){ touches = true; break; }
+    }
+    if(!touches) everyCampTouchesTree = false;
+  });
+
+  const statusEl = document.getElementById('status');
+  if(allCorrect && everyCampTouchesTree && campSet.size > 0){
+    statusEl.textContent = '🎉 Solved! Every row and column checks out.';
+    statusEl.classList.add('win');
+  } else {
+    statusEl.textContent = '';
+    statusEl.classList.remove('win');
+  }
+}
+
+function newGame(){
+  generatePuzzle();
+  render();
+}
+
+document.getElementById('newGameBtn').addEventListener('click', newGame);
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) if(grid[r][c]==='camp') grid[r][c]='empty';
+  render();
+});
+
+newGame();
+</script>
+</body>
+</html>
