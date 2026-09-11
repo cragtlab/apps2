@@ -47,6 +47,8 @@
         <input id="searchBox" placeholder="Search all loaded reports..." style="width: 300px;">
         <select id="officerFilter"><option value="">All Officers</option></select>
         <select id="statusFilter"><option value="">All Statuses</option></select>
+        <button id="clearFilterBtn">Clear Filter</button>
+        <span id="resultCountLabel" style="margin-left: 10px; font-size: 0.9em;"></span>
 
         <div style="max-height:600px; overflow:auto; margin-top:10px;">
             <table id="resultsTable">
@@ -261,6 +263,7 @@
         const officer = offInp.value;
         const status = statInp.value;
         const results = [];
+        let totalMatches = 0;
 
         for (const type in loadedData) {
             const rows = loadedData[type];
@@ -285,19 +288,30 @@
                 if (term) {
                     if (!JSON.stringify(row).toLowerCase().includes(term)) continue;
                 }
-                results.push({ type, row });
-                if (results.length > 500) break;
+                totalMatches++;
+                if (results.length < 500) {
+                    results.push({ type, row });
+                }
             }
-            if (results.length > 500) break;
         }
-        renderResults(results);
+        renderResults(results, totalMatches);
     }
 
-    function renderResults(results) {
+    function renderResults(results, totalMatches = 0) {
         const head = container.querySelector("#resultsHead");
         const body = container.querySelector("#resultsBody");
+        const countLabel = container.querySelector("#resultCountLabel");
         if (!head || !body) return;
         head.innerHTML = ""; body.innerHTML = "";
+
+        if (countLabel) {
+            if (totalMatches > 500) {
+                countLabel.textContent = `showing 500 of ${totalMatches} results`;
+            } else {
+                countLabel.textContent = `(showing ${totalMatches} results)`;
+            }
+        }
+
         if (results.length === 0) return;
 
         let maxCols = 0;
@@ -320,5 +334,11 @@
     container.querySelector("#officerFilter").onchange = applyFilters;
     container.querySelector("#statusFilter").onchange = applyFilters;
     container.querySelector("#showAllOfficers").onchange = updateDashboard;
+    container.querySelector("#clearFilterBtn").onclick = () => {
+        container.querySelector("#searchBox").value = "";
+        container.querySelector("#officerFilter").value = "";
+        container.querySelector("#statusFilter").value = "";
+        applyFilters();
+    };
 
 })();
