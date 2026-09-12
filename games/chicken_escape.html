@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Free the Chickens!</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: linear-gradient(to bottom, #8ecae6 0%, #a8dadc 60%, #cdeac0 100%);
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    user-select: none;
+  }
+
+  #scene {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  #ground {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 18%;
+    background: #7cb342;
+  }
+
+  #instructions {
+    position: absolute;
+    top: 20px;
+    width: 100%;
+    text-align: center;
+    font-size: 1.2em;
+    color: #333;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.6);
+    z-index: 10;
+  }
+
+  #skyLayer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 40;
+  }
+
+  .slot {
+    position: absolute;
+    bottom: 15%;
+    width: 30%;
+    height: 260px;
+  }
+  .slot:nth-child(1) { left: 3%; }
+  .slot:nth-child(2) { left: 35%; }
+  .slot:nth-child(3) { left: 67%; }
+
+  .chickenWrap {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: pointer;
+    z-index: 5;
+  }
+
+  .chicken {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    animation: wiggle 0.4s infinite ease-in-out;
+    transform-origin: bottom center;
+  }
+
+  .chicken.flapping {
+    animation: flap 0.18s infinite ease-in-out;
+  }
+
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-3deg); }
+    50% { transform: rotate(3deg); }
+  }
+
+  @keyframes flap {
+    0%, 100% { transform: rotate(-10deg); }
+    50% { transform: rotate(10deg); }
+  }
+
+  .body {
+    position: absolute;
+    width: 60px;
+    height: 50px;
+    background: var(--chicken-color);
+    border-radius: 50% 50% 45% 45%;
+    bottom: 10px;
+    left: 15px;
+    box-shadow: inset -6px -6px 10px rgba(0,0,0,0.15);
+  }
+
+  .head {
+    position: absolute;
+    width: 34px;
+    height: 34px;
+    background: var(--chicken-color);
+    border-radius: 50%;
+    top: 0px;
+    left: 40px;
+    box-shadow: inset -4px -4px 8px rgba(0,0,0,0.15);
+  }
+
+  .comb {
+    position: absolute;
+    top: -10px;
+    left: 8px;
+    width: 20px;
+    height: 14px;
+    background: #e63946;
+    border-radius: 50% 50% 0 0;
+    clip-path: polygon(0% 100%, 15% 20%, 30% 100%, 50% 10%, 70% 100%, 85% 20%, 100% 100%);
+  }
+
+  .beak {
+    position: absolute;
+    top: 14px;
+    left: 68px;
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-left: 12px solid #f4a261;
+  }
+
+  .eye {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    background: #222;
+    border-radius: 50%;
+    top: 10px;
+    left: 60px;
+  }
+
+  .wattle {
+    position: absolute;
+    width: 8px;
+    height: 10px;
+    background: #e63946;
+    border-radius: 0 0 50% 50%;
+    top: 22px;
+    left: 63px;
+  }
+
+  .wing {
+    position: absolute;
+    width: 26px;
+    height: 30px;
+    background: rgba(0,0,0,0.12);
+    border-radius: 60% 40% 50% 50%;
+    top: 18px;
+    left: 10px;
+  }
+
+  .leg {
+    position: absolute;
+    width: 4px;
+    height: 16px;
+    background: #f4a261;
+    bottom: -14px;
+  }
+  .leg.left { left: 25px; }
+  .leg.right { left: 45px; }
+
+  .tail {
+    position: absolute;
+    width: 20px;
+    height: 26px;
+    background: var(--chicken-color);
+    border-radius: 60% 20% 60% 20%;
+    top: -4px;
+    left: -6px;
+    transform: rotate(25deg);
+    box-shadow: inset -4px -2px 6px rgba(0,0,0,0.15);
+  }
+
+  /* Bush made of layered blobs */
+  .bush {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 220px;
+    height: 150px;
+    z-index: 6;
+    pointer-events: none;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+  }
+
+  .bush.opened {
+    transform: translateX(-50%) scale(1.15);
+    opacity: 0;
+  }
+
+  .bush.reappear {
+    animation: growIn 0.5s ease forwards;
+  }
+
+  @keyframes growIn {
+    0% { transform: translateX(-50%) scale(0); opacity: 0; }
+    70% { transform: translateX(-50%) scale(1.1); opacity: 1; }
+    100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  }
+
+  .blob {
+    position: absolute;
+    background: radial-gradient(circle at 30% 30%, #6fbf73, #2e7d32);
+    border-radius: 50%;
+  }
+
+  .blob1 { width: 120px; height: 105px; left: 5px; bottom: 0; }
+  .blob2 { width: 105px; height: 90px; left: 80px; bottom: 8px; }
+  .blob3 { width: 90px; height: 80px; left: 45px; bottom: 35px; }
+  .blob4 { width: 80px; height: 70px; left: 130px; bottom: 42px; }
+  .blob5 { width: 60px; height: 55px; left: 0px; bottom: 55px; }
+
+  .phrase {
+    position: absolute;
+    transform: translate(-50%, -50%) scale(0.5);
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #d62828;
+    text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff;
+    opacity: 0;
+    z-index: 60;
+    text-align: center;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .phrase.show {
+    animation: popIn 2.2s ease forwards;
+  }
+
+  @keyframes popIn {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+    12% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    25% { transform: translate(-50%, -50%) scale(1); }
+    70% { opacity: 1; transform: translate(-50%, -140%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -220%) scale(1); }
+  }
+
+  .pinyin {
+    display: block;
+    font-size: 0.4em;
+    color: #444;
+    font-weight: normal;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div id="scene">
+  <div id="instructions">🐔 Press a chicken trapped in the bush to set it free! Watch it fly off as a new one sneaks in.</div>
+
+  <div class="slot" id="slot0"></div>
+  <div class="slot" id="slot1"></div>
+  <div class="slot" id="slot2"></div>
+
+  <div id="skyLayer"></div>
+  <div id="ground"></div>
+</div>
+
+<script>
+  const phrases = [
+    ["自由了！", "zì yóu le! — I'm free!"],
+    ["太好了！", "tài hǎo le! — Awesome!"],
+    ["跑得快！", "pǎo de kuài! — Running fast!"],
+    ["谢谢你！", "xiè xie nǐ! — Thank you!"],
+    ["逃走啦！", "táo zǒu la! — Escaped!"],
+    ["咯咯哒！", "gē gē dá! — Cluck cluck!"],
+    ["再见！", "zài jiàn! — Goodbye!"],
+    ["飞起来！", "fēi qǐ lái! — Flying away!"],
+    ["解放了！", "jiě fàng le! — Liberated!"],
+    ["好开心！", "hǎo kāi xīn! — So happy!"],
+    ["我自由啦！", "wǒ zì yóu la! — I'm free now!"],
+    ["快跑吧！", "kuài pǎo ba! — Run quickly!"],
+    ["天空真大！", "tiān kōng zhēn dà! — The sky is so big!"],
+    ["不回去了！", "bù huí qù le! — Not going back!"],
+    ["世界你好！", "shì jiè nǐ hǎo! — Hello, world!"],
+    ["终于出来了！", "zhōng yú chū lái le! — Finally out!"],
+    ["加油加油！", "jiā yóu jiā yóu! — Go go go!"],
+    ["好运连连！", "hǎo yùn lián lián! — Good luck ahead!"],
+    ["笑一个！", "xiào yí gè! — Give a smile!"],
+    ["无忧无虑！", "wú yōu wú lǜ! — Carefree!"],
+    ["精神百倍！", "jīng shén bǎi bèi! — Full of energy!"],
+    ["勇敢的鸡！", "yǒng gǎn de jī! — Brave chicken!"],
+    ["新的开始！", "xīn de kāi shǐ! — A new beginning!"],
+    ["万岁万岁！", "wàn suì wàn suì! — Hooray, hooray!"],
+    ["溜了溜了！", "liū le liū le! — Slipping away!"],
+    ["飞得更高！", "fēi de gèng gāo! — Flying even higher!"],
+    ["蓝天白云！", "lán tiān bái yún! — Blue sky, white clouds!"],
+    ["自由万岁！", "zì yóu wàn suì! — Long live freedom!"],
+    ["一飞冲天！", "yì fēi chōng tiān! — Soaring to the sky!"],
+    ["开心出发！", "kāi xīn chū fā! — Happily setting off!"]
+  ];
+
+  const colors = [
+    '#f4a261', '#e9c46a', '#a8763e', '#f28482',
+    '#ffb703', '#e76f51', '#d4a373', '#8d6e63',
+    '#fff3b0', '#e0aaff', '#adb5bd', '#f6bd60',
+    '#c9ada7', '#ef8354', '#606c38', '#bde0fe'
+  ];
+
+  function randomColor() {
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+
+  function randomPhrase() {
+    return phrases[Math.floor(Math.random() * phrases.length)];
+  }
+
+  const scene = document.getElementById('scene');
+  const skyLayer = document.getElementById('skyLayer');
+
+  const bushSVG = `
+    <div class="blob blob1"></div>
+    <div class="blob blob2"></div>
+    <div class="blob blob3"></div>
+    <div class="blob blob4"></div>
+    <div class="blob blob5"></div>
+  `;
+
+  const chickenSVG = `
+    <div class="chicken">
+      <div class="tail"></div>
+      <div class="body"></div>
+      <div class="wing"></div>
+      <div class="head">
+        <div class="comb"></div>
+        <div class="eye"></div>
+        <div class="wattle"></div>
+        <div class="beak"></div>
+      </div>
+      <div class="leg left"></div>
+      <div class="leg right"></div>
+    </div>
+  `;
+
+  function buildSlot(slotEl) {
+    slotEl.innerHTML = `
+      <div class="bush">${bushSVG}</div>
+      <div class="chickenWrap">${chickenSVG}</div>
+    `;
+    const chicken = slotEl.querySelector('.chicken');
+    chicken.style.setProperty('--chicken-color', randomColor());
+
+    const chickenWrap = slotEl.querySelector('.chickenWrap');
+    const bush = slotEl.querySelector('.bush');
+
+    let released = false;
+
+    chickenWrap.addEventListener('click', () => {
+      if (released) return;
+      released = true;
+
+      bush.classList.add('opened');
+
+      // --- show the phrase above the slot ---
+      const slotRect = slotEl.getBoundingClientRect();
+      const sceneRect = scene.getBoundingClientRect();
+      const centerX = slotRect.left - sceneRect.left + slotRect.width / 2;
+      const centerY = slotRect.top - sceneRect.top + slotRect.height * 0.35;
+
+      const [hanzi, pinyin] = randomPhrase();
+      const phraseEl = document.createElement('div');
+      phraseEl.className = 'phrase';
+      phraseEl.style.left = centerX + 'px';
+      phraseEl.style.top = centerY + 'px';
+      phraseEl.innerHTML = hanzi + '<span class="pinyin">' + pinyin + '</span>';
+      skyLayer.appendChild(phraseEl);
+      requestAnimationFrame(() => phraseEl.classList.add('show'));
+      setTimeout(() => phraseEl.remove(), 2300);
+
+      // --- detach the chicken and send it flying upward, well clear of the bush ---
+      const wrapRect = chickenWrap.getBoundingClientRect();
+      const startLeft = wrapRect.left - sceneRect.left + wrapRect.width / 2;
+      const startTop = wrapRect.top - sceneRect.top;
+
+      chickenWrap.remove();
+      chickenWrap.style.position = 'absolute';
+      chickenWrap.style.left = startLeft + 'px';
+      chickenWrap.style.top = startTop + 'px';
+      chickenWrap.style.bottom = 'auto';
+      chickenWrap.style.transform = 'translate(-50%, 0) scale(1)';
+      chickenWrap.style.opacity = '1';
+      chickenWrap.style.transition = 'transform 2.6s cubic-bezier(.2,.6,.35,1), opacity 0.6s ease 2s';
+      chickenWrap.style.zIndex = '55';
+      chicken.classList.add('flapping');
+      skyLayer.appendChild(chickenWrap);
+
+      const drift = (Math.random() - 0.5) * 260;
+      const riseHeight = sceneRect.height * 0.85 + Math.random() * 80;
+
+      requestAnimationFrame(() => {
+        chickenWrap.style.transform =
+          `translate(calc(-50% + ${drift}px), -${riseHeight}px) scale(0.35) rotate(${drift > 0 ? 20 : -20}deg)`;
+        chickenWrap.style.opacity = '0';
+      });
+
+      setTimeout(() => chickenWrap.remove(), 2700);
+
+      // --- a new chicken sneaks into the bush while the old one is still flying away ---
+      setTimeout(() => {
+        buildSlot(slotEl);
+        slotEl.querySelector('.bush').classList.add('reappear');
+      }, 650);
+    });
+  }
+
+  ['slot0', 'slot1', 'slot2'].forEach(id => buildSlot(document.getElementById(id)));
+</script>
+
+</body>
+</html>
