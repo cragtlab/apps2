@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Crumb Runners</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; overflow: hidden;
+    background: #1c140c;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    height: 100%;
+  }
+  canvas { display: block; }
+  #hint {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    color: #f1e6cf; font-family: Georgia, 'Times New Roman', serif;
+    font-size: 13px; letter-spacing: 0.04em;
+    background: rgba(20, 14, 8, 0.55);
+    border: 1px solid rgba(241, 230, 207, 0.25);
+    padding: 7px 16px; border-radius: 999px;
+    pointer-events: none; transition: opacity 1.2s ease;
+  }
+  #legend {
+    position: fixed; bottom: 14px; left: 14px;
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11px; color: #f1e6cf; opacity: 0.75;
+    pointer-events: none;
+  }
+  #legend span { display: flex; align-items: center; gap: 5px; }
+  #legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<div id="hint">Touch the floor to drop a crumb — watch the sky when it rains</div>
+<div id="legend"></div>
+<canvas id="c"></canvas>
+<script>
+(function () {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const hint = document.getElementById('hint');
+  const legendEl = document.getElementById('legend');
+
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let floorCanvas = document.createElement('canvas');
+  let floorCtx = floorCanvas.getContext('2d');
+
+  const START_POP = 30;
+  const IDLE_CAP = 18;
+  const WANDER_RADIUS = 40;
+
+  // ---- Colonies ----------------------------------------------------------
+  const colonyDefs = [
+    { name: 'Rust',  corner: 'tl', body: '#a9432c', dark: '#5c2116' },
+    { name: 'Coal',  corner: 'tr', body: '#2b2b2b', dark: '#0f0f0f' },
+    { name: 'Amber', corner: 'bl', body: '#b8862f', dark: '#6b4b16' },
+    { name: 'Moss',  corner: 'br', body: '#4c6b3a', dark: '#28381d' },
+  ];
+  let colonies = [];
+
+  function layoutColonies() {
+    colonyDefs.forEach((def, i) => {
+      let x, y, outDir;
+      if (def.corner === 'tl') { x = W * 0.25; y = H * 0.25; outDir = { x: -1, y: -1 }; }
+      if (def.corner === 'tr') { x = W * 0.75; y = H * 0.25; outDir = { x: 1, y: -1 }; }
+      if (def.corner === 'bl') { x = W * 0.25; y = H * 0.75; outDir = { x: -1, y: 1 }; }
+      if (def.corner === 'br') { x = W * 0.75; y = H * 0.75; outDir = { x: 1, y: 1 }; }
+      const norm = Math.hypot(outDir.x, outDir.y);
+      outDir = { x: outDir.x / norm, y: outDir.y / norm };
+
+      const existing = colonies[i];
+      colonies[i] = Object.assign(
+        existing || {
+          population: START_POP,
+          popAnim: { scale: 1, flashUntil: 0, flashColor: null },
+        },
+        def,
+        { pos: { x, y }, outDir }
+      );
+    });
+  }
+
+  function buildLegend() {
+    legendEl.innerHTML = colonyDefs.map(c =>
+      `<span><i style="background:${c.body}"></i>${c.name}</span>`
+    ).join('');
+  }
+
+  // ---- Floor texture ------------------------------------------------------
+  function buildFloor() {
+    floorCanvas.width = W * DPR;
+    floorCanvas.height = H * DPR;
+    floorCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const g = floorCtx.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
+    g.addColorStop(0, '#5a3f28');
+    g.addColorStop(1, '#3a2717');
+    floorCtx.fillStyle = g;
+    floorCtx.fillRect(0, 0, W, H);
+
+    floorCtx.strokeStyle = 'rgba(0,0,0,0.10)';
+    floorCtx.lineWidth = 1;
+    const tile = 64;
+    for (let x = 0; x < W; x += tile) {
+      floorCtx.beginPath(); floorCtx.moveTo(x, 0); floorCtx.lineTo(x, H); floorCtx.stroke();
+    }
+    for (let y = 0; y < H; y += tile) {
+      floorCtx.beginPath(); floorCtx.moveTo(0, y); floorCtx.lineTo(W, y); floorCtx.stroke();
+    }
+
+    const speckleCount = Math.floor((W * H) / 1800);
+    for (let i = 0; i < speckleCount; i++) {
+      const x = Math.random() * W, y = Math.random() * H;
+      const r = Math.random() * 1.4 + 0.3;
+      const shade = Math.random() > 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,235,200,0.06)';
+      floorCtx.fillStyle = shade;
+      floorCtx.beginPath(); floorCtx.arc(x, y, r, 0, Math.PI * 2); floorCtx.fill();
+    }
+
+    const vg = floorCtx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.3, W/2, H/2, Math.max(W,H)*0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+    floorCtx.fillStyle = vg;
+    floorCtx.fillRect(0, 0, W, H);
+    // note: nest mounds are drawn live each frame now (not baked), so counts/flashes can animate
+  }
+
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    layoutColonies();
+    buildFloor();
+  }
+  window.addEventListener('resize', resize);
+
+  // ---- Entities -------------------------------------------------------
+  let crumbs = [];
+  let ants = [];
+  let splats = [];
+  let idCounter = 1;
+
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+  function makeIdleAnt(colony) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.random() * WANDER_RADIUS;
+    return {
+      id: idCounter++,
+      colony,
+      x: colony.pos.x + Math.cos(angle) * r,
+      y: colony.pos.y + Math.sin(angle) * r,
+      angle: Math.random() * Math.PI * 2,
+      speed: 14 + Math.random() * 10,
+      phase: Math.random() * Math.PI * 2,
+      wanderAngle: Math.random() * Math.PI * 2,
+      age: Math.random() * 1000,
+      alpha: 1,
+      state: 'idle',
+      crumb: null,
+      circleAngle: 0,
+      scale: 0.85 + Math.random() * 0.3,
+    };
+  }
+
+  function idleAntsOf(colony) {
+    return ants.filter(a => a.colony === colony && a.state === 'idle');
+  }
+  function busyAntsOf(colony) {
+    return ants.filter(a => a.colony === colony && a.state !== 'idle');
+  }
+
+  function flashPop(colony, positive) {
+    colony.popAnim.scale = 1.6;
+    colony.popAnim.flashUntil = performance.now() + 650;
+    colony.popAnim.flashColor = positive ? '#8fd66b' : '#e05b4f';
+  }
+
+  function growPopulation(colony, amount) {
+    colony.population += amount;
+    flashPop(colony, true);
+  }
+
+  function killAnt(ant, atNest) {
+    const idx = ants.indexOf(ant);
+    if (idx !== -1) ants.splice(idx, 1);
+    if (ant.crumb) {
+      const ci = ant.crumb.ants.indexOf(ant);
+      if (ci !== -1) ant.crumb.ants.splice(ci, 1);
+      if (ant.crumb.ants.length === 0 && ant.crumb.state !== 'done') {
+        ant.crumb.state = 'abandoned';
+      }
+    }
+    ant.colony.population = Math.max(0, ant.colony.population - 1);
+    flashPop(ant.colony, false);
+    splats.push({ x: ant.x, y: ant.y, born: performance.now(), nest: !!atNest });
+  }
+
+  function spawnCrumb(x, y) {
+    let sorted = colonies
+      .map((c, i) => ({ i, d: dist(c.pos, { x, y }) }))
+      .sort((a, b) => a.d - b.d);
+
+    const candidates = sorted.map(s => colonies[s.i]).filter(c => c.population > 0);
+    if (candidates.length === 0) return; // every colony wiped out
+
+    const primary = candidates[0];
+    let involved = [primary];
+    if (candidates.length > 1 && Math.random() < 0.22) {
+      involved.push(candidates[1]);
+    }
+
+    const crumb = {
+      id: idCounter++,
+      x, y,
+      size: 9 + Math.random() * 5,
+      wobble: Math.random() * Math.PI * 2,
+      state: 'waiting', // waiting -> gathering -> carrying -> done/abandoned
+      groupTimer: 0,
+      primaryColony: primary,
+      ants: [],
+      bornAt: performance.now(),
+    };
+
+    involved.forEach((colony, ci) => {
+      const want = 2 + Math.floor(Math.random() * 3) + (ci === 0 ? 1 : 0);
+      const pool = idleAntsOf(colony);
+      const take = Math.min(want, pool.length);
+      for (let k = 0; k < take; k++) {
+        const ant = pool[k];
+        ant.state = 'walking';
+        ant.crumb = crumb;
+        crumb.ants.push(ant);
+      }
+    });
+
+    if (crumb.ants.length === 0) return; // nobody available right now
+    crumbs.push(crumb);
+  }
+
+  // ---- Input ------------------------------------------------------------
+  function handlePoint(clientX, clientY) {
+    spawnCrumb(clientX, clientY);
+    if (hint) hint.style.opacity = '0';
+  }
+  canvas.addEventListener('pointerdown', (e) => handlePoint(e.clientX, e.clientY));
+
+  // ---- Rain -----------------------------------------------------------
+  const rain = {
+    active: false,
+    drops: [],
+    nextEventAt: performance.now() + 2500 + Math.random() * 2500,
+    endAt: 0,
+    spawnAcc: 0,
+  };
+
+  function updateRain(dt, now) {
+    if (!rain.active && now > rain.nextEventAt) {
+      rain.active = true;
+      rain.endAt = now + 6000 + Math.random() * 4000;
+      rain.spawnAcc = 0;
+    }
+    if (rain.active) {
+      rain.spawnAcc += dt;
+      const spawnRate = 1 / 16; // seconds per drop (lower = denser rain)
+      while (rain.spawnAcc > spawnRate) {
+        rain.spawnAcc -= spawnRate;
+        rain.drops.push({
+          x: Math.random() * W,
+          y: -10,
+          vy: 420 + Math.random() * 180,
+          len: 10 + Math.random() * 10,
+          consumed: false,
+        });
+      }
+      if (now > rain.endAt) {
+        rain.active = false;
+        rain.nextEventAt = now + 6000 + Math.random() * 7000;
+      }
+    }
+
+    for (let i = rain.drops.length - 1; i >= 0; i--) {
+      const d = rain.drops[i];
+      d.y += d.vy * dt;
+
+      if (!d.consumed) {
+        // ant collisions
+        for (let j = ants.length - 1; j >= 0; j--) {
+          const ant = ants[j];
+          if (ant.state === 'spawning') continue;
+          const dx = ant.x - d.x, dy = ant.y - d.y;
+          if (dx * dx + dy * dy < 7 * 7) {
+            d.consumed = true;
+            splats.push({ x: d.x, y: d.y, born: now, splash: true });
+            if (Math.random() < 0.7) killAnt(ant, false);
+            break;
+          }
+        }
+      }
+      if (!d.consumed) {
+        // nest collisions
+        for (const colony of colonies) {
+          const dx = colony.pos.x - d.x, dy = colony.pos.y - d.y;
+          if (dx * dx + dy * dy < 26 * 26) {
+            d.consumed = true;
+            splats.push({ x: d.x, y: d.y, born: now, splash: true });
+            if (colony.population > 0 && Math.random() < 0.08) {
+              colony.population -= 1;
+              flashPop(colony, false);
+              splats.push({ x: colony.pos.x + (Math.random()-0.5)*16, y: colony.pos.y + (Math.random()-0.5)*16, born: now, nest: true });
+            }
+            break;
+          }
+        }
+      }
+
+      if (d.consumed || d.y > H + 20) rain.drops.splice(i, 1);
+    }
+  }
+
+  // ---- Ant Wars ---------------------------------------------------------
+  let wars = [];
+  let nextWarAt = performance.now() + 2000 + Math.random() * 3000;
+
+  function maybeStartWar(now) {
+    if (now < nextWarAt) return;
+    nextWarAt = now + 4000 + Math.random() * 6000;
+
+    const ready = colonies.filter(c => idleAntsOf(c).length > 0);
+    if (ready.length < 2) return;
+    // pick two distinct colonies
+    const a = ready[Math.floor(Math.random() * ready.length)];
+    let b = ready[Math.floor(Math.random() * ready.length)];
+    let tries = 0;
+    while (b === a && tries++ < 10) b = ready[Math.floor(Math.random() * ready.length)];
+    if (b === a) return;
+
+    const antA = idleAntsOf(a)[0];
+    const antB = idleAntsOf(b)[0];
+    antA.state = 'war'; antB.state = 'war';
+    antA.warRole = 'A'; antB.warRole = 'B';
+
+    const target = {
+      x: (a.pos.x + b.pos.x) / 2 + (Math.random() - 0.5) * 30,
+      y: (a.pos.y + b.pos.y) / 2 + (Math.random() - 0.5) * 30,
+    };
+    wars.push({ a: antA, b: antB, colonyA: a, colonyB: b, target, phase: 'marching', clashAt: 0 });
+  }
+
+  function updateWars(dt, now) {
+    for (let i = wars.length - 1; i >= 0; i--) {
+      const w = wars[i];
+      if (w.phase === 'marching') {
+        let bothThere = true;
+        [w.a, w.b].forEach(ant => {
+          const dx = w.target.x - ant.x, dy = w.target.y - ant.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 5) {
+            bothThere = false;
+            ant.x += (dx / d) * 60 * dt;
+            ant.y += (dy / d) * 60 * dt;
+            ant.angle = Math.atan2(dy, dx);
+          }
+        });
+        if (bothThere) { w.phase = 'fighting'; w.clashAt = now; }
+      } else if (w.phase === 'fighting') {
+        const shakeA = { x: w.target.x + Math.sin(now * 0.05) * 3, y: w.target.y + Math.cos(now * 0.04) * 3 };
+        const shakeB = { x: w.target.x - Math.sin(now * 0.05) * 3, y: w.target.y - Math.cos(now * 0.04) * 3 };
+        w.a.x = shakeA.x; w.a.y = shakeA.y;
+        w.b.x = shakeB.x; w.b.y = shakeB.y;
+        w.a.angle = Math.atan2(w.b.y - w.a.y, w.b.x - w.a.x);
+        w.b.angle = Math.atan2(w.a.y - w.b.y, w.a.x - w.b.x);
+        if (now - w.clashAt > 700) {
+          const aWeight = w.colonyA.population + 1;
+          const bWeight = w.colonyB.population + 1;
+          const aWins = Math.random() < aWeight / (aWeight + bWeight);
+          const winner = aWins ? w.a : w.b;
+          const loser = aWins ? w.b : w.a;
+          const winnerColony = aWins ? w.colonyA : w.colonyB;
+          splats.push({ x: w.target.x, y: w.target.y, born: now, splash: true });
+          killAnt(loser, false);
+          winner.state = 'returning';
+          winner.returnColony = winnerColony;
+          w.phase = 'done';
+        }
+      } else if (w.phase === 'done') {
+        wars.splice(i, 1);
+      }
+    }
+  }
+
+  function updateReturningAnt(ant, dt) {
+    const nest = ant.returnColony.pos;
+    const dx = nest.x - ant.x, dy = nest.y - ant.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 8) { ant.state = 'idle'; ant.wanderAngle = Math.random() * Math.PI * 2; return; }
+    ant.x += (dx / d) * 55 * dt;
+    ant.y += (dy / d) * 55 * dt;
+    ant.angle = Math.atan2(dy, dx);
+  }
+
+  // ---- Update -------------------------------------------------------------
+  let lastT = performance.now();
+
+  function updateIdlePopulation(colony, dt) {
+    const busy = busyAntsOf(colony).length;
+    const desired = Math.max(0, Math.min(colony.population - busy, IDLE_CAP));
+    const idle = idleAntsOf(colony);
+    if (idle.length < desired) {
+      for (let k = idle.length; k < desired; k++) ants.push(makeIdleAnt(colony));
+    } else if (idle.length > desired) {
+      let excess = idle.length - desired;
+      for (let k = 0; k < idle.length && excess > 0; k++) {
+        const ix = ants.indexOf(idle[k]);
+        if (ix !== -1) { ants.splice(ix, 1); excess--; }
+      }
+    }
+  }
+
+  function updateIdleAnt(ant, dt) {
+    ant.age += dt * 1000;
+    ant.wanderAngle += (Math.random() - 0.5) * dt * 3;
+    const nest = ant.colony.pos;
+    const dxn = ant.x - nest.x, dyn = ant.y - nest.y;
+    const distFromNest = Math.hypot(dxn, dyn);
+    if (distFromNest > WANDER_RADIUS) {
+      ant.wanderAngle = Math.atan2(nest.y - ant.y, nest.x - ant.x) + (Math.random() - 0.5) * 0.6;
+    }
+    ant.x += Math.cos(ant.wanderAngle) * ant.speed * dt;
+    ant.y += Math.sin(ant.wanderAngle) * ant.speed * dt;
+    ant.angle = ant.wanderAngle;
+  }
+
+  function updateAnt(ant, dt, now) {
+    if (ant.state === 'idle') { updateIdleAnt(ant, dt); return; }
+    if (ant.state === 'war') { return; } // position driven by updateWars
+    if (ant.state === 'returning') { updateReturningAnt(ant, dt); return; }
+
+    ant.age += dt * 1000;
+    ant.alpha = 1;
+
+    if (ant.state === 'walking') {
+      const c = ant.crumb;
+      if (!c) return;
+      const tx = c.x, ty = c.y;
+      const dx = tx - ant.x, dy = ty - ant.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 10) {
+        const idx = c.ants.indexOf(ant);
+        const n = Math.max(c.ants.length, 1);
+        ant.circleAngle = (idx / n) * Math.PI * 2;
+        ant.state = 'gathering';
+        return;
+      }
+      const nx = dx / d, ny = dy / d;
+      ant.wanderAngle = (ant.wanderAngle || 0) + dt * 4;
+      const perp = Math.sin(ant.wanderAngle + ant.phase) * 0.28;
+      const moveX = nx + -ny * perp;
+      const moveY = ny + nx * perp;
+      const mlen = Math.hypot(moveX, moveY) || 1;
+      ant.x += (moveX / mlen) * ant.speed * dt;
+      ant.y += (moveY / mlen) * ant.speed * dt;
+      ant.angle = Math.atan2(dy, dx);
+      return;
+    }
+
+    if (ant.state === 'gathering') {
+      const c = ant.crumb;
+      if (!c) return;
+      const r = c.size + 6;
+      const targetX = c.x + Math.cos(ant.circleAngle) * r;
+      const targetY = c.y + Math.sin(ant.circleAngle) * r;
+      ant.x += (targetX - ant.x) * Math.min(1, dt * 6);
+      ant.y += (targetY - ant.y) * Math.min(1, dt * 6);
+      ant.angle = Math.atan2(c.y - ant.y, c.x - ant.x);
+
+      if (c.state === 'waiting') {
+        const allArrived = c.ants.every(a => a.state === 'gathering' || a.state === 'carrying');
+        if (allArrived || (now - c.bornAt) > 3400) {
+          c.state = 'gathering';
+          c.groupTimer = now;
+        }
+      } else if (c.state === 'gathering') {
+        if (now - c.groupTimer > 550) c.state = 'carrying';
+      }
+      return;
+    }
+
+    if (ant.state === 'carrying') {
+      const c = ant.crumb;
+      if (!c) return;
+      const r = c.size + 6;
+      const targetX = c.x + Math.cos(ant.circleAngle) * r;
+      const targetY = c.y + Math.sin(ant.circleAngle) * r;
+      ant.x += (targetX - ant.x) * Math.min(1, dt * 8);
+      ant.y += (targetY - ant.y) * Math.min(1, dt * 8);
+      ant.circleAngle += dt * 1.4;
+      const cdx = c.primaryColony.pos.x - c.x, cdy = c.primaryColony.pos.y - c.y;
+      ant.angle = Math.atan2(cdy, cdx);
+    }
+  }
+
+  function updateCrumb(c, dt, now) {
+    if (c.state === 'carrying') {
+      const colony = c.primaryColony;
+      const dx = colony.pos.x - c.x, dy = colony.pos.y - c.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const carrySpeed = 34 + c.ants.length * 3;
+      if (d > 6) {
+        c.x += (dx / d) * carrySpeed * dt;
+        c.y += (dy / d) * carrySpeed * dt;
+      }
+      if (d < 14) {
+        c.state = 'done';
+        growPopulation(colony, Math.random() < 0.3 ? 2 : 1);
+      }
+    }
+    c.wobble += dt * 2;
+  }
+
+  function step(now) {
+    const dt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+
+    colonies.forEach(c => updateIdlePopulation(c, dt));
+    updateRain(dt, now);
+    maybeStartWar(now);
+    updateWars(dt, now);
+    crumbs.forEach(c => updateCrumb(c, dt, now));
+    ants.slice().forEach(a => updateAnt(a, dt, now));
+
+    crumbs = crumbs.filter(c => c.state !== 'done' && c.state !== 'abandoned');
+    ants = ants.filter(a => !a.crumb || (a.crumb.state !== 'done' && a.crumb.state !== 'abandoned'));
+    splats = splats.filter(s => now - s.born < 700);
+
+    draw(now);
+    requestAnimationFrame(step);
+  }
+
+  // ---- Draw -------------------------------------------------------------
+  function drawAnt(ant) {
+    if (ant.alpha <= 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = ant.alpha;
+    ctx.translate(ant.x, ant.y);
+    ctx.rotate(ant.angle);
+    ctx.scale(ant.scale, ant.scale);
+
+    const legSwing = (ant.state === 'gathering') ? 0.15 : Math.sin(ant.age * 0.02 + ant.phase) * 0.55;
+    ctx.strokeStyle = ant.colony.dark;
+    ctx.lineWidth = 0.8;
+    for (let i = -1; i <= 1; i++) {
+      const lx = i * 2.2;
+      const swing = legSwing * (i === 0 ? -1 : 1);
+      ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx + swing * 2, 4.5 + Math.abs(i) * 0.3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx - swing * 2, -4.5 - Math.abs(i) * 0.3); ctx.stroke();
+    }
+
+    ctx.fillStyle = ant.colony.body;
+    ctx.beginPath(); ctx.ellipse(-3.4, 0, 2.6, 1.9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 0, 1.7, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ant.colony.dark;
+    ctx.beginPath(); ctx.ellipse(2.6, 0, 1.4, 1.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = ant.colony.dark;
+    ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.moveTo(3.6, -0.4); ctx.lineTo(6, -2.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3.6, 0.4); ctx.lineTo(6, 2.2); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawCrumb(c) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    const wob = Math.sin(c.wobble) * 1.2;
+    ctx.rotate(wob * 0.05);
+    ctx.fillStyle = `rgba(0,0,0,${c.state === 'carrying' ? 0.15 : 0.28})`;
+    ctx.beginPath(); ctx.ellipse(1.5, c.size * 0.55, c.size * 0.9, c.size * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = '#caa062';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, c.size, c.size * 0.75, 0.3, 0, Math.PI * 2);
+    ctx.ellipse(c.size * 0.5, c.size * 0.2, c.size * 0.55, c.size * 0.45, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#8a6636';
+    ctx.beginPath();
+    ctx.arc(-c.size * 0.2, -c.size * 0.1, c.size * 0.18, 0, Math.PI * 2);
+    ctx.arc(c.size * 0.35, c.size * 0.05, c.size * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawNest(colony, now) {
+    const { x, y } = colony.pos;
+
+    // mound
+    ctx.save();
+    ctx.translate(x, y);
+    const grd = ctx.createRadialGradient(0, 0, 1, 0, 0, 24);
+    grd.addColorStop(0, colony.dark);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2); ctx.fill();
+
+    // twig ring
+    ctx.strokeStyle = 'rgba(60,40,20,0.6)';
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * 10, Math.sin(a) * 10);
+      ctx.lineTo(Math.cos(a) * 16, Math.sin(a) * 16);
+      ctx.stroke();
+    }
+    // entrance hole
+    ctx.fillStyle = colony.dark;
+    ctx.beginPath(); ctx.ellipse(0, 0, 8, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 5, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // population badge
+    const anim = colony.popAnim;
+    if (now > anim.flashUntil) anim.scale += (1 - anim.scale) * 0.15;
+    const badgeY = y - 40 * (colony.outDir.y < 0 ? -1 : 1) * -1; // place above visually regardless of corner
+    const by = y - 38;
+    ctx.save();
+    ctx.translate(x, by);
+    ctx.scale(anim.scale, anim.scale);
+    const label = String(colony.population);
+    ctx.font = '600 13px Georgia, serif';
+    const wpad = 10;
+    const tw = ctx.measureText(label).width;
+    const pillW = tw + wpad * 2, pillH = 20;
+    const flashActive = now < anim.flashUntil;
+    ctx.fillStyle = flashActive ? anim.flashColor : 'rgba(20,14,8,0.65)';
+    ctx.strokeStyle = colony.body;
+    ctx.lineWidth = 1.4;
+    roundRect(ctx, -pillW / 2, -pillH / 2, pillW, pillH, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f6ecd9';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, 0, 1);
+    ctx.restore();
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawRain(now) {
+    ctx.strokeStyle = 'rgba(190,210,230,0.45)';
+    ctx.lineWidth = 1.3;
+    rain.drops.forEach(d => {
+      ctx.beginPath();
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x - 2, d.y + d.len);
+      ctx.stroke();
+    });
+    if (rain.active) {
+      ctx.fillStyle = 'rgba(40,55,70,0.10)';
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function drawSplats(now) {
+    splats.forEach(s => {
+      const t = (now - s.born) / 700;
+      const alpha = 1 - t;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, alpha);
+      if (s.splash) {
+        ctx.strokeStyle = 'rgba(200,220,235,0.8)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 3 + t * 10, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(30,20,10,0.55)';
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, 4 + t * 3, 2 + t * 1.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+  }
+
+  function draw(now) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(floorCanvas, 0, 0, W, H);
+
+    colonies.forEach(c => drawNest(c, now));
+    crumbs.forEach(drawCrumb);
+    ants.forEach(drawAnt);
+    drawSplats(now);
+    drawRain(now);
+  }
+
+  // ---- Init ---------------------------------------------------------------
+  resize();
+  buildLegend();
+  colonies.forEach(c => {
+    for (let k = 0; k < START_POP; k++) ants.push(makeIdleAnt(c));
+  });
+  requestAnimationFrame((t) => { lastT = t; requestAnimationFrame(step); });
+
+  setTimeout(() => { if (hint) hint.style.opacity = '0.85'; }, 100);
+})();
+</script>
+</body>
+</html>
