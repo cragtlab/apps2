@@ -1,0 +1,816 @@
+(async function() {
+    const title = "RSS";
+    const container = PluginAPI.add(title);
+    const tabId = "tab_" + title.replace(/\s+/g, "_");
+
+    container.id = tabId;
+
+    const style = document.createElement('style');
+    style.textContent = `
+        #${tabId} { font-family: sans-serif; background: #f5f5f5; margin: 0; padding: 10px; }
+        #${tabId} .container { max-width: 600px; margin: auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #${tabId} h1 { font-size: 1.2rem; margin-top: 0; display: flex; justify-content: space-between; align-items: center; }
+        #${tabId} .controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        #${tabId} .row { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+        #${tabId} input[type="text"], #${tabId} input[type="url"], #${tabId} input[type="search"] { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; min-width: 120px; }
+        #${tabId} button { padding: 8px 12px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; display: flex; align-items: center; justify-content: center; }
+        #${tabId} button.secondary { background: #6c757d; }
+        #${tabId} button.danger { background: #dc3545; }
+        #${tabId} button.icon-btn { padding: 5px 8px; font-size: 1rem; background: none; color: #333; border: 1px solid #ccc; opacity: 0.7; }
+        #${tabId} button.icon-btn:hover { opacity: 1; background: #eee; }
+        #${tabId} .feed-list { margin: 10px 0; max-height: 200px; overflow-y: auto; }
+        #${tabId} .feed-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13px; border-bottom: 1px dashed #eee; }
+        #${tabId} .feed-info { display: flex; flex-direction: column; flex: 1; min-width: 0; margin-right: 10px; cursor: pointer; }
+        #${tabId} .feed-info:hover { opacity: 0.7; }
+        #${tabId} .feed-item.active { background: #e7f3ff; }
+        #${tabId} .feed-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
+        #${tabId} .feed-meta { font-size: 11px; color: #666; }
+        #${tabId} .items { display: flex; flex-direction: column; gap: 15px; }
+        #${tabId} .item { padding: 10px; border: 1px solid #eee; border-radius: 4px; position: relative; }
+        #${tabId} .item.read { opacity: 0.5; }
+        #${tabId} .item h3 { margin: 0 0 5px 0; font-size: 1rem; }
+        #${tabId} .item h3 a { text-decoration: none; color: #007bff; }
+        #${tabId} .item .meta { font-size: 12px; color: #666; display: flex; justify-content: space-between; }
+        #${tabId} .item .feed-tag { cursor: pointer; color: #007bff; }
+        #${tabId} .item .feed-tag:hover { text-decoration: underline; }
+        #${tabId} .item .desc { font-size: 14px; color: #333; margin-top: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        #${tabId} .item .actions { margin-top: 10px; display: flex; gap: 10px; }
+
+        #${tabId} .minimal .item { padding: 5px 10px; border: none; border-bottom: 1px solid #f0f0f0; border-radius: 0; }
+        #${tabId} .minimal .item h3 { font-size: 0.9rem; margin-bottom: 0; line-height: 1.4; }
+        #${tabId} .minimal .item .meta, #${tabId} .minimal .item .desc, #${tabId} .minimal .item .actions { display: none; }
+
+        #${tabId} .hidden { display: none; }
+        #${tabId} .settings-toggle { font-size: 12px; cursor: pointer; color: #007bff; text-decoration: underline; }
+    `;
+    document.head.appendChild(style);
+
+    const STORAGE_KEY_FEEDS = 'cloud_rss_feeds';
+    const STORAGE_KEY_SETTINGS = 'cloud_rss_settings';
+    const STORAGE_KEY_READ = 'cloud_rss_read';
+    const DATA_FILE_NAME = 'rssData.txt';
+    const DEFAULT_WORKER_URL = 'https://amzwatch.donkey.workers.dev/';
+
+    let feeds = [];
+    let settings = { workerUrl: DEFAULT_WORKER_URL, showRead: true, isMinimal: true };
+    let readItems = new Set();
+    let allItems = [];
+    let filterFeed = null;
+    let seenLinks = new Set();
+    let isStartup = false;
+    let needsFileSave = false;
+    let isSavingToFile = false;
+
+    container.innerHTML = `
+        <div class="container">
+            <h1>
+                Cloud RSS
+                <span class="settings-toggle">Settings</span>
+            </h1>
+
+            <div class="controls">
+                <div id="settingsPanel" class="hidden">
+                    <div class="row" style="margin-bottom: 10px;">
+                        <input type="url" id="workerUrl" placeholder="Worker URL">
+                    </div>
+                </div>
+
+                <div id="manageFeeds" style="background: #fafafa; padding: 10px; border-radius: 4px; border: 1px solid #eee; margin-bottom: 10px;">
+                    <div class="row" style="justify-content: flex-end; gap: 10px; margin-bottom: 5px;">
+                        <button id="exportTsvBtn" class="secondary" style="padding: 4px 8px; font-size: 11px;">Copy TSV</button>
+                        <button id="importTsvBtn" class="secondary" style="padding: 4px 8px; font-size: 11px;">Paste TSV</button>
+                        <button id="addFeedBtn" style="padding: 4px 8px; font-size: 11px;">Add</button>
+                    </div>
+                    <div id="feedsContainer" class="feed-list"></div>
+                </div>
+
+                <div class="row">
+                    <button id="refreshAllBtn" class="icon-btn" title="Refresh All" aria-label="Refresh All">🔄</button>
+                    <button id="manageFeedsBtn" class="icon-btn" title="Manage Feeds" aria-label="Manage Feeds">📋</button>
+                    <button id="toggleReadBtn" class="icon-btn" title="Show/Hide Read" aria-label="Show/Hide Read">👁️</button>
+                    <button id="toggleMinimalBtn" class="icon-btn" title="Toggle Minimal View" aria-label="Toggle Minimal View">🗒️</button>
+                    <button id="markAllReadBtn" class="icon-btn" title="Mark All as Read" aria-label="Mark All as Read">✔️</button>
+                    <input type="search" id="searchInput" placeholder="Search..." style="max-width: 150px;">
+                </div>
+            </div>
+
+            <div id="status" style="font-size: 12px; color: #666; margin-bottom: 10px;"></div>
+            <div id="itemsContainer" class="items"></div>
+        </div>
+    `;
+
+    function stripFragment(url) {
+        if (!url) return url;
+        const index = url.indexOf('#');
+        return index === -1 ? url : url.substring(0, index);
+    }
+
+    function decodeEntities(text) {
+        if (!text) return '';
+        let decoded = text
+            .replace(/&#27;/gi, "'")
+            .replace(/&#x1b;/gi, "'")
+            .replace(/[\x1B\u001B]/g, "'");
+
+        const namedEntities = {
+            'quot': '"',
+            'apos': "'",
+            'amp': '&',
+            'lt': '<',
+            'gt': '>',
+            'nbsp': ' ',
+            'rsquo': "'",
+            'lsquo': "'",
+            'rdquo': '"',
+            'ldquo': '"',
+            'mdash': '—',
+            'ndash': '–',
+            'hellip': '...'
+        };
+
+        decoded = decoded.replace(/&(quot|apos|amp|lt|gt|nbsp|rsquo|lsquo|rdquo|ldquo|mdash|ndash|hellip);/gi, (match, p1) => {
+            return namedEntities[p1.toLowerCase()] || match;
+        });
+
+        decoded = decoded.replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (match, codeStr) => {
+            let code;
+            if (codeStr.toLowerCase().startsWith('x')) {
+                code = parseInt(codeStr.slice(1), 16);
+            } else {
+                code = parseInt(codeStr, 10);
+            }
+            if (isNaN(code)) return match;
+            if (code === 27 || code === 39) return "'";
+            if (code === 8217 || code === 8216 || code === 8218 || code === 8242) return "'";
+            if (code === 8220 || code === 8221) return '"';
+            try {
+                return String.fromCodePoint(code);
+            } catch (e) {
+                return String.fromCharCode(code);
+            }
+        });
+
+        decoded = decoded
+            .replace(/[\u2018\u2019\u201A\u201B\u02BC\u2032]/g, "'")
+            .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"');
+
+        return decoded;
+    }
+
+    function isGenericTitle(title) {
+        if (!title) return true;
+        const clean = title.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
+        if (!clean) return true;
+
+        const genericExact = [
+            'read more', 'view more', 'show more', 'learn more', 'more',
+            'know more', 'no title', 'untitled', 'click here', 'please click here',
+            'click here to read more', 'please click here to read more',
+            'click here to know more', 'please click here to know more',
+            'click here to learn more', 'please click here to learn more',
+            'continue reading', 'link', 'full story', 'here'
+        ];
+        if (genericExact.includes(clean)) return true;
+        if (clean.includes('click here to read more') || clean.includes('please click here to read more')) return true;
+        if (clean.includes('click here to know more') || clean.includes('please click here to know more')) return true;
+        if (clean.includes('click here to learn more') || clean.includes('please click here to learn more')) return true;
+        return false;
+    }
+
+    function getTitleFromUrl(url) {
+        try {
+            const u = new URL(url);
+            const path = u.pathname;
+            if (!path || path === '/') return url;
+            const segments = path.split('/').filter(s => s);
+            if (segments.length === 0) return url;
+            let last = segments[segments.length - 1];
+            try {
+                last = decodeURIComponent(last);
+            } catch (e) {}
+            last = last.replace(/\.[^/.]+$/, "");
+            return last.split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        } catch (e) {
+            return url;
+        }
+    }
+
+    function saveData() {
+        localStorage.setItem(STORAGE_KEY_FEEDS, JSON.stringify(feeds));
+        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+        localStorage.setItem(STORAGE_KEY_READ, JSON.stringify([...readItems]));
+        needsFileSave = true;
+    }
+
+    async function saveToFile() {
+        if (!needsFileSave || isSavingToFile) return;
+        isSavingToFile = true;
+        try {
+            const rootHandle = PluginAPI.getRootHandle();
+            if (rootHandle) {
+                const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: true });
+                const writable = await fileHandle.createWritable();
+                const dataObj = {
+                    feeds: feeds,
+                    settings: settings,
+                    readItems: [...readItems]
+                };
+                await writable.write(JSON.stringify(dataObj, null, 2));
+                await writable.close();
+                needsFileSave = false;
+            }
+        } catch (err) {
+            console.error('Failed to save to rssData.txt:', err);
+        } finally {
+            isSavingToFile = false;
+        }
+    }
+
+    async function init() {
+        let loadedFromLocal = false;
+        const localFeedsStr = localStorage.getItem(STORAGE_KEY_FEEDS);
+        const localSettingsStr = localStorage.getItem(STORAGE_KEY_SETTINGS);
+        const localReadStr = localStorage.getItem(STORAGE_KEY_READ);
+
+        if (localFeedsStr || localSettingsStr || localReadStr) {
+            try {
+                if (localFeedsStr) {
+                    const storedFeeds = JSON.parse(localFeedsStr);
+                    feeds = storedFeeds.map(f => typeof f === 'string' ? {url: f, lastFetch: null, itemCount: 0} : f);
+                }
+                if (localSettingsStr) {
+                    settings = JSON.parse(localSettingsStr);
+                }
+                if (localReadStr) {
+                    const storedRead = JSON.parse(localReadStr);
+                    readItems = new Set(storedRead.map(stripFragment));
+                }
+                loadedFromLocal = true;
+            } catch (e) {
+                console.error('Error parsing localStorage:', e);
+            }
+        }
+
+        if (!loadedFromLocal) {
+            try {
+                const rootHandle = PluginAPI.getRootHandle();
+                if (rootHandle) {
+                    const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: false });
+                    const file = await fileHandle.getFile();
+                    const text = await file.text();
+                    if (text && text.trim()) {
+                        const dataObj = JSON.parse(text);
+                        if (dataObj.feeds) {
+                            feeds = dataObj.feeds.map(f => typeof f === 'string' ? {url: f, lastFetch: null, itemCount: 0} : f);
+                        }
+                        if (dataObj.settings) {
+                            settings = { ...settings, ...dataObj.settings };
+                        }
+                        if (dataObj.readItems) {
+                            readItems = new Set(dataObj.readItems.map(stripFragment));
+                        }
+                        saveData();
+                    }
+                }
+            } catch (e) {
+                // File not found or read error
+            }
+        }
+
+        if (!settings.workerUrl) settings.workerUrl = DEFAULT_WORKER_URL;
+        if (settings.isMinimal === undefined) settings.isMinimal = true;
+
+        container.querySelector('#workerUrl').value = settings.workerUrl;
+        renderFeeds();
+        applyViewMode();
+        if (feeds.length > 0 && settings.workerUrl) {
+            isStartup = true;
+            refreshAll().finally(() => {
+                isStartup = false;
+            });
+        }
+    }
+
+    function saveSettings() {
+        settings.workerUrl = container.querySelector('#workerUrl').value.trim() || DEFAULT_WORKER_URL;
+        saveData();
+    }
+
+    function toggleSettings() {
+        container.querySelector('#settingsPanel').classList.toggle('hidden');
+    }
+
+    function toggleManageFeeds() {
+        container.querySelector('#manageFeeds').classList.toggle('hidden');
+    }
+
+    function toggleRead() {
+        settings.showRead = !settings.showRead;
+        saveData();
+        renderItems();
+    }
+
+    function toggleMinimal() {
+        settings.isMinimal = !settings.isMinimal;
+        saveData();
+        applyViewMode();
+        renderItems();
+    }
+
+    function applyViewMode() {
+        const itemsContainer = container.querySelector('#itemsContainer');
+        if (settings.isMinimal) {
+            itemsContainer.classList.add('minimal');
+        } else {
+            itemsContainer.classList.remove('minimal');
+        }
+    }
+
+    async function addFeed() {
+        let clipboardText = '';
+        try {
+            clipboardText = (await navigator.clipboard.readText() || '').trim();
+        } catch (e) {
+            console.warn('Clipboard read failed: ', e);
+        }
+
+        const prefill = clipboardText.startsWith('http') ? clipboardText : '';
+        const url = prompt('Enter RSS or Page URL:', prefill);
+        if (!url) return;
+
+        const trimmedUrl = url.trim();
+        if (!trimmedUrl) return;
+        if (feeds.some(f => f.url === trimmedUrl)) return;
+
+        feeds.push({url: trimmedUrl, lastFetch: null, itemCount: 0});
+        saveFeeds();
+        renderFeeds();
+        refreshAll();
+    }
+
+    function removeFeed(url) {
+        feeds = feeds.filter(f => f.url !== url);
+        if (filterFeed === url) filterFeed = null;
+        saveFeeds();
+        renderFeeds();
+        refreshAll();
+    }
+
+    function saveFeeds() {
+        saveData();
+    }
+
+    function setFilterFeed(url) {
+        if (filterFeed === url) {
+            filterFeed = null;
+        } else {
+            filterFeed = url;
+        }
+        renderFeeds();
+        renderItems();
+    }
+
+    function renderFeeds() {
+        const feedsContainer = container.querySelector('#feedsContainer');
+        feedsContainer.innerHTML = '';
+        feeds.forEach(f => {
+            const div = document.createElement('div');
+            div.className = `feed-item ${filterFeed === f.url ? 'active' : ''}`;
+
+            const info = document.createElement('div');
+            info.className = 'feed-info';
+            info.onclick = () => setFilterFeed(f.url);
+
+            const urlSpan = document.createElement('span');
+            urlSpan.className = 'feed-url';
+            urlSpan.textContent = f.url;
+
+            const meta = document.createElement('div');
+            meta.className = 'feed-meta';
+
+            const feedItems = allItems.filter(i => i.feedUrl === f.url);
+            const total = feedItems.length;
+            const unread = feedItems.filter(i => !readItems.has(i.id)).length;
+
+            const fetchStr = f.lastFetch ? new Date(f.lastFetch).toLocaleTimeString() : 'Never';
+            meta.textContent = `${unread}/${total} unread | Last: ${fetchStr}`;
+
+            info.appendChild(urlSpan);
+            info.appendChild(meta);
+
+            const btn = document.createElement('button');
+            btn.className = 'danger';
+            btn.style.cssText = 'padding: 2px 6px; font-size: 10px;';
+            btn.textContent = 'Remove';
+            btn.onclick = (e) => { e.stopPropagation(); removeFeed(f.url); };
+
+            div.appendChild(info);
+            div.appendChild(btn);
+            feedsContainer.appendChild(div);
+        });
+    }
+
+    async function refreshAll() {
+        if (!settings.workerUrl) {
+            alert('Please set Worker URL first');
+            return;
+        }
+        if (feeds.length === 0) return;
+
+        setStatus('Refreshing...');
+        allItems = [];
+        seenLinks.clear();
+        renderItems();
+
+        const priorityFeeds = feeds.slice(0, 2);
+        const backgroundFeeds = feeds.slice(2);
+
+        const priorityPromises = priorityFeeds.map(f => fetchSingle(f.url));
+        let backgroundPromise = Promise.resolve();
+        if (backgroundFeeds.length > 0) {
+            backgroundPromise = fetchBulk(backgroundFeeds.map(f => f.url));
+        }
+
+        await Promise.all([...priorityPromises, backgroundPromise]);
+        sortFeeds();
+        renderFeeds();
+        setStatus(`Updated at ${new Date().toLocaleTimeString()}`);
+    }
+
+    async function fetchSingle(url) {
+        try {
+            const workerUrl = new URL(settings.workerUrl);
+            workerUrl.searchParams.set('url', url);
+            const response = await fetch(workerUrl.toString());
+            if (!response.ok) throw new Error(response.statusText);
+
+            const contentType = response.headers.get('Content-Type') || '';
+            const text = await response.text();
+
+            let count = 0;
+            if (contentType.includes('application/json')) {
+                count = parseScraped(JSON.parse(text), url);
+            } else {
+                const xml = new DOMParser().parseFromString(text, 'text/xml');
+                count = parseFeed(xml, url);
+            }
+
+            updateFeedStats(url, count);
+            sortAndRender();
+        } catch (e) {
+            console.error('Fetch error for ' + url, e);
+        }
+    }
+
+    async function fetchBulk(urls) {
+        try {
+            const response = await fetch(settings.workerUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urls })
+            });
+
+            if (!response.ok) throw new Error('Worker error: ' + response.status);
+
+            const results = await response.json();
+            results.forEach(res => {
+                if (res.body) {
+                    let count = 0;
+                    try {
+                        if (res.isJSON) {
+                            count = parseScraped(JSON.parse(res.body), res.url);
+                        } else {
+                            const xml = new DOMParser().parseFromString(res.body, 'text/xml');
+                            count = parseFeed(xml, res.url);
+                        }
+                        updateFeedStats(res.url, count);
+                    } catch (e) {
+                        console.error('Parse error for ' + res.url, e);
+                    }
+                }
+            });
+            sortAndRender();
+        } catch (err) {
+            console.error('Bulk fetch error', err);
+        }
+    }
+
+    function updateFeedStats(url, count) {
+        const f = feeds.find(x => x.url === url);
+        if (f) {
+            f.lastFetch = Date.now();
+            f.itemCount = count;
+            saveFeeds();
+            renderFeeds();
+        }
+
+        if (isStartup && !filterFeed) {
+            const feedItems = allItems.filter(i => i.feedUrl === url);
+            const unreadCount = feedItems.filter(i => !readItems.has(i.id)).length;
+            if (unreadCount > 0) {
+                setFilterFeed(url);
+                isStartup = false;
+            }
+        }
+    }
+
+    function sortFeeds() {
+        feeds.sort((a, b) => {
+            const unreadA = allItems.filter(i => i.feedUrl === a.url && !readItems.has(i.id)).length;
+            const unreadB = allItems.filter(i => i.feedUrl === b.url && !readItems.has(i.id)).length;
+            return unreadB - unreadA;
+        });
+        saveFeeds();
+    }
+
+    function sortAndRender() {
+        allItems.sort((a, b) => b.date - a.date);
+        renderItems();
+        renderFeeds();
+    }
+
+    function parseScraped(links, feedUrl) {
+        let count = 0;
+        links.forEach(l => {
+            const link = stripFragment(l.link);
+            if (seenLinks.has(link)) return;
+            seenLinks.add(link);
+            count++;
+            let title = decodeEntities(l.title);
+            if (isGenericTitle(title)) {
+                title = getTitleFromUrl(link);
+            }
+            allItems.push({
+                id: link,
+                title: title,
+                link: link,
+                date: new Date(),
+                description: '',
+                feedTitle: feedUrl,
+                feedUrl: feedUrl
+            });
+        });
+        return count;
+    }
+
+    function parseFeed(xml, feedUrl) {
+        const rawFeedTitle = xml.querySelector('channel > title, feed > title')?.textContent || feedUrl;
+        const feedTitle = decodeEntities(rawFeedTitle);
+        let count = 0;
+
+        const items = xml.querySelectorAll('item');
+        items.forEach(item => {
+            const originalLink = item.querySelector('link')?.textContent || '';
+            const link = stripFragment(originalLink);
+            if (seenLinks.has(link)) return;
+            seenLinks.add(link);
+            count++;
+            let title = decodeEntities(item.querySelector('title')?.textContent || 'No Title');
+            if (isGenericTitle(title)) {
+                title = getTitleFromUrl(link);
+            }
+            const pubDate = item.querySelector('pubDate, dc\\:date')?.textContent;
+            const date = pubDate ? new Date(pubDate) : new Date(0);
+            const description = decodeEntities(item.querySelector('description')?.textContent || '');
+            const id = stripFragment(item.querySelector('guid')?.textContent || link || (title + date.getTime()));
+
+            allItems.push({ id, title, link, date, description, feedTitle, feedUrl });
+        });
+
+        const entries = xml.querySelectorAll('entry');
+        entries.forEach(entry => {
+            const originalLink = entry.querySelector('link')?.getAttribute('href') || '';
+            const link = stripFragment(originalLink);
+            if (seenLinks.has(link)) return;
+            seenLinks.add(link);
+            count++;
+            let title = decodeEntities(entry.querySelector('title')?.textContent || 'No Title');
+            if (isGenericTitle(title)) {
+                title = getTitleFromUrl(link);
+            }
+            const updated = entry.querySelector('updated, published')?.textContent;
+            const date = updated ? new Date(updated) : new Date(0);
+            const content = decodeEntities(entry.querySelector('summary, content')?.textContent || '');
+            const id = stripFragment(entry.querySelector('id')?.textContent || link || (title + date.getTime()));
+
+            allItems.push({ id, title, link, date, description: content, feedTitle, feedUrl });
+        });
+        return count;
+    }
+
+    function getFilteredItems() {
+        const q = container.querySelector('#searchInput').value.toLowerCase();
+        let filtered = settings.showRead ? allItems : allItems.filter(i => !readItems.has(i.id));
+
+        if (filterFeed) {
+            filtered = filtered.filter(i => i.feedUrl === filterFeed);
+        }
+
+        if (q) {
+            filtered = filtered.filter(i =>
+                i.title.toLowerCase().includes(q) ||
+                i.description.toLowerCase().includes(q) ||
+                i.feedTitle.toLowerCase().includes(q)
+            );
+        }
+        return filtered;
+    }
+
+    function renderItems() {
+        const itemsContainer = container.querySelector('#itemsContainer');
+        const filtered = getFilteredItems();
+
+        itemsContainer.innerHTML = '';
+        if (filterFeed) {
+            const indicator = document.createElement('div');
+            indicator.style.cssText = 'padding: 5px; font-size: 12px; color: #007bff; border-bottom: 1px solid #eee; margin-bottom: 10px; display: flex; justify-content: space-between;';
+
+            const filterSpan = document.createElement('span');
+            filterSpan.textContent = `Filtered by: ${filterFeed}`;
+
+            const clearSpan = document.createElement('span');
+            clearSpan.style.cursor = 'pointer';
+            clearSpan.textContent = 'Clear';
+            clearSpan.onclick = () => setFilterFeed(null);
+
+            indicator.appendChild(filterSpan);
+            indicator.appendChild(clearSpan);
+            itemsContainer.appendChild(indicator);
+        }
+
+        filtered.forEach(item => {
+            const isRead = readItems.has(item.id);
+            const itemDiv = document.createElement('div');
+            itemDiv.className = `item ${isRead ? 'read' : ''}`;
+
+            const h3 = document.createElement('h3');
+            const a = document.createElement('a');
+            a.href = item.link;
+            a.target = '_blank';
+            a.textContent = item.title;
+            a.onclick = () => markRead(item.id);
+            h3.appendChild(a);
+
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'meta';
+            const feedSpan = document.createElement('span');
+            feedSpan.className = 'feed-tag';
+            feedSpan.textContent = item.feedTitle;
+            feedSpan.onclick = () => setFilterFeed(item.feedUrl);
+            const dateSpan = document.createElement('span');
+            dateSpan.textContent = item.date.getTime() > 0 ? `${item.date.toLocaleDateString()} ${item.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : '';
+            metaDiv.appendChild(feedSpan);
+            metaDiv.appendChild(dateSpan);
+
+            const descDiv = document.createElement('div');
+            descDiv.className = 'desc';
+            descDiv.textContent = stripHtml(item.description);
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'actions';
+            const readBtn = document.createElement('button');
+            readBtn.className = 'secondary';
+            readBtn.style.cssText = 'padding: 4px 8px; font-size: 12px;';
+            readBtn.textContent = isRead ? 'Mark Unread' : 'Mark Read';
+            readBtn.onclick = () => toggleItemRead(item.id);
+            actionsDiv.appendChild(readBtn);
+
+            itemDiv.appendChild(h3);
+            itemDiv.appendChild(metaDiv);
+            itemDiv.appendChild(descDiv);
+            itemDiv.appendChild(actionsDiv);
+            itemsContainer.appendChild(itemDiv);
+        });
+    }
+
+    function stripHtml(html) {
+        if (!html) return "";
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        return doc.body.textContent || "";
+    }
+
+    function markRead(id) {
+        readItems.add(id);
+        saveRead();
+        autoAdvanceFeed();
+        renderItems();
+        renderFeeds();
+    }
+
+    function toggleItemRead(id) {
+        if (readItems.has(id)) {
+            readItems.delete(id);
+        } else {
+            readItems.add(id);
+        }
+        saveRead();
+        autoAdvanceFeed();
+        renderItems();
+        renderFeeds();
+    }
+
+    function markAllRead() {
+        const visible = getFilteredItems();
+        visible.forEach(item => readItems.add(item.id));
+        saveRead();
+        autoAdvanceFeed();
+        renderItems();
+        renderFeeds();
+    }
+
+    function autoAdvanceFeed() {
+        if (!filterFeed) return;
+
+        const currentUnread = allItems.filter(i => i.feedUrl === filterFeed && !readItems.has(i.id)).length;
+        if (currentUnread > 0) return;
+
+        const nextFeed = feeds.find(f => {
+            const unread = allItems.filter(i => i.feedUrl === f.url && !readItems.has(i.id)).length;
+            return unread > 0;
+        });
+
+        if (nextFeed) {
+            setFilterFeed(nextFeed.url);
+        } else {
+            setFilterFeed(null);
+        }
+    }
+
+    function saveRead() {
+        saveData();
+    }
+
+    function setStatus(msg) {
+        container.querySelector('#status').textContent = msg;
+    }
+
+    async function exportToClipboard() {
+        const rows = [['URL', 'Items', 'Last Fetch']];
+        feeds.forEach(f => {
+            rows.push([f.url, f.itemCount || 0, f.lastFetch || '']);
+        });
+        const tsv = rows.map(r => r.join('\t')).join('\n');
+        try {
+            await navigator.clipboard.writeText(tsv);
+            setStatus('Feeds copied to clipboard');
+        } catch (e) {
+            alert('Failed to copy: ' + e.message);
+        }
+    }
+
+    async function importFromClipboard() {
+        try {
+            const text = await navigator.clipboard.readText();
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) return;
+
+            const header = lines[0].split('\t');
+            const urlIdx = header.indexOf('URL');
+            if (urlIdx === -1) {
+                alert('Invalid TSV: Missing "URL" column');
+                return;
+            }
+
+            const imported = [];
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split('\t');
+                const url = cols[urlIdx]?.trim();
+                if (url && !feeds.some(f => f.url === url)) {
+                    imported.push({ url, itemCount: 0, lastFetch: null });
+                }
+            }
+
+            if (imported.length > 0) {
+                feeds.push(...imported);
+                saveFeeds();
+                renderFeeds();
+                setStatus(`Imported ${imported.length} feeds`);
+                refreshAll();
+            }
+        } catch (e) {
+            alert('Failed to read clipboard: ' + e.message);
+        }
+    }
+
+    container.querySelector('.settings-toggle').onclick = toggleSettings;
+    container.querySelector('#workerUrl').onchange = saveSettings;
+    container.querySelector('#exportTsvBtn').onclick = exportToClipboard;
+    container.querySelector('#importTsvBtn').onclick = importFromClipboard;
+    container.querySelector('#addFeedBtn').onclick = addFeed;
+    container.querySelector('#refreshAllBtn').onclick = refreshAll;
+    container.querySelector('#manageFeedsBtn').onclick = toggleManageFeeds;
+    container.querySelector('#toggleReadBtn').onclick = toggleRead;
+    container.querySelector('#toggleMinimalBtn').onclick = toggleMinimal;
+    container.querySelector('#markAllReadBtn').onclick = markAllRead;
+    container.querySelector('#searchInput').oninput = renderItems;
+
+    setInterval(saveToFile, 60000);
+
+    window.addEventListener('beforeunload', async (e) => {
+        if (needsFileSave) {
+            await saveToFile();
+        }
+    });
+
+    await init();
+})();
