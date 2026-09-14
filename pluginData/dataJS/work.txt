@@ -7,6 +7,7 @@
     const officerIndex = {};
     const statusIndex = {};
     const dashboardIndex = {};
+    let pendingOnly = true;
 
     const container = PluginAPI.add(title, {
         onActivated: () => {
@@ -47,6 +48,7 @@
         <input id="searchBox" placeholder="Search all loaded reports..." style="width: 300px;">
         <select id="officerFilter"><option value="">All Officers</option></select>
         <select id="statusFilter"><option value="">All Statuses</option></select>
+        <button id="showPendingBtn">Show Pending</button>
         <button id="clearFilterBtn">Clear Filter</button>
         <span id="resultCountLabel" style="margin-left: 10px; font-size: 0.9em;"></span>
 
@@ -277,12 +279,16 @@
 
             for (let i = startRowIdx; i < rows.length; i++) {
                 const row = rows[i];
+                const rowStat = (statusCol !== -1 ? row[statusCol] : "").toString().trim();
+
+                if (pendingOnly) {
+                    if (isStatusCompleted(rowStat)) continue;
+                }
                 if (officer) {
                     let rowOff = normalizeOfficer(officerCol !== -1 ? row[officerCol] : null) || "no officer";
                     if (rowOff !== officer) continue;
                 }
                 if (status) {
-                    const rowStat = (statusCol !== -1 ? row[statusCol] : "").toString().trim();
                     if (rowStat !== status) continue;
                 }
                 if (term) {
@@ -332,9 +338,18 @@
 
     container.querySelector("#searchBox").oninput = applyFilters;
     container.querySelector("#officerFilter").onchange = applyFilters;
-    container.querySelector("#statusFilter").onchange = applyFilters;
+    container.querySelector("#statusFilter").onchange = () => {
+        pendingOnly = false;
+        applyFilters();
+    };
     container.querySelector("#showAllOfficers").onchange = updateDashboard;
+    container.querySelector("#showPendingBtn").onclick = () => {
+        pendingOnly = true;
+        container.querySelector("#statusFilter").value = "";
+        applyFilters();
+    };
     container.querySelector("#clearFilterBtn").onclick = () => {
+        pendingOnly = false;
         container.querySelector("#searchBox").value = "";
         container.querySelector("#officerFilter").value = "";
         container.querySelector("#statusFilter").value = "";
