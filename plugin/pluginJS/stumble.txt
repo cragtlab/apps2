@@ -101,6 +101,7 @@
     container.innerHTML = `
         <div class="container">
             <b>Stumble Links - (open tab group in mobile)</b>
+            <button id="btnLoadFromFile" class="btn-add" style="padding: 4px 8px; font-size: 11px; margin-left: 10px;">Load from file</button>
 
             <!-- DISPLAY -->
             <div id="linkFreqContainer">
@@ -146,6 +147,7 @@
         </div>
     `;
 
+    const btnLoadFromFile = container.querySelector('#btnLoadFromFile');
     const linkFreqContainer = container.querySelector('#linkFreqContainer');
     const frequencyInput = container.querySelector('#frequencyInput');
     const linkDisplay = container.querySelector('#linkDisplay');
@@ -180,6 +182,40 @@
 
         if (getAvailableLinks().length > 0) {
             if (btnStart) btnStart.style.display = 'inline-block';
+        }
+    }
+
+    async function loadFromFile() {
+        try {
+            const rootHandle = PluginAPI.getRootHandle();
+            if (!rootHandle) {
+                alert('Please load folder/plugins first.');
+                return;
+            }
+            const fileHandle = await rootHandle.getFileHandle(DATA_FILE_NAME, { create: false });
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            if (!text || !text.trim()) {
+                alert('File stumbleBak.txt is empty.');
+                return;
+            }
+            const loadedLinks = JSON.parse(text);
+            if (!Array.isArray(loadedLinks)) {
+                alert('Invalid JSON format in stumbleBak.txt.');
+                return;
+            }
+            links = loadedLinks.map(link => ({
+                ...link,
+                snoozed_until: normalizeSnoozedUntil(link.snoozed_until)
+            }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+            needsFileSave = false;
+            displayNextAvailable();
+            updateLinksList();
+            alert(`Loaded ${links.length} records from file.`);
+        } catch (err) {
+            console.error('Error loading from file:', err);
+            alert('Failed to load from file: ' + err.message);
         }
     }
 
@@ -626,6 +662,7 @@
         }
     }
 
+    btnLoadFromFile.onclick = loadFromFile;
     btnStart.onclick = startLinks;
     btnSnooze.onclick = snoozeCurrentLink;
     btnDelete.onclick = deleteCurrentLink;
