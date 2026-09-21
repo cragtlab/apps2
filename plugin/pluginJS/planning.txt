@@ -455,6 +455,32 @@
                 saveData(); renderUI();
             };
 
+            const setRelativeDate = (daysToAdd) => {
+                const target = new Date();
+                target.setDate(target.getDate() + daysToAdd);
+                const yyyy = target.getFullYear();
+                const mm = String(target.getMonth() + 1).padStart(2, '0');
+                const dd = String(target.getDate()).padStart(2, '0');
+                task.date = `${yyyy}-${mm}-${dd}`;
+                saveData(); renderUI();
+            };
+
+            const btn1d = document.createElement('button');
+            btn1d.className = 'btn-secondary';
+            btn1d.style.padding = '1px 4px';
+            btn1d.style.fontSize = '0.85em';
+            btn1d.textContent = '1d';
+            btn1d.title = 'Set to tomorrow';
+            btn1d.onclick = () => setRelativeDate(1);
+
+            const btn1w = document.createElement('button');
+            btn1w.className = 'btn-secondary';
+            btn1w.style.padding = '1px 4px';
+            btn1w.style.fontSize = '0.85em';
+            btn1w.textContent = '1w';
+            btn1w.title = 'Set to 1 week from today';
+            btn1w.onclick = () => setRelativeDate(7);
+
             const doneCb = document.createElement('input');
             doneCb.type = 'checkbox';
             doneCb.checked = !!task.done;
@@ -476,6 +502,8 @@
             };
 
             statusDateDiv.appendChild(datePicker);
+            statusDateDiv.appendChild(btn1d);
+            statusDateDiv.appendChild(btn1w);
             statusDateDiv.appendChild(doneCb);
             statusDateDiv.appendChild(delBtn);
 
@@ -483,13 +511,13 @@
             titleInp.contentEditable = "true";
             titleInp.className = 'task-name-input';
             titleInp.textContent = task.title || '';
-            titleInp.onblur = () => { task.title = titleInp.textContent; saveData(); };
+            titleInp.onblur = () => { task.title = (titleInp.innerText !== undefined ? titleInp.innerText : titleInp.textContent).replace(/\r\n/g, '\n').replace(/\n$/, ''); saveData(); };
 
             const offInp = document.createElement('div');
             offInp.contentEditable = "true";
             offInp.className = 'officers-input';
             offInp.textContent = task.officers || '';
-            offInp.onblur = () => { task.officers = offInp.textContent; saveData(); renderUI(); };
+            offInp.onblur = () => { task.officers = (offInp.innerText !== undefined ? offInp.innerText : offInp.textContent).replace(/\r\n/g, '\n').replace(/\n$/, ''); saveData(); renderUI(); };
 
             const remInp = document.createElement('div');
             remInp.contentEditable = "true";
@@ -499,7 +527,7 @@
                 remInp.title = task.remarks;
             }
             remInp.onblur = () => {
-                task.remarks = remInp.textContent;
+                task.remarks = (remInp.innerText !== undefined ? remInp.innerText : remInp.textContent).replace(/\r\n/g, '\n').replace(/\n$/, '');
                 if (task.remarks && task.remarks.trim()) {
                     remInp.title = task.remarks;
                     if (remInp.parentElement) {

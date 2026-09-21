@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monster Gobblet — Stack &amp; Gulp Tic-Tac-Toe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --blue-bg: #1f8fe0;
+    --blue-bg-deep: #1670b8;
+    --grid-yellow: #ffcf33;
+    --grid-yellow-dark: #e0a800;
+    --red: #ea4433;
+    --red-dark: #b8291b;
+    --red-light: #ff6f5c;
+    --blue-mon: #3aa0ff;
+    --blue-mon-dark: #1560a8;
+    --blue-mon-light: #7cc4ff;
+    --cream: #fff8ea;
+    --ink: #0b2540;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(255,255,255,.15), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(255,255,255,.12), transparent 45%),
+      linear-gradient(180deg, var(--blue-bg), var(--blue-bg-deep));
+    font-family:'Nunito', sans-serif;
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:28px 16px 60px;
+  }
+  h1{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    color:#fff;
+    font-size:clamp(28px, 5vw, 42px);
+    text-shadow: 0 3px 0 rgba(0,0,0,.15);
+    margin:4px 0 2px;
+    letter-spacing:.5px;
+    text-align:center;
+  }
+  .subtitle{
+    color:#eaf6ff;
+    font-weight:700;
+    margin-bottom:22px;
+    text-align:center;
+    font-size:15px;
+    opacity:.9;
+  }
+
+  .status-bar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:rgba(255,255,255,.14);
+    border:2px solid rgba(255,255,255,.35);
+    padding:10px 22px;
+    border-radius:999px;
+    margin-bottom:22px;
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    color:#fff;
+    font-size:17px;
+    min-height:20px;
+  }
+  .status-dot{
+    width:16px;height:16px;border-radius:50%;
+    border:2px solid rgba(0,0,0,.2);
+  }
+
+  .table{
+    position:relative;
+    background: linear-gradient(180deg, #2497e8, #1a7ecb);
+    border-radius:28px;
+    padding:26px 26px 18px;
+    box-shadow: 0 18px 0 rgba(0,0,0,.12), 0 20px 40px rgba(0,0,0,.25);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:18px;
+  }
+
+  .tray{
+    display:flex;
+    gap:14px;
+    align-items:flex-end;
+    min-height:118px;
+    padding:8px 10px;
+    border-radius:16px;
+  }
+  .tray.top{ background: rgba(234,68,51,.12); }
+  .tray.bottom{ background: rgba(58,160,255,.12); }
+
+  .stock-piece{
+    position:relative;
+    cursor:pointer;
+    transition: transform .15s ease;
+    filter: drop-shadow(0 4px 3px rgba(0,0,0,.25));
+  }
+  .stock-piece:hover{ transform: translateY(-4px) scale(1.04); }
+  .stock-piece.selected{ transform: translateY(-8px) scale(1.08); filter: drop-shadow(0 8px 6px rgba(0,0,0,.35)) drop-shadow(0 0 0 3px #fff); }
+  .stock-piece.disabled{ cursor:not-allowed; opacity:.35; filter:none; }
+  .stock-piece.disabled:hover{ transform:none; }
+
+  .stock-count{
+    position:absolute;
+    top:-6px; right:-6px;
+    background:#fff;
+    color:var(--ink);
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size:12px;
+    width:20px;height:20px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 3px rgba(0,0,0,.3);
+    border:2px solid #eee;
+  }
+
+  /* --- Board --- */
+  .board-wrap{ position:relative; }
+  .board{
+    position:relative;
+    width: min(420px, 78vw);
+    height: min(420px, 78vw);
+  }
+  .board-grid{
+    position:absolute; inset:0;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,1fr);
+  }
+  .cell{
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
+  }
+  /* grid bars, drawn like the reference toy */
+  .bar{
+    position:absolute;
+    background: linear-gradient(180deg, var(--grid-yellow), var(--grid-yellow-dark));
+    border-radius:8px;
+    box-shadow: inset 0 -4px 0 rgba(0,0,0,.15), 0 3px 4px rgba(0,0,0,.2);
+  }
+  .bar.v1{ left:calc(33.333% - 9px); top:0; width:18px; height:100%; }
+  .bar.v2{ left:calc(66.666% - 9px); top:0; width:18px; height:100%; }
+  .bar.h1{ top:calc(33.333% - 9px); left:0; height:18px; width:100%; }
+  .bar.h2{ top:calc(66.666% - 9px); left:0; height:18px; width:100%; }
+
+  .cell-target{
+    position:absolute;
+    width:31%; height:31%;
+    border-radius:14px;
+    cursor:pointer;
+  }
+  .cell-target.legal{ background:rgba(255,255,255,.14); }
+  .cell-target.legal:hover{ background:rgba(255,255,255,.28); }
+  .cell-target.illegal{ cursor:not-allowed; }
+
+  .cell-target[data-r="0"]{ top:0%; }
+  .cell-target[data-r="1"]{ top:34.5%; }
+  .cell-target[data-r="2"]{ top:69%; }
+  .cell-target[data-c="0"]{ left:0%; }
+  .cell-target[data-c="1"]{ left:34.5%; }
+  .cell-target[data-c="2"]{ left:69%; }
+
+  .stack-piece{ position:absolute; pointer-events:none; }
+
+  .win-line{
+    position:absolute;
+    background:#fff;
+    box-shadow:0 0 10px rgba(255,255,255,.9);
+    border-radius:6px;
+    transform-origin: left center;
+    pointer-events:none;
+    animation: growLine .35s ease forwards;
+  }
+  @keyframes growLine{ from{ transform:scaleX(0);} to{ transform:scaleX(1);} }
+
+  .controls{ margin-top:22px; display:flex; gap:12px; }
+  button.restart{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size:15px;
+    background:#fff;
+    color:var(--blue-bg-deep);
+    border:none;
+    padding:10px 22px;
+    border-radius:999px;
+    cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,.18);
+    transition: transform .1s ease;
+  }
+  button.restart:active{ transform: translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.18); }
+
+  .rules{
+    max-width:440px;
+    margin-top:26px;
+    background:rgba(255,255,255,.12);
+    border:2px solid rgba(255,255,255,.3);
+    border-radius:16px;
+    padding:16px 20px;
+    color:#eaf6ff;
+    font-size:14px;
+    line-height:1.55;
+  }
+  .rules b{ color:#fff; }
+
+  @media (prefers-reduced-motion: reduce){
+    .stock-piece, .win-line { animation:none !important; transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Monster Gobblet</h1>
+<div class="subtitle">SIMPLE OPERATION, EASY TO USE — big monsters gulp the small ones. Line up 3 to win!</div>
+
+<div class="status-bar">
+  <div class="status-dot" id="statusDot"></div>
+  <span id="statusText">Red's turn</span>
+</div>
+
+<div class="table">
+  <div class="tray top" id="trayRed"></div>
+
+  <div class="board-wrap">
+    <div class="board" id="board">
+      <div class="board-grid">
+        <div class="bar v1"></div>
+        <div class="bar v2"></div>
+        <div class="bar h1"></div>
+        <div class="bar h2"></div>
+      </div>
+      <div id="cellTargets"></div>
+      <div id="boardPieces"></div>
+      <div id="winLineHost"></div>
+    </div>
+  </div>
+
+  <div class="tray bottom" id="trayBlue"></div>
+</div>
+
+<div class="controls">
+  <button class="restart" id="restartBtn">New Game</button>
+</div>
+
+<div class="rules">
+  <b>How to play:</b> Each monster has 3 sizes — small, medium, large (2 of each). Tap a monster from your tray, then tap a cell to place it. A bigger monster can <b>gulp</b> any smaller monster already on that cell (yours or theirs) — the small one hides underneath until uncovered. Get 3 of your color showing in a row, column, or diagonal to win.
+</div>
+
+<script>
+(function(){
+  const SIZES = [
+    { key:'S', label:'small',  px:44 },
+    { key:'M', label:'medium', px:64 },
+    { key:'L', label:'large',  px:86 },
+  ];
+  const COLORS = {
+    red:  { body:'#ea4433', dark:'#b8291b', light:'#ff8a76', name:'Red' },
+    blue: { body:'#3aa0ff', dark:'#1560a8', light:'#a8dbff', name:'Blue' },
+  };
+
+  // game state
+  let stock = {
+    red:  { S:2, M:2, L:2 },
+    blue: { S:2, M:2, L:2 },
+  };
+  // board[r][c] = array of {color,size} stacked bottom->top
+  let board = Array.from({length:3}, () => Array.from({length:3}, () => []));
+  let turn = 'red';
+  let selected = null; // {size}
+  let gameOver = false;
+
+  const trayRed = document.getElementById('trayRed');
+  const trayBlue = document.getElementById('trayBlue');
+  const cellTargets = document.getElementById('cellTargets');
+  const boardPieces = document.getElementById('boardPieces');
+  const winLineHost = document.getElementById('winLineHost');
+  const statusText = document.getElementById('statusText');
+  const statusDot = document.getElementById('statusDot');
+  const restartBtn = document.getElementById('restartBtn');
+
+  function svgMonster(color, sizePx, eyesOffset){
+    const c = COLORS[color];
+    const w = sizePx, h = sizePx*1.25;
+    return `
+    <svg width="${w}" height="${h}" viewBox="0 0 100 125" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad-${color}-${sizePx}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${c.light}"/>
+          <stop offset="55%" stop-color="${c.body}"/>
+          <stop offset="100%" stop-color="${c.dark}"/>
+        </linearGradient>
+      </defs>
+      <path d="M50 4 C22 4 10 24 10 50 L10 100 C10 114 24 122 50 122 C76 122 90 114 90 100 L90 50 C90 24 78 4 50 4 Z"
+            fill="url(#grad-${color}-${sizePx})" stroke="${c.dark}" stroke-width="4"/>
+      <circle cx="6" cy="34" r="4" fill="#ffffffaa"/>
+      <g>
+        <circle cx="35" cy="52" r="15" fill="#fff"/>
+        <circle cx="65" cy="52" r="15" fill="#fff"/>
+        <circle cx="39" cy="55" r="8" fill="#1a1a1a"/>
+        <circle cx="61" cy="55" r="8" fill="#1a1a1a"/>
+        <circle cx="41" cy="52" r="2.5" fill="#fff"/>
+        <circle cx="63" cy="52" r="2.5" fill="#fff"/>
+      </g>
+      <path d="M25 82 Q50 108 75 82 Q75 100 50 104 Q25 100 25 82 Z" fill="#161616"/>
+      <path d="M32 84 L38 92 L44 84 Z" fill="#fff"/>
+      <path d="M56 84 L62 92 L68 84 Z" fill="#fff"/>
+      <path d="M30 96 Q50 106 70 96 Q65 100 50 100 Q35 100 30 96 Z" fill="#ff9fae"/>
+    </svg>`;
+  }
+
+  function makePieceEl(color, sizeKey, opts={}){
+    const sizeDef = SIZES.find(s=>s.key===sizeKey);
+    const el = document.createElement('div');
+    el.className = 'stock-piece' + (opts.extraClass ? ' '+opts.extraClass : '');
+    el.innerHTML = svgMonster(color, sizeDef.px);
+    return el;
+  }
+
+  function renderTrays(){
+    trayRed.innerHTML = '';
+    trayBlue.innerHTML = '';
+    ['red','blue'].forEach(color=>{
+      const host = color==='red' ? trayRed : trayBlue;
+      SIZES.forEach(sizeDef=>{
+        const count = stock[color][sizeDef.key];
+        const wrap = document.createElement('div');
+        wrap.style.position='relative';
+        const piece = makePieceEl(color, sizeDef.key);
+        const isSel = selected && selected.color===color && selected.size===sizeDef.key;
+        const canPick = !gameOver && turn===color && count>0;
+        if(isSel) piece.classList.add('selected');
+        if(!canPick) piece.classList.add('disabled');
+        piece.addEventListener('click', ()=>{
+          if(gameOver || turn!==color || count<=0) return;
+          if(isSel){ selected = null; } else { selected = {color, size:sizeDef.key}; }
+          renderAll();
+        });
+        wrap.appendChild(piece);
+        if(count>0){
+          const badge = document.createElement('div');
+          badge.className='stock-count';
+          badge.textContent = count;
+          wrap.appendChild(badge);
+        } else {
+          piece.style.opacity = '.15';
+        }
+        host.appendChild(wrap);
+      });
+    });
+  }
+
+  function sizeRank(k){ return {S:1,M:2,L:3}[k]; }
+
+  function canPlace(r,c,size){
+    const stack = board[r][c];
+    if(stack.length===0) return true;
+    const top = stack[stack.length-1];
+    return sizeRank(size) > sizeRank(top.size);
+  }
+
+  function renderBoard(){
+    cellTargets.innerHTML = '';
+    boardPieces.innerHTML = '';
+    for(let r=0;r<3;r++){
+      for(let c=0;c<3;c++){
+        const target = document.createElement('div');
+        target.className = 'cell-target';
+        target.dataset.r = r; target.dataset.c = c;
+        let legal = false;
+        if(selected && !gameOver){
+          legal = canPlace(r,c,selected.size);
+        }
+        target.classList.add(legal ? 'legal' : 'illegal');
+        target.addEventListener('click', ()=> onCellClick(r,c));
+        cellTargets.appendChild(target);
+
+        // render stack (draw from bottom to top, larger offset so it reads as "under")
+        const stack = board[r][c];
+        stack.forEach((p, idx)=>{
+          const sizeDef = SIZES.find(s=>s.key===p.size);
+          const el = document.createElement('div');
+          el.className = 'stack-piece';
+          el.style.left = `${(c/3)*100 + (100/3)/2}%`;
+          el.style.top = `${(r/3)*100 + (100/3)/2}%`;
+          el.style.transform = `translate(-50%,-50%)`;
+          el.style.zIndex = idx+1;
+          el.innerHTML = svgMonster(p.color, sizeDef.px);
+          boardPieces.appendChild(el);
+        });
+      }
+    }
+  }
+
+  function onCellClick(r,c){
+    if(gameOver || !selected) return;
+    if(!canPlace(r,c,selected.size)) return;
+    board[r][c].push({color:selected.color, size:selected.size});
+    stock[selected.color][selected.size] -= 1;
+    const placedColor = selected.color;
+    selected = null;
+
+    const win = checkWin();
+    if(win){
+      gameOver = true;
+      renderAll();
+      drawWinLine(win);
+      statusText.textContent = `${COLORS[win.color].name} wins!`;
+      statusDot.style.background = COLORS[win.color].body;
+      return;
+    }
+    if(isBoardFullOfTops() && !hasAnyStockLeft()){
+      gameOver = true;
+      statusText.textContent = "It's a draw!";
+      statusDot.style.background = '#ccc';
+      renderAll();
+      return;
+    }
+
+    turn = placedColor==='red' ? 'blue' : 'red';
+    renderAll();
+  }
+
+  function topColor(r,c){
+    const st = board[r][c];
+    return st.length ? st[st.length-1].color : null;
+  }
+
+  function checkWin(){
+    const lines = [
+      [[0,0],[0,1],[0,2]],
+      [[1,0],[1,1],[1,2]],
+      [[2,0],[2,1],[2,2]],
+      [[0,0],[1,0],[2,0]],
+      [[0,1],[1,1],[2,1]],
+      [[0,2],[1,2],[2,2]],
+      [[0,0],[1,1],[2,2]],
+      [[0,2],[1,1],[2,0]],
+    ];
+    for(const line of lines){
+      const colors = line.map(([r,c])=>topColor(r,c));
+      if(colors[0] && colors[0]===colors[1] && colors[1]===colors[2]){
+        return { color: colors[0], line };
+      }
+    }
+    return null;
+  }
+
+  function isBoardFullOfTops(){
+    for(let r=0;r<3;r++) for(let c=0;c<3;c++) if(board[r][c].length===0) return false;
+    return true;
+  }
+  function hasAnyStockLeft(){
+    return Object.values(stock.red).some(v=>v>0) || Object.values(stock.blue).some(v=>v>0);
+  }
+
+  function drawWinLine(win){
+    winLineHost.innerHTML = '';
+    const boardEl = document.getElementById('board');
+    const rect = boardEl.getBoundingClientRect();
+    const cellSize = rect.width/3;
+    const [a,,b] = win.line;
+    const p1 = { x:(a[1]+0.5)*cellSize, y:(a[0]+0.5)*cellSize };
+    const p2 = { x:(b[1]+0.5)*cellSize, y:(b[0]+0.5)*cellSize };
+    const dx = p2.x-p1.x, dy = p2.y-p1.y;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    const angle = Math.atan2(dy,dx)*180/Math.PI;
+    const line = document.createElement('div');
+    line.className = 'win-line';
+    line.style.width = len+'px';
+    line.style.height = '10px';
+    line.style.left = p1.x+'px';
+    line.style.top = (p1.y-5)+'px';
+    line.style.transform = `rotate(${angle}deg)`;
+    winLineHost.appendChild(line);
+  }
+
+  function renderStatus(){
+    if(gameOver) return; // already set
+    statusText.textContent = `${COLORS[turn].name}'s turn` + (selected ? ` — pick a spot for your ${SIZES.find(s=>s.key===selected.size).label} monster` : '');
+    statusDot.style.background = COLORS[turn].body;
+  }
+
+  function renderAll(){
+    renderTrays();
+    renderBoard();
+    renderStatus();
+  }
+
+  function restart(){
+    stock = { red:{S:2,M:2,L:2}, blue:{S:2,M:2,L:2} };
+    board = Array.from({length:3}, () => Array.from({length:3}, () => []));
+    turn = 'red';
+    selected = null;
+    gameOver = false;
+    winLineHost.innerHTML = '';
+    renderAll();
+  }
+
+  restartBtn.addEventListener('click', restart);
+  window.addEventListener('resize', ()=>{ if(gameOver){ const w = checkWin(); if(w) drawWinLine(w); }});
+
+  renderAll();
+})();
+</script>
+
+</body>
+</html>

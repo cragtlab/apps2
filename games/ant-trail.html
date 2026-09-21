@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Crumb Runners</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; overflow: hidden;
+    background: #1c140c;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    height: 100%;
+  }
+  canvas { display: block; }
+  #hint {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    color: #f1e6cf; font-family: Georgia, 'Times New Roman', serif;
+    font-size: 13px; letter-spacing: 0.04em;
+    background: rgba(20, 14, 8, 0.55);
+    border: 1px solid rgba(241, 230, 207, 0.25);
+    padding: 7px 16px; border-radius: 999px;
+    pointer-events: none; transition: opacity 1.2s ease;
+  }
+  #legend {
+    position: fixed; bottom: 14px; left: 14px;
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11px; color: #f1e6cf; opacity: 0.75;
+    pointer-events: none;
+  }
+  #legend span { display: flex; align-items: center; gap: 5px; }
+  #legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<div id="hint">Touch the floor to drop a crumb</div>
+<div id="legend"></div>
+<canvas id="c"></canvas>
+<script>
+(function () {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const hint = document.getElementById('hint');
+  const legendEl = document.getElementById('legend');
+
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let floorCanvas = document.createElement('canvas');
+  let floorCtx = floorCanvas.getContext('2d');
+
+  // ---- Colonies ----------------------------------------------------------
+  const colonyDefs = [
+    { name: 'Rust',   corner: 'tl', body: '#a9432c', dark: '#5c2116' },
+    { name: 'Coal',   corner: 'tr', body: '#2b2b2b', dark: '#0f0f0f' },
+    { name: 'Amber',  corner: 'bl', body: '#b8862f', dark: '#6b4b16' },
+    { name: 'Moss',   corner: 'br', body: '#4c6b3a', dark: '#28381d' },
+  ];
+  let colonies = [];
+
+  function layoutColonies() {
+    const inset = Math.min(70, W * 0.09, H * 0.09);
+    colonyDefs.forEach((c, i) => {
+      let x, y, outDir;
+      if (c.corner === 'tl') { x = inset; y = inset; outDir = { x: -1, y: -1 }; }
+      if (c.corner === 'tr') { x = W - inset; y = inset; outDir = { x: 1, y: -1 }; }
+      if (c.corner === 'bl') { x = inset; y = H - inset; outDir = { x: -1, y: 1 }; }
+      if (c.corner === 'br') { x = W - inset; y = H - inset; outDir = { x: 1, y: 1 }; }
+      const norm = Math.hypot(outDir.x, outDir.y);
+      outDir = { x: outDir.x / norm, y: outDir.y / norm };
+      colonies[i] = Object.assign(colonies[i] || {}, c, { pos: { x, y }, outDir });
+    });
+  }
+
+  function buildLegend() {
+    legendEl.innerHTML = colonyDefs.map(c =>
+      `<span><i style="background:${c.body}"></i>${c.name}</span>`
+    ).join('');
+  }
+
+  // ---- Floor texture ------------------------------------------------------
+  function buildFloor() {
+    floorCanvas.width = W * DPR;
+    floorCanvas.height = H * DPR;
+    floorCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const g = floorCtx.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
+    g.addColorStop(0, '#5a3f28');
+    g.addColorStop(1, '#3a2717');
+    floorCtx.fillStyle = g;
+    floorCtx.fillRect(0, 0, W, H);
+
+    // subtle plank / tile seams
+    floorCtx.strokeStyle = 'rgba(0,0,0,0.10)';
+    floorCtx.lineWidth = 1;
+    const tile = 64;
+    for (let x = 0; x < W; x += tile) {
+      floorCtx.beginPath(); floorCtx.moveTo(x, 0); floorCtx.lineTo(x, H); floorCtx.stroke();
+    }
+    for (let y = 0; y < H; y += tile) {
+      floorCtx.beginPath(); floorCtx.moveTo(0, y); floorCtx.lineTo(W, y); floorCtx.stroke();
+    }
+
+    // speckle / grit
+    const speckleCount = Math.floor((W * H) / 1800);
+    for (let i = 0; i < speckleCount; i++) {
+      const x = Math.random() * W, y = Math.random() * H;
+      const r = Math.random() * 1.4 + 0.3;
+      const shade = Math.random() > 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,235,200,0.06)';
+      floorCtx.fillStyle = shade;
+      floorCtx.beginPath(); floorCtx.arc(x, y, r, 0, Math.PI * 2); floorCtx.fill();
+    }
+
+    // vignette
+    const vg = floorCtx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.3, W/2, H/2, Math.max(W,H)*0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+    floorCtx.fillStyle = vg;
+    floorCtx.fillRect(0, 0, W, H);
+
+    // nest mounds
+    colonies.forEach(c => {
+      floorCtx.save();
+      floorCtx.translate(c.pos.x, c.pos.y);
+      const grd = floorCtx.createRadialGradient(0, 0, 1, 0, 0, 22);
+      grd.addColorStop(0, c.dark);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      floorCtx.fillStyle = grd;
+      floorCtx.beginPath(); floorCtx.arc(0, 0, 22, 0, Math.PI * 2); floorCtx.fill();
+      floorCtx.fillStyle = c.dark;
+      floorCtx.beginPath(); floorCtx.ellipse(0, 0, 9, 6, 0, 0, Math.PI * 2); floorCtx.fill();
+      floorCtx.restore();
+    });
+  }
+
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    layoutColonies();
+    buildFloor();
+  }
+  window.addEventListener('resize', resize);
+
+  // ---- Entities -------------------------------------------------------
+  let crumbs = [];
+  let ants = [];
+  let idCounter = 1;
+
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+  function spawnCrumb(x, y) {
+    // find nearest colony
+    let sorted = colonies.map((c, i) => ({ i, d: dist(c.pos, { x, y }) })).sort((a,b)=>a.d-b.d);
+    const primary = colonies[sorted[0].i];
+    let involved = [primary];
+    // 22% chance a second-nearest colony also joins -> mixed ant colors
+    if (colonies.length > 1 && Math.random() < 0.22) {
+      involved.push(colonies[sorted[1].i]);
+    }
+
+    const crumb = {
+      id: idCounter++,
+      x, y,
+      startX: x, startY: y,
+      size: 9 + Math.random() * 5,
+      wobble: Math.random() * Math.PI * 2,
+      state: 'waiting', // waiting -> gathering -> carrying -> done
+      requiredAnts: 5 + Math.floor(Math.random() * 3),
+      groupTimer: 0,
+      primaryColony: primary,
+      ants: [],
+      bornAt: performance.now(),
+    };
+    crumbs.push(crumb);
+
+    involved.forEach((colony, ci) => {
+      const count = Math.ceil(crumb.requiredAnts / involved.length) + (ci === 0 ? 1 : 0);
+      for (let k = 0; k < count; k++) {
+        const ant = {
+          id: idCounter++,
+          colony,
+          x: colony.pos.x + (Math.random() - 0.5) * 10,
+          y: colony.pos.y + (Math.random() - 0.5) * 10,
+          angle: 0,
+          speed: 55 + Math.random() * 35,
+          phase: Math.random() * Math.PI * 2,
+          wanderPhase: Math.random() * Math.PI * 2,
+          wanderAmp: 10 + Math.random() * 14,
+          delay: k * (120 + Math.random() * 160),
+          age: 0,
+          alpha: 0,
+          state: 'spawning',
+          crumb,
+          circleAngle: 0,
+          scale: 0.85 + Math.random() * 0.3,
+        };
+        ants.push(ant);
+        crumb.ants.push(ant);
+      }
+    });
+  }
+
+  // ---- Input ------------------------------------------------------------
+  function handlePoint(clientX, clientY) {
+    spawnCrumb(clientX, clientY);
+    if (hint) { hint.style.opacity = '0'; }
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    handlePoint(e.clientX, e.clientY);
+  });
+
+  // ---- Update -------------------------------------------------------------
+  let lastT = performance.now();
+
+  function updateAnt(ant, dt, now) {
+    ant.age += dt * 1000;
+
+    if (ant.state === 'spawning') {
+      if (ant.age < ant.delay) return;
+      ant.alpha = Math.min(1, (ant.age - ant.delay) / 500);
+      if (ant.alpha >= 1) ant.state = 'walking';
+      return;
+    }
+
+    ant.alpha = 1;
+
+    if (ant.state === 'walking') {
+      const c = ant.crumb;
+      const tx = c.x, ty = c.y;
+      const dx = tx - ant.x, dy = ty - ant.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 10) {
+        // assign a slot around the crumb
+        const idx = c.ants.indexOf(ant);
+        const n = Math.max(c.ants.length, 1);
+        ant.circleAngle = (idx / n) * Math.PI * 2;
+        ant.state = 'gathering';
+        return;
+      }
+      const nx = dx / d, ny = dy / d;
+      // perpendicular wander for organic wiggle
+      ant.wanderPhase += dt * 4;
+      const perp = Math.sin(ant.wanderPhase + ant.phase) * ant.wanderAmp * 0.02;
+      const moveX = nx + -ny * perp;
+      const moveY = ny + nx * perp;
+      const mlen = Math.hypot(moveX, moveY) || 1;
+      ant.x += (moveX / mlen) * ant.speed * dt;
+      ant.y += (moveY / mlen) * ant.speed * dt;
+      ant.angle = Math.atan2(dy, dx);
+      return;
+    }
+
+    if (ant.state === 'gathering') {
+      const c = ant.crumb;
+      const r = c.size + 6;
+      const targetX = c.x + Math.cos(ant.circleAngle) * r;
+      const targetY = c.y + Math.sin(ant.circleAngle) * r;
+      ant.x += (targetX - ant.x) * Math.min(1, dt * 6);
+      ant.y += (targetY - ant.y) * Math.min(1, dt * 6);
+      ant.angle = Math.atan2(c.y - ant.y, c.x - ant.x);
+
+      if (c.state === 'waiting') {
+        const allArrived = c.ants.every(a => a.state === 'gathering' || a.state === 'carrying');
+        if (allArrived || (now - c.bornAt) > 3400) {
+          c.state = 'gathering';
+          c.groupTimer = now;
+        }
+      } else if (c.state === 'gathering') {
+        if (now - c.groupTimer > 550) {
+          c.state = 'carrying';
+        }
+      }
+      return;
+    }
+
+    if (ant.state === 'carrying') {
+      const c = ant.crumb;
+      const r = c.size + 6;
+      const targetX = c.x + Math.cos(ant.circleAngle) * r;
+      const targetY = c.y + Math.sin(ant.circleAngle) * r;
+      ant.x += (targetX - ant.x) * Math.min(1, dt * 8);
+      ant.y += (targetY - ant.y) * Math.min(1, dt * 8);
+      ant.circleAngle += dt * 1.4;
+      ant.angle = Math.atan2(c.outDirY, c.outDirX);
+    }
+  }
+
+  function updateCrumb(c, dt, now) {
+    if (c.state === 'carrying') {
+      if (!c.outDirX) {
+        const colony = c.primaryColony;
+        c.outDirX = colony.outDir.x;
+        c.outDirY = colony.outDir.y;
+        c.targetX = colony.pos.x + colony.outDir.x * (Math.max(W, H) + 200);
+        c.targetY = colony.pos.y + colony.outDir.y * (Math.max(W, H) + 200);
+      }
+      const dx = c.targetX - c.x, dy = c.targetY - c.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const carrySpeed = 34 + c.ants.length * 3;
+      c.x += (dx / d) * carrySpeed * dt;
+      c.y += (dy / d) * carrySpeed * dt;
+      if (c.x < -60 || c.x > W + 60 || c.y < -60 || c.y > H + 60) {
+        c.state = 'done';
+      }
+    }
+    c.wobble += dt * 2;
+  }
+
+  function step(now) {
+    const dt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+
+    crumbs.forEach(c => updateCrumb(c, dt, now));
+    ants.forEach(a => updateAnt(a, dt, now));
+
+    // cleanup
+    crumbs = crumbs.filter(c => c.state !== 'done');
+    ants = ants.filter(a => a.crumb.state !== 'done');
+
+    draw(now);
+    requestAnimationFrame(step);
+  }
+
+  // ---- Draw -------------------------------------------------------------
+  function drawAnt(ant) {
+    if (ant.alpha <= 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = ant.alpha;
+    ctx.translate(ant.x, ant.y);
+    ctx.rotate(ant.angle);
+    ctx.scale(ant.scale, ant.scale);
+
+    const legSwing = (ant.state === 'gathering') ? 0.15 : Math.sin(ant.age * 0.02 + ant.phase) * 0.55;
+    ctx.strokeStyle = ant.colony.dark;
+    ctx.lineWidth = 0.8;
+    for (let i = -1; i <= 1; i++) {
+      const lx = i * 2.2;
+      const swing = legSwing * (i === 0 ? -1 : 1);
+      ctx.beginPath();
+      ctx.moveTo(lx, 0);
+      ctx.lineTo(lx + swing * 2, 4.5 + Math.abs(i) * 0.3);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(lx, 0);
+      ctx.lineTo(lx - swing * 2, -4.5 - Math.abs(i) * 0.3);
+      ctx.stroke();
+    }
+
+    // body: abdomen, thorax, head
+    ctx.fillStyle = ant.colony.body;
+    ctx.beginPath(); ctx.ellipse(-3.4, 0, 2.6, 1.9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 0, 1.7, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ant.colony.dark;
+    ctx.beginPath(); ctx.ellipse(2.6, 0, 1.4, 1.2, 0, 0, Math.PI * 2); ctx.fill();
+    // antennae
+    ctx.strokeStyle = ant.colony.dark;
+    ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.moveTo(3.6, -0.4); ctx.lineTo(6, -2.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3.6, 0.4); ctx.lineTo(6, 2.2); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawCrumb(c) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    const wob = Math.sin(c.wobble) * 1.2;
+    ctx.rotate(wob * 0.05);
+    const shadowAlpha = c.state === 'carrying' ? 0.15 : 0.28;
+    ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
+    ctx.beginPath(); ctx.ellipse(1.5, c.size * 0.55, c.size * 0.9, c.size * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = '#caa062';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, c.size, c.size * 0.75, 0.3, 0, Math.PI * 2);
+    ctx.ellipse(c.size * 0.5, c.size * 0.2, c.size * 0.55, c.size * 0.45, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#8a6636';
+    ctx.beginPath();
+    ctx.arc(-c.size * 0.2, -c.size * 0.1, c.size * 0.18, 0, Math.PI * 2);
+    ctx.arc(c.size * 0.35, c.size * 0.05, c.size * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function draw(now) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(floorCanvas, 0, 0, W, H);
+
+    crumbs.forEach(drawCrumb);
+    // ants on top, sorted so gathering/carrying render nicely
+    ants.forEach(drawAnt);
+  }
+
+  // ---- Init ---------------------------------------------------------------
+  resize();
+  buildLegend();
+  requestAnimationFrame((t) => { lastT = t; requestAnimationFrame(step); });
+
+  setTimeout(() => { if (hint) hint.style.opacity = '0.85'; }, 100);
+})();
+</script>
+</body>
+</html>

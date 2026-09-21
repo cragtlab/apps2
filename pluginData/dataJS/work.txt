@@ -2,7 +2,7 @@
     const title = "work";
 
     let isLoaded = false;
-    const reportsToLoad = ["LJA_KPI_Report", "GEGM_KPI_Report", "EGM_KPI_Report", "SDA_KPI_Report", "TA Report_"];
+    const reportsToLoad = ["LJA_KPI_Report", "GEGM_KPI_Report", "EGM_KPI_Report", "SDA_KPI_Report", "A&I Report_"];
     const loadedData = {};
     const officerIndex = {};
     const statusIndex = {};
@@ -47,6 +47,8 @@
         <input id="searchBox" placeholder="Search all loaded reports..." style="width: 300px;">
         <select id="officerFilter"><option value="">All Officers</option></select>
         <select id="statusFilter"><option value="">All Statuses</option></select>
+        <button id="clearFilterBtn">Clear Filter</button>
+        <span id="resultCountLabel" style="margin-left: 10px; font-size: 0.9em;"></span>
 
         <div style="max-height:600px; overflow:auto; margin-top:10px;">
             <table id="resultsTable">
@@ -99,12 +101,16 @@
     }
 
     function indexData(reportName, rows) {
-        if (!rows || rows.length === 0) return;
-        const header = rows[0];
+        const isAI = (reportName === "A&I Report_");
+        const headerIdx = isAI ? 1 : 0;
+        const startRowIdx = isAI ? 2 : 1;
+
+        if (!rows || rows.length <= headerIdx) return;
+        const header = rows[headerIdx];
         const officerCol = findOfficerColumn(header);
         const statusCol = findStatusColumn(header);
 
-        for (let i = 1; i < rows.length; i++) {
+        for (let i = startRowIdx; i < rows.length; i++) {
             const row = rows[i];
             let officer = normalizeOfficer(officerCol !== -1 ? row[officerCol] : null) || "no officer";
             const status = statusCol !== -1 ? (row[statusCol] || "").toString().trim() : null;
@@ -135,19 +141,24 @@
                 log(`Pulling ${type}...`);
                 const data = await PluginAPI.pullData(type);
 
-                // Specific TA Report date formatting
-                if (type === "TA Report_" && data.length > 0) {
-                    const header = data[0].map(h => String(h).toLowerCase().trim());
-                    const dateCols = ["submission date", "date of incident", "closed date", "kpi date"];
+                // Specific A&I Report date formatting
+                if (type === "A&I Report_" && data.length > 1) {
+                    const header = data[1].map(h => String(h).toLowerCase().trim());
+                    const dateCols = [
+                        "submission date", "date of incident", "incident date", "closed date",
+                        "kpi date", "kpi start date", "kpi target date",
+                        "assessment approval date", "odm concurrence date"
+                    ];
                     const targetIndices = dateCols.map(c => header.indexOf(c)).filter(idx => idx !== -1);
-                    for (let i = 1; i < data.length; i++) {
+                    for (let i = 2; i < data.length; i++) {
                         targetIndices.forEach(idx => { data[i][idx] = formatExcelDate(data[i][idx]); });
                     }
                 }
 
                 loadedData[type] = data;
                 indexData(type, data);
-                log(`✅ ${type} loaded (${data.length - 1} rows)`);
+                const rowCount = data.length - (type === "A&I Report_" ? 2 : 1);
+                log(`✅ ${type} loaded (${Math.max(0, rowCount)} rows)`);
             } catch (err) {
                 log(`❌ Error loading ${type}: ${err.message}`);
             }
@@ -252,15 +263,19 @@
         const officer = offInp.value;
         const status = statInp.value;
         const results = [];
+        let totalMatches = 0;
 
         for (const type in loadedData) {
             const rows = loadedData[type];
-            if (!rows || rows.length < 2) continue;
-            const header = rows[0];
+            const isAI = (type === "A&I Report_");
+            const headerIdx = isAI ? 1 : 0;
+            const startRowIdx = isAI ? 2 : 1;
+            if (!rows || rows.length <= headerIdx) continue;
+            const header = rows[headerIdx];
             const officerCol = findOfficerColumn(header);
             const statusCol = findStatusColumn(header);
 
-            for (let i = 1; i < rows.length; i++) {
+            for (let i = startRowIdx; i < rows.length; i++) {
                 const row = rows[i];
                 if (officer) {
                     let rowOff = normalizeOfficer(officerCol !== -1 ? row[officerCol] : null) || "no officer";
@@ -273,19 +288,30 @@
                 if (term) {
                     if (!JSON.stringify(row).toLowerCase().includes(term)) continue;
                 }
-                results.push({ type, row });
-                if (results.length > 500) break;
+                totalMatches++;
+                if (results.length < 500) {
+                    results.push({ type, row });
+                }
             }
-            if (results.length > 500) break;
         }
-        renderResults(results);
+        renderResults(results, totalMatches);
     }
 
-    function renderResults(results) {
+    function renderResults(results, totalMatches = 0) {
         const head = container.querySelector("#resultsHead");
         const body = container.querySelector("#resultsBody");
+        const countLabel = container.querySelector("#resultCountLabel");
         if (!head || !body) return;
         head.innerHTML = ""; body.innerHTML = "";
+
+        if (countLabel) {
+            if (totalMatches > 500) {
+                countLabel.textContent = `showing 500 of ${totalMatches} results`;
+            } else {
+                countLabel.textContent = `(showing ${totalMatches} results)`;
+            }
+        }
+
         if (results.length === 0) return;
 
         let maxCols = 0;
@@ -308,5 +334,11 @@
     container.querySelector("#officerFilter").onchange = applyFilters;
     container.querySelector("#statusFilter").onchange = applyFilters;
     container.querySelector("#showAllOfficers").onchange = updateDashboard;
+    container.querySelector("#clearFilterBtn").onclick = () => {
+        container.querySelector("#searchBox").value = "";
+        container.querySelector("#officerFilter").value = "";
+        container.querySelector("#statusFilter").value = "";
+        applyFilters();
+    };
 
 })();
