@@ -23,6 +23,7 @@
 <body>
 <div id="scoreDiv">Score: 0</div>
 <button id="flipBtn" onclick="if(scene.rotation.x){scene.rotation.x=0}else{scene.rotation.x=-1}">Flip View</button>
+<button id="motionBtn" style="position:absolute;top:120px;left:10px;font-size:20px;">Enable Tilt</button>
 <script src="https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js"></script>
 <script>
   const scene = new THREE.Scene();
@@ -102,11 +103,31 @@ function respawnPowerUp() {
 
   camera.position.z = 5;
 
+  let leftArrowPressed = false;
+  let rightArrowPressed = false;
+  let motionEnabled = false;
+  let gyroX = 0;
+
+  function updateShipMovement() {
+    const maxX = 4.5;
+    const minX = -4.5;
+    const tiltBoost = motionEnabled ? gyroX * 0.2 : 0;
+
+    if ((leftArrowPressed || tiltBoost < -0.08) && spaceship.position.x > minX) {
+      spaceship.position.x -= 0.12 + Math.max(0, -tiltBoost) * 0.3;
+    }
+    if ((rightArrowPressed || tiltBoost > 0.08) && spaceship.position.x < maxX) {
+      spaceship.position.x += 0.12 + Math.max(0, tiltBoost) * 0.3;
+    }
+
+    if (spaceship.position.x < minX) spaceship.position.x = minX;
+    if (spaceship.position.x > maxX) spaceship.position.x = maxX;
+  }
+
   function animate() {
     requestAnimationFrame(animate);
 
-    if (leftArrowPressed && spaceship.position.x > -4.5) spaceship.position.x -= 0.1;
-    if (rightArrowPressed && spaceship.position.x < 4.5) spaceship.position.x += 0.1;
+    updateShipMovement();
 
     for (const projectile of projectiles) {
       projectile.position.y += 0.1;
@@ -150,8 +171,36 @@ function respawnPowerUp() {
     renderer.render(scene, camera);
   }
 
-  let leftArrowPressed = false;
-  let rightArrowPressed = false;
+  function enableMotionControls() {
+    if (motionEnabled) return;
+
+    const tryEnable = () => {
+      motionEnabled = true;
+      document.getElementById('motionBtn').textContent = 'Tilt Enabled';
+    };
+
+    if (typeof DeviceOrientationEvent !== 'undefined') {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            tryEnable();
+          }
+        }).catch(() => {
+          tryEnable();
+        });
+      } else {
+        tryEnable();
+      }
+    } else {
+      tryEnable();
+    }
+  }
+
+  window.addEventListener('deviceorientation', (event) => {
+    if (typeof event.gamma === 'number') {
+      gyroX = Math.max(-1, Math.min(1, event.gamma / 45));
+    }
+  });
 
   window.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft' || event.key === "a" || event.key === "A") {
@@ -170,6 +219,16 @@ function respawnPowerUp() {
       rightArrowPressed = false;
     }
   });
+
+  document.getElementById('motionBtn').addEventListener('click', () => {
+    enableMotionControls();
+  });
+
+  window.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'touch' || event.pointerType === 'pen' || event.pointerType === 'mouse') {
+      fireProjectile();
+    }
+  }, { passive: true });
 
   animate();
   setInterval(()=>fireProjectile(), 200);
