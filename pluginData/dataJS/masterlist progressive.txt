@@ -54,19 +54,10 @@ const progressiveHitsPlugin = {
         .prog-hits-plugin .bar-val { width: 110px; font-size: 0.75rem; color: #34d399; font-weight: 600; text-align: right; flex-shrink: 0; }
 
         .prog-hits-plugin .empty { padding: 24px; text-align: center; color: #475569; font-size: 0.85rem; }
-        .prog-hits-plugin .loading-overlay {
-          background: rgba(30, 41, 59, 0.8);
-          padding: 30px; text-align: center; border-radius: 10px; margin-bottom: 20px;
-          border: 1px solid #334155;
-        }
       </style>
       <div class="prog-hits-plugin">
         <h1>🎰 Progressive Hits Analytics</h1>
         <p class="sub">Pulls from latest cumulative monthly reports (tabs 1–31)</p>
-
-        <div id="hits-loading" class="loading-overlay hidden">
-          <div style="font-size: 1.2rem; color: #6366f1;">Loading data...</div>
-        </div>
 
         <div id="hits-dashboard" class="hidden">
           <div class="cards" id="hits-summaryCards"></div>
@@ -82,6 +73,8 @@ const progressiveHitsPlugin = {
             <select id="hits-monthFilter"><option value="all">All Months</option></select>
             <label for="hits-dayFilter" style="margin-left:10px">Day:</label>
             <select id="hits-dayFilter"><option value="all">All Days</option></select>
+            <label for="hits-linkFilter" style="margin-left:10px">Link Name:</label>
+            <select id="hits-linkFilter"><option value="all">All Link Names</option></select>
           </div>
 
           <div class="box">
@@ -131,9 +124,7 @@ const progressiveHitsPlugin = {
     if (this.isLoaded) return;
     this.isLoaded = true;
 
-    const loading = this.container.querySelector("#hits-loading");
     const noData = this.container.querySelector("#hits-no-data");
-    loading.classList.remove("hidden");
     noData.classList.add("hidden");
 
     setTimeout(async () => {
@@ -160,8 +151,6 @@ const progressiveHitsPlugin = {
         noData.classList.remove("hidden");
         noData.innerHTML = `<div style="color:#ef4444">Error loading data: ${err.message}</div>`;
         this.isLoaded = false;
-      } finally {
-        loading.classList.add("hidden");
       }
     }, 100);
   },
@@ -251,6 +240,7 @@ const progressiveHitsPlugin = {
     const daySel = this.container.querySelector('#hits-dayFilter');
     const monthSel = this.container.querySelector('#hits-monthFilter');
     const casinoSel = this.container.querySelector('#hits-casinoFilter');
+    const linkSel = this.container.querySelector('#hits-linkFilter');
 
     const days = [...new Set(this.allRecords.map(r=>r.day))].sort((a,b)=>a-b);
     daySel.innerHTML = '<option value="all">All Days</option>' + days.map(d => `<option value="${d}">Day ${d}</option>`).join('');
@@ -258,16 +248,21 @@ const progressiveHitsPlugin = {
     const months = [...new Set(this.allRecords.map(r=>r.month))].sort();
     monthSel.innerHTML = '<option value="all">All Months</option>' + months.map(m => `<option value="${m}">${m}</option>`).join('');
 
+    const links = [...new Set(this.allRecords.map(r=>r.linkName))].filter(Boolean).sort((a,b)=>a.localeCompare(b));
+    linkSel.innerHTML = '<option value="all">All Link Names</option>' + links.map(l => `<option value="${l}">${l}</option>`).join('');
+
     const handler = () => this.render();
     daySel.onchange = handler;
     monthSel.onchange = handler;
     casinoSel.onchange = handler;
+    linkSel.onchange = handler;
   },
 
   render: function() {
     const dayVal = this.container.querySelector('#hits-dayFilter').value;
     const monthVal = this.container.querySelector('#hits-monthFilter').value;
     const casinoVal = this.container.querySelector('#hits-casinoFilter').value;
+    const linkVal = this.container.querySelector('#hits-linkFilter').value;
 
     let filtered = this.allRecords;
     if (casinoVal !== 'all') {
@@ -280,16 +275,19 @@ const progressiveHitsPlugin = {
     if (monthVal !== 'all') {
       filtered = filtered.filter(r => r.month === monthVal);
     }
+    if (linkVal !== 'all') {
+      filtered = filtered.filter(r => r.linkName === linkVal);
+    }
 
-    this.renderCards(filtered, dayVal, monthVal, casinoVal);
+    this.renderCards(filtered, dayVal, monthVal, casinoVal, linkVal);
     this.renderTopLinks(filtered);
     this.renderTopLoc(filtered);
     this.renderTopHits(filtered);
-    this.renderTrend(dayVal, monthVal, casinoVal);
+    this.renderTrend(dayVal, monthVal, casinoVal, linkVal);
     this.renderAll(filtered);
   },
 
-  renderCards: function(recs, dFilter, mFilter, cFilter) {
+  renderCards: function(recs, dFilter, mFilter, cFilter, lFilter) {
     const total = recs.reduce((s,r)=>s+r.amount,0);
     const count = recs.length;
     const avg   = count ? total/count : 0;
@@ -298,8 +296,8 @@ const progressiveHitsPlugin = {
     const links = new Set(recs.map(r=>r.linkName)).size;
 
     let context = cFilter === 'all' ? 'All Casinos' : cFilter;
-    if (mFilter !== 'all' || dFilter !== 'all') {
-       context += ` (${mFilter==='all'?'':mFilter}${mFilter!=='all'&&dFilter!=='all'?' ':''}${dFilter==='all'?'':'Day '+dFilter})`;
+    if (mFilter !== 'all' || dFilter !== 'all' || (lFilter && lFilter !== 'all')) {
+       context += ` (${mFilter==='all'?'':mFilter}${mFilter!=='all'&&dFilter!=='all'?' ':''}${dFilter==='all'?'':'Day '+dFilter}${lFilter&&lFilter!=='all'?' '+lFilter:''})`;
     }
 
     this.container.querySelector('#hits-summaryCards').innerHTML = `
@@ -354,12 +352,13 @@ const progressiveHitsPlugin = {
     ).join('') || '<tr><td colspan="4" class="empty">No data</td></tr>';
   },
 
-  renderTrend: function(dayFilter, monthFilter, casinoFilter) {
+  renderTrend: function(dayFilter, monthFilter, casinoFilter, linkFilter) {
     const map = {};
 
     let baseRecs = this.allRecords;
     if (casinoFilter !== 'all') baseRecs = baseRecs.filter(r => r.casino === casinoFilter);
     if (monthFilter !== 'all') baseRecs = baseRecs.filter(r => r.month === monthFilter);
+    if (linkFilter && linkFilter !== 'all') baseRecs = baseRecs.filter(r => r.linkName === linkFilter);
 
     baseRecs.forEach(r => {
       if (!map[r.day]) map[r.day]={total:0,hits:0};
