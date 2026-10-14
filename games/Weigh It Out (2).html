@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Weigh It Out</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e6edf5; --card:#ffffff; --ink:#14213d; --muted:#5b6880; --line:#cfd9e6;
+  --accent:#2457e6; --accent-ink:#ffffff; --good:#13874b; --bad:#c93a3a;
+  --scale-body:#c3d1e3; --scale-plate:#9fb2c9; --lcd:#b7e4c7; --lcd-ink:#0b3a22;
+  --chip:#eef3f9;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1626; --card:#172238; --ink:#e8eefc; --muted:#9aa8c4; --line:#2a3956;
+    --accent:#6b93ff; --accent-ink:#0b1220; --good:#4cd08a; --bad:#ff7a7a;
+    --scale-body:#2a3957; --scale-plate:#41567d; --lcd:#9bd8b2; --lcd-ink:#06301a;
+    --chip:#1d2a45; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1626; --card:#172238; --ink:#e8eefc; --muted:#9aa8c4; --line:#2a3956;
+  --accent:#6b93ff; --accent-ink:#0b1220; --good:#4cd08a; --bad:#ff7a7a;
+  --scale-body:#2a3957; --scale-plate:#41567d; --lcd:#9bd8b2; --lcd-ink:#06301a;
+  --chip:#1d2a45; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.4;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:10px 12px 24px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:8px}
+h1{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0;line-height:1}
+.sub{color:var(--muted);font-size:12px;margin:2px 0 0}
+.stats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px 8px;font-size:11px;color:var(--muted);min-width:52px}
+.stat b{display:block;font-size:15px;color:var(--ink);font-weight:700}
+.known{display:flex;align-items:center;gap:12px;background:var(--accent);color:var(--accent-ink);border-radius:14px;padding:8px 12px;margin-bottom:8px}
+.known svg{flex:none;background:rgba(255,255,255,.92);border-radius:12px;padding:4px}
+.known .t{font-size:13px;opacity:.9}
+.known .v{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.scale{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px}
+#scales{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+#scales .scale:nth-child(3){grid-column:1/-1;width:calc(50% - 3px);justify-self:center}
+
+.scale svg{display:block;width:100%;height:auto}
+.lcd-t{font-family:"Share Tech Mono",ui-monospace,Menlo,Consolas,monospace;font-size:24px;fill:var(--lcd-ink)}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin:2px 4px 0}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border-radius:999px;padding:3px 10px 3px 6px;font-size:13px}
+.answer{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px}
+.answer h2{margin:0 0 6px;font-size:15px}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.row label{flex:1;display:flex;align-items:center;gap:8px;font-weight:600}
+.row input{width:76px;font:inherit;font-size:17px;font-weight:700;text-align:center;padding:5px 4px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
+.row input:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.row input.ok{border-color:var(--good)}
+.row input.no{border-color:var(--bad)}
+.unit{color:var(--muted);font-size:14px;width:24px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:8px 14px;cursor:pointer;min-height:40px}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.primary{background:var(--accent);color:var(--accent-ink);flex:1}
+.ghost{background:var(--chip);color:var(--ink)}
+.msg{margin-top:8px;padding:8px 10px;border-radius:12px;font-size:14px;display:none}
+.msg.show{display:block}
+.msg.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--ink);border:1px solid var(--good)}
+.msg.bad{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--ink);border:1px solid var(--bad)}
+.msg.info{background:var(--chip);border:1px solid var(--line)}
+.work{margin:6px 0 0;padding-left:18px}
+.work li{margin:3px 0}
+.hidden{display:none!important}
+@media (prefers-reduced-motion: no-preference){
+  .pop{animation:pop .25s ease-out}
+  @keyframes pop{from{transform:scale(.96);opacity:.6}to{transform:none;opacity:1}}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Weigh It Out</h1>
+      <p class="sub">Each scale shows a total. Work out what one item weighs.</p>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat">Level<b id="sLevel">1</b></div>
+    <div class="stat">Score<b id="sScore">0</b></div>
+    <div class="stat">Streak<b id="sStreak">0</b></div>
+    <div class="stat">Best<b id="sBest">0</b></div>
+  </div>
+
+  <div class="known" id="known"></div>
+  <div id="scales"></div>
+
+  <div class="answer" id="answer">
+    <h2>What does one of each weigh?</h2>
+    <div id="inputs"></div>
+    <div class="btns">
+      <button class="primary" id="check">Check answer</button>
+      <button class="ghost" id="hint">Hint</button>
+    </div>
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+    <div class="btns hidden" id="nextRow">
+      <button class="primary" id="next">Next puzzle</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var PALETTE = [
+    {name:'Red',    c:'#e5484d', shape:'circle'},
+    {name:'Yellow', c:'#f2b01e', shape:'square'},
+    {name:'Blue',   c:'#3b82f6', shape:'triangle'},
+    {name:'Green',  c:'#2fa862', shape:'diamond'},
+    {name:'Purple', c:'#8b5cf6', shape:'hex'}
+  ];
+
+  function rnd(a,b){ return a + Math.floor(Math.random()*(b-a+1)); }
+  function shuffle(arr){ for(var i=arr.length-1;i>0;i--){var j=rnd(0,i);var t=arr[i];arr[i]=arr[j];arr[j]=t;} return arr; }
+
+  function shapeSvg(shape,color,cx,cy,r){
+    var st = 'fill="'+color+'" stroke="rgba(0,0,0,.35)" stroke-width="1.5" stroke-linejoin="round"';
+    var h = r*0.866, pts;
+    switch(shape){
+      case 'circle': return '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" '+st+'/>';
+      case 'square': return '<rect x="'+(cx-r)+'" y="'+(cy-r)+'" width="'+(2*r)+'" height="'+(2*r)+'" rx="'+(r*0.3)+'" '+st+'/>';
+      case 'triangle':
+        pts = [cx,cy-r, cx+r*1.05,cy+r*0.85, cx-r*1.05,cy+r*0.85]; return '<polygon points="'+pts.join(' ')+'" '+st+'/>';
+      case 'diamond':
+        pts = [cx,cy-r*1.1, cx+r,cy, cx,cy+r*1.1, cx-r,cy]; return '<polygon points="'+pts.join(' ')+'" '+st+'/>';
+      default:
+        pts = [cx-r,cy, cx-r/2,cy-h, cx+r/2,cy-h, cx+r,cy, cx+r/2,cy+h, cx-r/2,cy+h]; return '<polygon points="'+pts.join(' ')+'" '+st+'/>';
+    }
+  }
+  function icon(it,size){
+    var s = size||28;
+    return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 28 28" aria-hidden="true">'+shapeSvg(it.shape,it.c,14,14,10)+'</svg>';
+  }
+
+  var state = { level:1, solved:0, score:0, streak:0, best:0, p:null, attempts:0, hints:0, done:false };
+  try{ state.best = parseInt(localStorage.getItem('weighItOutBest')||'0',10)||0; }catch(e){}
+
+  function newPuzzle(){
+    var lvl = state.level;
+    var maxW = Math.min(6 + lvl*2, 24);
+    var maxQ = Math.min(2 + Math.ceil(lvl/2), 5);
+    var cols = shuffle(PALETTE.slice()).slice(0,3);
+    var A = cols[0], B = cols[1], C = cols[2];
+    var wA, wB, wC;
+    do {
+      wA = rnd(2,maxW); wB = rnd(1,maxW); wC = rnd(1,maxW);
+    } while (wA===wB || wB===wC || wA===wC);
+    A.w=wA; B.w=wB; C.w=wC;
+
+    function q(){ return rnd(1,maxQ); }
+    var s1 = { parts:[{it:A,q:q()},{it:B,q:q()}] };
+    var s2 = { parts:[{it:B,q:q()},{it:C,q:q()}] };
+    var s3 = { parts:[{it:A,q:rnd(1,3)},{it:B,q:rnd(1,3)},{it:C,q:rnd(1,3)}] };
+    [s1,s2,s3].forEach(function(s){
+      s.total = s.parts.reduce(function(t,p){return t+p.q*p.it.w;},0);
+    });
+    var order = [s1,s2];
+    if (Math.random()<0.5) order.reverse();
+    order.push(s3);
+    state.p = { A:A,B:B,C:C, scales:order, s1:s1, s2:s2 };
+    state.attempts = 0; state.hints = 0; state.done = false;
+    render();
+  }
+
+  function scaleSvg(s){
+    var list = [];
+    s.parts.forEach(function(p){ for(var i=0;i<p.q;i++) list.push(p.it); });
+    var perRow = 6, svg = '<svg viewBox="0 28 300 148" role="img" aria-label="Scale reading '+s.total+' kilograms">';
+    svg += '<rect x="22" y="104" width="256" height="10" rx="5" fill="var(--scale-plate)"/>';
+    svg += '<rect x="8" y="112" width="284" height="58" rx="16" fill="var(--scale-body)"/>';
+    svg += '<rect x="86" y="124" width="128" height="34" rx="8" fill="var(--lcd)"/>';
+    svg += '<text class="lcd-t" x="150" y="148" text-anchor="middle">'+s.total+' kg</text>';
+    list.forEach(function(it,i){
+      var row = Math.floor(i/perRow), col = i%perRow;
+      var inRow = Math.min(perRow, list.length-row*perRow);
+      var x = 150 + (col-(inRow-1)/2)*40;
+      var y = 86 - row*36;
+      svg += shapeSvg(it.shape,it.c,x,y,14);
+    });
+    return svg+'</svg>';
+  }
+
+  function render(){
+    var p = state.p;
+    document.getElementById('sLevel').textContent = state.level;
+    document.getElementById('sScore').textContent = state.score;
+    document.getElementById('sStreak').textContent = state.streak;
+    document.getElementById('sBest').textContent = state.best;
+
+    document.getElementById('known').innerHTML =
+      icon(p.A,34)+'<div><div class="t">The one weight you know</div><div class="v">1 '+p.A.name+' = '+p.A.w+' kg</div></div>';
+
+    var html='';
+    p.scales.forEach(function(s,i){
+      html += '<div class="scale pop">'+scaleSvg(s)+'</div>';
+    });
+    document.getElementById('scales').innerHTML = html;
+
+    var inp='';
+    [p.B,p.C].forEach(function(it,i){
+      inp += '<div class="row"><label for="g'+i+'">'+icon(it,28)+'1 '+it.name+' =</label>'+
+             '<input id="g'+i+'" type="number" inputmode="numeric" min="0" step="1" autocomplete="off"><span class="unit">kg</span></div>';
+    });
+    document.getElementById('inputs').innerHTML = inp;
+    setMsg('', '');
+    document.getElementById('nextRow').classList.add('hidden');
+    document.getElementById('check').disabled = false;
+    document.getElementById('hint').disabled = false;
+    var first = document.getElementById('g0'); if(first) first.focus({preventScroll:true});
+  }
+
+  function setMsg(kind, html){
+    var m = document.getElementById('msg');
+    m.className = 'msg' + (kind ? ' show '+kind : '');
+    m.innerHTML = html;
+  }
+
+  function workingHtml(){
+    var p = state.p, s1=p.s1, s2=p.s2;
+    var a = s1.parts[0], b = s1.parts[1], c = s2.parts[0], d = s2.parts[1];
+    return '<ol class="work">'+
+      '<li>'+a.q+' '+p.A.name+' = '+(a.q*p.A.w)+' kg, so '+b.q+' '+p.B.name+' = '+s1.total+' &minus; '+(a.q*p.A.w)+' = '+(b.q*p.B.w)+' kg. One '+p.B.name+' = <b>'+p.B.w+' kg</b>.</li>'+
+      '<li>'+c.q+' '+p.B.name+' = '+(c.q*p.B.w)+' kg, so '+d.q+' '+p.C.name+' = '+s2.total+' &minus; '+(c.q*p.B.w)+' = '+(d.q*p.C.w)+' kg. One '+p.C.name+' = <b>'+p.C.w+' kg</b>.</li>'+
+      '</ol>';
+  }
+
+  function scaleNumber(s){
+    for(var i=0;i<state.p.scales.length;i++) if(state.p.scales[i]===s) return i+1;
+  }
+
+  function check(){
+    if(state.done) return;
+    var p = state.p;
+    var g0 = document.getElementById('g0'), g1 = document.getElementById('g1');
+    var v0 = parseFloat(g0.value), v1 = parseFloat(g1.value);
+    if(isNaN(v0) || isNaN(v1)){
+      setMsg('info','Enter a weight for both items first.'); return;
+    }
+    state.attempts++;
+    var ok0 = v0===p.B.w, ok1 = v1===p.C.w;
+    g0.className = ok0 ? 'ok' : 'no';
+    g1.className = ok1 ? 'ok' : 'no';
+    if(ok0 && ok1){
+      var gain = Math.max(5, 30 - (state.attempts-1)*10 - state.hints*8);
+      state.score += gain; state.streak++; state.solved++;
+      if(state.score > state.best){ state.best = state.score; try{ localStorage.setItem('weighItOutBest', String(state.best)); }catch(e){} }
+      var prevLevel = state.level;
+      state.level = 1 + Math.floor(state.solved/2);
+      state.done = true;
+      document.getElementById('check').disabled = true;
+      document.getElementById('hint').disabled = true;
+      document.getElementById('sScore').textContent = state.score;
+      document.getElementById('sStreak').textContent = state.streak;
+      document.getElementById('sBest').textContent = state.best;
+      document.getElementById('sLevel').textContent = state.level;
+      setMsg('good','<b>Correct, +'+gain+' points.</b>'+(state.level>prevLevel?' Level up: bigger numbers ahead.':'')+workingHtml());
+      document.getElementById('nextRow').classList.remove('hidden');
+    } else {
+      state.streak = 0;
+      document.getElementById('sStreak').textContent = 0;
+      var which = (!ok0 && !ok1) ? 'Both answers are off.' : (!ok0 ? 'The '+p.B.name+' is off.' : 'The '+p.C.name+' is off.');
+      var extra = state.attempts>=3 ? ' Stuck? Use Hint for a step.' : '';
+      setMsg('bad', which+' Start with a scale that has just the '+p.A.name+' and one other item.'+extra);
+    }
+  }
+
+  function hint(){
+    if(state.done) return;
+    var p = state.p, s1 = p.s1, s2 = p.s2;
+    state.hints++;
+    var pos = ['left','right','bottom']; var n1 = pos[scaleNumber(s1)-1], n2 = pos[scaleNumber(s2)-1];
+    if(state.hints===1){
+      var a = s1.parts[0];
+      setMsg('info','The '+n1+' scale has the '+p.A.name+' you know plus one unknown item. Work out what '+a.q+' '+p.A.name+' weigh, then subtract that from the total ('+s1.total+' kg).');
+    } else if(state.hints===2){
+      setMsg('info','From the '+n1+' scale, one '+p.B.name+' weighs <b>'+p.B.w+' kg</b>. Now use the '+n2+' scale to find the '+p.C.name+'.');
+    } else {
+      setMsg('info','The bottom scale adds up all three items, so use it to check your answers before you submit.');
+    }
+  }
+  function n3text(){ return 3; }
+
+  document.getElementById('check').addEventListener('click', check);
+  document.getElementById('hint').addEventListener('click', hint);
+  document.getElementById('next').addEventListener('click', newPuzzle);
+  document.getElementById('answer').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); check(); }});
+
+  newPuzzle();
+})();
+</script>
+</body>
+</html>
