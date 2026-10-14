@@ -516,15 +516,17 @@
         await scanDataFiles();
         await scanDataJS();
 
-        // Handle preload if checked
+        // Handle preload if checked (sequential 1 by 1)
         if (document.getElementById("preloadCheckbox").checked) {
-          reportTypes.forEach(type => {
+          for (const type of reportTypes) {
             if (foundFiles[type]) {
-              PluginAPI.pullData(type).catch(preloadErr => {
+              try {
+                await PluginAPI.pullData(type);
+              } catch (preloadErr) {
                 console.error(`Preload failed for report type "${type}":`, preloadErr);
-              });
+              }
             }
-          });
+          }
         }
       } catch (err) {
         console.error('Loading failed:', err);
@@ -589,15 +591,17 @@
       await scanDataJS();
       showTab("tab_Catalogue");
 
-      // Handle preload if checked
+      // Handle preload if checked (sequential 1 by 1)
       if (document.getElementById("preloadCheckbox").checked) {
-        reportTypes.forEach(type => {
+        for (const type of reportTypes) {
           if (foundFiles[type]) {
-            PluginAPI.pullData(type).catch(preloadErr => {
+            try {
+              await PluginAPI.pullData(type);
+            } catch (preloadErr) {
               console.error(`Preload failed for report type "${type}":`, preloadErr);
-            });
+            }
           }
-        });
+        }
       }
     };
 
