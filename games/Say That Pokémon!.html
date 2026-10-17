@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Say That Pokémon!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eaf3fb; --card:#ffffff; --ink:#1b2a41; --muted:#5d6b82; --line:#cfdceb;
+  --accent:#e63946; --accent-ink:#fff; --good:#12915a; --mid:#c27a00; --bad:#c0392b;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1a2b; --card:#182640; --ink:#eaf1ff; --muted:#9db0cf; --line:#2c3e5f;
+    --accent:#ff6b76; --accent-ink:#1b0a0c; --good:#4fd69a; --mid:#ffc14d; --bad:#ff8a7a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1a2b; --card:#182640; --ink:#eaf1ff; --muted:#9db0cf; --line:#2c3e5f;
+  --accent:#ff6b76; --accent-ink:#1b0a0c; --good:#4fd69a; --mid:#ffc14d; --bad:#ff8a7a;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:"Fredoka",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:520px;margin:0 auto;padding:10px 12px 28px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em}
+.score{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 10px;font-size:13px;color:var(--muted)}
+.score b{font-size:20px;color:var(--ink)}
+.deck{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.mini{aspect-ratio:3/4;border-radius:10px;border:2px solid var(--line);background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--muted);position:relative;overflow:hidden}
+.mini.down{background:repeating-linear-gradient(45deg,var(--card),var(--card) 6px,var(--line) 6px,var(--line) 12px)}
+.mini.active{border-color:var(--accent);transform:scale(1.06);background:color-mix(in srgb,var(--tc) 28%,var(--card));color:var(--ink)}
+.mini.done{background:color-mix(in srgb,var(--tc) 20%,var(--card));color:var(--ink)}
+.mini .pt{font-size:12px;font-weight:700;margin-top:2px}
+.mini .pt.p10{color:var(--good)} .mini .pt.p5{color:var(--mid)} .mini .pt.p0{color:var(--bad)}
+.stage{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;text-align:center}
+.big{border-radius:16px;padding:14px 10px 12px;background:color-mix(in srgb,var(--tc) 26%,var(--card));border:2px solid color-mix(in srgb,var(--tc) 60%,var(--line))}
+.big .em{font-size:56px;line-height:1}
+.big .nm{font-size:40px;font-weight:700;letter-spacing:.01em;margin:4px 0 0;word-break:break-word}
+.big .ty{font-size:14px;color:var(--muted);margin-top:2px}
+.btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+button{font:inherit;font-weight:600;font-size:17px;border:0;border-radius:14px;padding:12px 18px;min-height:46px;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.55;cursor:default}
+.primary{background:var(--accent);color:var(--accent-ink);flex:1;min-width:140px}
+.ghost{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.listening{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.04)}}
+@media (prefers-reduced-motion: reduce){.listening{animation:none}}
+.res{margin-top:12px;border-radius:14px;padding:10px 12px;font-size:16px}
+.res.p10{background:color-mix(in srgb,var(--good) 18%,transparent);border:1px solid var(--good)}
+.res.p5{background:color-mix(in srgb,var(--mid) 20%,transparent);border:1px solid var(--mid)}
+.res.p0{background:color-mix(in srgb,var(--bad) 16%,transparent);border:1px solid var(--bad)}
+.res.info{background:var(--bg);border:1px solid var(--line)}
+.res b.pts{font-size:24px;display:block}
+.heard{color:var(--muted);font-size:14px;margin-top:2px}
+.hint{color:var(--muted);font-size:14px;margin:8px 0 0}
+.final h2{font-size:30px;margin:0 0 4px}
+.final .big-score{font-size:56px;font-weight:700;line-height:1}
+.fallback{display:flex;gap:8px;margin-top:10px}
+.fallback input{flex:1;min-width:0;font:inherit;font-size:18px;padding:10px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Say That Pokémon!</h1>
+    <div class="score">Score <b id="score">0</b> / 100</div>
+  </header>
+  <div class="deck" id="deck" aria-label="Deck of 10 cards"></div>
+  <section class="stage" id="stage"></section>
+</div>
+
+<script>
+(function(){
+  var MONS = [
+    {n:'Pikachu',    t:'Electric', e:'⚡', c:'#f5c400'},
+    {n:'Charmander', t:'Fire',     e:'🔥', c:'#ff7a2f'},
+    {n:'Squirtle',   t:'Water',    e:'💧', c:'#3a9bf0'},
+    {n:'Bulbasaur',  t:'Grass',    e:'🌿', c:'#3bb55e'},
+    {n:'Jigglypuff', t:'Fairy',    e:'🎤', c:'#f58fc0'},
+    {n:'Eevee',      t:'Normal',   e:'⭐', c:'#b98b5e'},
+    {n:'Snorlax',    t:'Normal',   e:'💤', c:'#4f8f9a'},
+    {n:'Psyduck',    t:'Water',    e:'🌊', c:'#f2c94c'},
+    {n:'Meowth',     t:'Normal',   e:'🪙', c:'#d9b46a'},
+    {n:'Gengar',     t:'Ghost',    e:'👻', c:'#7b5ea7'}
+  ];
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var deckEl = document.getElementById('deck');
+  var stageEl = document.getElementById('stage');
+  var scoreEl = document.getElementById('score');
+
+  var remaining, results, score, cur, phase, listening, rec;
+
+  function reset(){
+    remaining = MONS.map(function(_,i){return i;});
+    results = {}; score = 0; cur = null; phase = 'idle'; listening = false;
+    renderDeck(); renderStage();
+  }
+
+  function renderDeck(activeTmp){
+    var h = '';
+    MONS.forEach(function(m,i){
+      var cls='mini', inner='?', style='--tc:'+m.c;
+      if(results[i]!==undefined){
+        cls+=' done';
+        var p = results[i];
+        inner = m.e+'<span class="pt p'+p+'">+'+p+'</span>';
+      } else if(i===cur || i===activeTmp){
+        cls+=' active'; inner = m.e;
+      } else { cls+=' down'; }
+      h += '<div class="'+cls+'" style="'+style+'">'+inner+'</div>';
+    });
+    deckEl.innerHTML = h;
+    scoreEl.textContent = score;
+  }
+
+  function renderStage(extra){
+    var m = cur!==null ? MONS[cur] : null;
+    var done = Object.keys(results).length;
+    var h = '';
+    if(phase==='idle'){
+      h += '<p style="font-size:18px;margin:0 0 6px">Card '+(done+1)+' of 10</p>';
+      h += '<p class="hint" style="margin:0 0 12px">Pick a card, then say the name out loud.</p>';
+      h += '<div class="btns"><button class="primary" id="draw">🎴 Draw a card</button></div>';
+    } else if(phase==='shuffling'){
+      h += '<p style="font-size:20px;margin:18px 0">Picking a card…</p>';
+    } else if(phase==='card' || phase==='result'){
+      h += '<div class="big" style="--tc:'+m.c+'"><div class="em">'+m.e+'</div><div class="nm">'+m.n+'</div><div class="ty">'+m.t+' type</div></div>';
+      if(phase==='card'){
+        h += '<div class="btns"><button class="ghost" id="hear">🔊 Hear it</button>';
+        if(SR) h += '<button class="primary'+(listening?' listening':'')+'" id="speak">'+(listening?'🎧 Listening…':'🎤 Say it!')+'</button>';
+        h += '</div>';
+        if(!SR){
+          h += '<p class="hint">Speech recognition needs Chrome. You can type what you would say instead:</p>';
+          h += '<div class="fallback"><input id="typed" type="text" autocomplete="off" aria-label="Type the name"><button class="primary" id="submitTyped" style="flex:none;min-width:0">Check</button></div>';
+        }
+        if(extra) h += '<div class="res info">'+extra+'</div>';
+      } else {
+        h += extra;
+        h += '<div class="btns"><button class="primary" id="next">'+(done>=10?'See my score 🏆':'Next card ➜')+'</button></div>';
+      }
+    } else if(phase==='final'){
+      var stars = score>=90?'🌟🌟🌟':score>=60?'🌟🌟':score>=30?'🌟':'💪';
+      h += '<div class="final"><h2>All done!</h2><div class="big-score">'+score+'<span style="font-size:22px;color:var(--muted)"> / 100</span></div>';
+      h += '<p style="font-size:28px;margin:8px 0">'+stars+'</p>';
+      h += '<div class="btns"><button class="primary" id="again">Play again</button></div></div>';
+    }
+    stageEl.innerHTML = h;
+    bind();
+  }
+
+  function bind(){
+    var q = function(id){return document.getElementById(id);};
+    if(q('draw')) q('draw').onclick = draw;
+    if(q('hear')) q('hear').onclick = hear;
+    if(q('speak')) q('speak').onclick = startListening;
+    if(q('next')) q('next').onclick = function(){
+      if(Object.keys(results).length>=10){ phase='final'; cur=null; renderDeck(); renderStage(); }
+      else { phase='idle'; cur=null; renderDeck(); renderStage(); }
+    };
+    if(q('again')) q('again').onclick = reset;
+    if(q('submitTyped')) q('submitTyped').onclick = function(){ finish([q('typed').value]); };
+    if(q('typed')) q('typed').onkeydown = function(e){ if(e.key==='Enter') finish([q('typed').value]); };
+  }
+
+  function draw(){
+    phase='shuffling'; renderStage();
+    var ticks = 0, pick = remaining[Math.floor(Math.random()*remaining.length)];
+    var t = setInterval(function(){
+      ticks++;
+      var tmp = remaining[Math.floor(Math.random()*remaining.length)];
+      renderDeck(tmp);
+      if(ticks>=10){
+        clearInterval(t);
+        cur = pick;
+        remaining = remaining.filter(function(i){return i!==pick;});
+        phase='card'; renderDeck(); renderStage();
+      }
+    }, 90);
+  }
+
+  function hear(){
+    try{
+      if(!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(MONS[cur].n);
+      u.lang='en-US'; u.rate=0.8;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  /* ---------- scoring ---------- */
+  function norm(s){ return String(s).toLowerCase().replace(/[^a-z]/g,''); }
+  function lev(a,b){
+    var m=a.length,n=b.length,i,j,d=[];
+    for(i=0;i<=m;i++){d[i]=[i];}
+    for(j=0;j<=n;j++){d[0][j]=j;}
+    for(i=1;i<=m;i++){for(j=1;j<=n;j++){
+      d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+    }}
+    return d[m][n];
+  }
+  function sim(a,b){ if(!a||!b) return 0; return 1 - lev(a,b)/Math.max(a.length,b.length); }
+  function prefix(a,b){ var i=0; while(i<a.length&&i<b.length&&a[i]===b[i]) i++; return i; }
+  function suffix(a,b){ var i=0; while(i<a.length&&i<b.length&&a[a.length-1-i]===b[b.length-1-i]) i++; return i; }
+
+  function grade(target, alts){
+    var t = norm(target), best = 0, partial = false;
+    alts.forEach(function(a){
+      var full = norm(a);
+      var words = String(a).toLowerCase().split(/\s+/).map(norm).filter(Boolean);
+      var cands = [full].concat(words);
+      cands.forEach(function(w){
+        var s = sim(t,w);
+        if(w.indexOf(t)!==-1) s = 1;
+        if(s>best) best=s;
+        if(w.length>=2 && (prefix(t,w)>=3 || suffix(t,w)>=3)) partial = true;
+      });
+    });
+    if(best>=0.85) return 10;
+    if(best>=0.45 || partial) return 5;
+    return 0;
+  }
+
+  function finish(alts){
+    var typed = alts.filter(function(a){return a && String(a).trim();});
+    if(!typed.length) return;
+    var m = MONS[cur];
+    var p = grade(m.n, typed);
+    score += p; results[cur] = p;
+    var msg = p===10 ? '🎉 Perfect!' : p===5 ? '👍 Almost there!' : '🙂 Not quite, good try!';
+    var html = '<div class="res p'+p+'"><b class="pts">+'+p+' points</b>'+msg+
+      '<div class="heard">I heard: “'+escapeHtml(typed[0])+'”</div></div>';
+    phase='result'; listening=false;
+    renderDeck(); renderStage(html);
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  /* ---------- speech recognition ---------- */
+  function startListening(){
+    if(!SR || listening) return;
+    try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
+    rec = new SR();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    rec.maxAlternatives = 5;
+    rec.continuous = false;
+    var got = false;
+    rec.onresult = function(e){
+      got = true;
+      var alts = [];
+      var r = e.results[0];
+      for(var i=0;i<r.length;i++) alts.push(r[i].transcript);
+      finish(alts);
+    };
+    rec.onerror = function(e){
+      listening = false;
+      var msg = 'Something went wrong. Tap Say it! to try again.';
+      if(e.error==='no-speech') msg = 'I did not hear anything. Tap Say it! and try again.';
+      else if(e.error==='not-allowed' || e.error==='service-not-allowed') msg = 'The microphone is blocked. Allow mic access, or open this page in Chrome in its own tab.';
+      else if(e.error==='audio-capture') msg = 'No microphone found.';
+      else if(e.error==='network') msg = 'Speech recognition needs an internet connection.';
+      if(phase==='card') renderStage(msg);
+    };
+    rec.onend = function(){
+      if(!got && listening){ listening = false; if(phase==='card') renderStage('I did not catch that. Tap Say it! and try again.'); }
+    };
+    listening = true; renderStage();
+    try{ rec.start(); }catch(err){ listening=false; renderStage('Could not start the microphone. Tap Say it! again.'); }
+  }
+
+  reset();
+})();
+</script>
+</body>
+</html>
