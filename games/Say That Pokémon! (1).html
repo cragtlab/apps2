@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Say That Pokémon!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eaf3fb; --card:#ffffff; --ink:#1b2a41; --muted:#5d6b82; --line:#cfdceb;
+  --accent:#e63946; --accent-ink:#fff; --good:#12915a; --mid:#c27a00; --bad:#c0392b;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1a2b; --card:#182640; --ink:#eaf1ff; --muted:#9db0cf; --line:#2c3e5f;
+    --accent:#ff6b76; --accent-ink:#1b0a0c; --good:#4fd69a; --mid:#ffc14d; --bad:#ff8a7a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1a2b; --card:#182640; --ink:#eaf1ff; --muted:#9db0cf; --line:#2c3e5f;
+  --accent:#ff6b76; --accent-ink:#1b0a0c; --good:#4fd69a; --mid:#ffc14d; --bad:#ff8a7a;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:"Fredoka",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:480px;margin:0 auto;padding:8px 12px 20px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+h1{font-size:19px;margin:0;font-weight:700}
+.score{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:2px 9px;font-size:12px;color:var(--muted)}
+.score b{font-size:17px;color:var(--ink)}
+.pips{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-bottom:8px}
+.pip{aspect-ratio:1;border-radius:8px;border:2px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted)}
+.pip.active{border-color:var(--accent);color:var(--ink)}
+.pip.p10{background:color-mix(in srgb,var(--good) 22%,var(--card));color:var(--ink);border-color:var(--good)}
+.pip.p5{background:color-mix(in srgb,var(--mid) 24%,var(--card));color:var(--ink);border-color:var(--mid)}
+.pip.p0{background:color-mix(in srgb,var(--bad) 18%,var(--card));color:var(--ink);border-color:var(--bad)}
+.stage{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px;text-align:center}
+.big{border-radius:14px;padding:8px 8px 8px;background:color-mix(in srgb,var(--tc) 26%,var(--card));border:2px solid color-mix(in srgb,var(--tc) 60%,var(--line))}
+.big .em{font-size:40px;line-height:1.1}
+.big .nm{font-size:30px;font-weight:700;margin:0;word-break:break-word;line-height:1.1}
+.big .ty{font-size:12px;color:var(--muted);margin-top:2px}
+.flick{font-size:56px;margin:6px 0}
+.btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+button{font:inherit;font-weight:600;font-size:16px;border:0;border-radius:12px;padding:8px 14px;min-height:42px;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.primary{background:var(--accent);color:var(--accent-ink);flex:1;min-width:130px}
+.ghost{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.listening{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.7}}
+@media (prefers-reduced-motion: reduce){.listening{animation:none}}
+.res{margin-top:8px;border-radius:12px;padding:6px 10px;font-size:15px}
+.res.p10{background:color-mix(in srgb,var(--good) 18%,transparent);border:1px solid var(--good)}
+.res.p5{background:color-mix(in srgb,var(--mid) 20%,transparent);border:1px solid var(--mid)}
+.res.p0{background:color-mix(in srgb,var(--bad) 16%,transparent);border:1px solid var(--bad)}
+.res.info{background:var(--bg);border:1px solid var(--line)}
+.res b.pts{font-size:20px;margin-right:6px}
+.heard{color:var(--muted);font-size:13px}
+.hint{color:var(--muted);font-size:13px;margin:4px 0 0}
+.final h2{font-size:24px;margin:0}
+.final .big-score{font-size:48px;font-weight:700;line-height:1.1}
+.fallback{display:flex;gap:8px;margin-top:8px}
+.fallback input{flex:1;min-width:0;font:inherit;font-size:17px;padding:8px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Say That Pokémon!</h1>
+    <div class="score">Score <b id="score">0</b> / 100</div>
+  </header>
+  <div class="pips" id="pips" aria-label="Progress, 10 cards"></div>
+  <section class="stage" id="stage"></section>
+</div>
+
+<script>
+(function(){
+  var TYPES = {
+    Nor:['⭐','#b3a58a','Normal'], Fir:['🔥','#ff7a2f','Fire'], Wat:['💧','#3a9bf0','Water'],
+    Gra:['🌿','#3bb55e','Grass'], Ele:['⚡','#f5c400','Electric'], Ice:['❄️','#7fd6e8','Ice'],
+    Fig:['🥊','#c8463c','Fighting'], Poi:['☠️','#a355c9','Poison'], Gro:['⛰️','#c89b4a','Ground'],
+    Psy:['🔮','#f25b9a','Psychic'], Bug:['🐛','#8bb82a','Bug'], Roc:['🪨','#a89a6b','Rock'],
+    Gho:['👻','#7b5ea7','Ghost'], Dra:['🐉','#5a6cf0','Dragon'], Fai:['✨','#f58fc0','Fairy']
+  };
+  var RAW = "Bulbasaur:Gra,Ivysaur:Gra,Venusaur:Gra,Charmander:Fir,Charmeleon:Fir,Charizard:Fir,Squirtle:Wat,Wartortle:Wat,Blastoise:Wat,Caterpie:Bug,Metapod:Bug,Butterfree:Bug,Weedle:Bug,Kakuna:Bug,Beedrill:Bug,Pidgey:Nor,Pidgeotto:Nor,Pidgeot:Nor,Rattata:Nor,Raticate:Nor,Spearow:Nor,Fearow:Nor,Ekans:Poi,Arbok:Poi,Pikachu:Ele,Raichu:Ele,Sandshrew:Gro,Sandslash:Gro,Nidoran♀:Poi,Nidorina:Poi,Nidoqueen:Poi,Nidoran♂:Poi,Nidorino:Poi,Nidoking:Poi,Clefairy:Fai,Clefable:Fai,Vulpix:Fir,Ninetales:Fir,Jigglypuff:Fai,Wigglytuff:Fai,Zubat:Poi,Golbat:Poi,Oddish:Gra,Gloom:Gra,Vileplume:Gra,Paras:Bug,Parasect:Bug,Venonat:Bug,Venomoth:Bug,Diglett:Gro,Dugtrio:Gro,Meowth:Nor,Persian:Nor,Psyduck:Wat,Golduck:Wat,Mankey:Fig,Primeape:Fig,Growlithe:Fir,Arcanine:Fir,Poliwag:Wat,Poliwhirl:Wat,Poliwrath:Wat,Abra:Psy,Kadabra:Psy,Alakazam:Psy,Machop:Fig,Machoke:Fig,Machamp:Fig,Bellsprout:Gra,Weepinbell:Gra,Victreebel:Gra,Tentacool:Wat,Tentacruel:Wat,Geodude:Roc,Graveler:Roc,Golem:Roc,Ponyta:Fir,Rapidash:Fir,Slowpoke:Wat,Slowbro:Wat,Magnemite:Ele,Magneton:Ele,Farfetch'd:Nor,Doduo:Nor,Dodrio:Nor,Seel:Wat,Dewgong:Wat,Grimer:Poi,Muk:Poi,Shellder:Wat,Cloyster:Wat,Gastly:Gho,Haunter:Gho,Gengar:Gho,Onix:Roc,Drowzee:Psy,Hypno:Psy,Krabby:Wat,Kingler:Wat,Voltorb:Ele,Electrode:Ele,Exeggcute:Gra,Exeggutor:Gra,Cubone:Gro,Marowak:Gro,Hitmonlee:Fig,Hitmonchan:Fig,Lickitung:Nor,Koffing:Poi,Weezing:Poi,Rhyhorn:Gro,Rhydon:Gro,Chansey:Nor,Tangela:Gra,Kangaskhan:Nor,Horsea:Wat,Seadra:Wat,Goldeen:Wat,Seaking:Wat,Staryu:Wat,Starmie:Wat,Mr. Mime:Psy,Scyther:Bug,Jynx:Ice,Electabuzz:Ele,Magmar:Fir,Pinsir:Bug,Tauros:Nor,Magikarp:Wat,Gyarados:Wat,Lapras:Wat,Ditto:Nor,Eevee:Nor,Vaporeon:Wat,Jolteon:Ele,Flareon:Fir,Porygon:Nor,Omanyte:Roc,Omastar:Roc,Kabuto:Roc,Kabutops:Roc,Aerodactyl:Roc,Snorlax:Nor,Articuno:Ice,Zapdos:Ele,Moltres:Fir,Dratini:Dra,Dragonair:Dra,Dragonite:Dra,Mewtwo:Psy,Mew:Psy";
+  var MONS = RAW.split(',').map(function(s){ var p=s.split(':'); return {n:p[0], t:p[1]}; });
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var pipsEl = document.getElementById('pips');
+  var stageEl = document.getElementById('stage');
+  var scoreEl = document.getElementById('score');
+  var order, round, results, score, phase, listening, rec;
+
+  function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+  function cur(){ return MONS[order[round]]; }
+
+  function reset(){
+    order = shuffle(MONS.map(function(_,i){return i;})).slice(0,10);
+    round = 0; results = []; score = 0; phase = 'idle'; listening = false;
+    renderPips(); renderStage();
+  }
+
+  function renderPips(){
+    var h='';
+    for(var i=0;i<10;i++){
+      var cls='pip', txt=i+1;
+      if(results[i]!==undefined){ cls+=' p'+results[i]; txt='+'+results[i]; }
+      else if(i===round && phase!=='final' && phase!=='idle') cls+=' active';
+      else if(i===round) cls+=' active';
+      h+='<div class="'+cls+'">'+txt+'</div>';
+    }
+    pipsEl.innerHTML=h;
+    scoreEl.textContent=score;
+  }
+
+  function renderStage(extra){
+    var h='';
+    if(phase==='idle'){
+      h+='<p style="font-size:17px;margin:2px 0">Card '+(round+1)+' of 10</p>';
+      h+='<p class="hint" style="margin:0 0 6px">Draw a card, then say the name out loud.</p>';
+      h+='<div class="btns"><button class="primary" id="draw">🎴 Draw a card</button></div>';
+    } else if(phase==='shuffling'){
+      h+='<div class="flick" id="flick">🎴</div><p class="hint">Picking a card…</p>';
+    } else if(phase==='card' || phase==='result'){
+      var m=cur(), T=TYPES[m.t];
+      h+='<div class="big" style="--tc:'+T[1]+'"><div class="em">'+T[0]+'</div><div class="nm">'+m.n+'</div><div class="ty">'+T[2]+' type</div></div>';
+      if(phase==='card'){
+        h+='<div class="btns"><button class="ghost" id="hear"'+(listening?' disabled':'')+'>🔊 Hear it</button>';
+        if(SR) h+='<button class="primary'+(listening?' listening':'')+'" id="speak"'+(listening?' disabled':'')+'>'+(listening?'🎧 Listening…':'🎤 Say it!')+'</button>';
+        h+='</div>';
+        if(!SR){
+          h+='<p class="hint">Speech recognition needs Chrome. Type what you would say:</p>';
+          h+='<div class="fallback"><input id="typed" type="text" autocomplete="off" aria-label="Type the name"><button class="primary" id="submitTyped" style="flex:none;min-width:0">Check</button></div>';
+        }
+        if(extra) h+='<div class="res info">'+extra+'</div>';
+      } else {
+        h+=extra;
+        h+='<div class="btns"><button class="primary" id="next">'+(round>=9?'See my score 🏆':'Next card ➜')+'</button></div>';
+      }
+    } else if(phase==='final'){
+      var stars = score>=90?'🌟🌟🌟':score>=60?'🌟🌟':score>=30?'🌟':'💪';
+      h+='<div class="final"><h2>All done!</h2><div class="big-score">'+score+'<span style="font-size:18px;color:var(--muted)"> / 100</span></div>';
+      h+='<p style="font-size:24px;margin:4px 0">'+stars+'</p><div class="btns"><button class="primary" id="again">Play again</button></div></div>';
+    }
+    stageEl.innerHTML=h;
+    bind();
+  }
+
+  function bind(){
+    var q=function(id){return document.getElementById(id);};
+    if(q('draw')) q('draw').onclick=draw;
+    if(q('hear')) q('hear').onclick=hear;
+    if(q('speak')) q('speak').onclick=startListening;
+    if(q('next')) q('next').onclick=function(){
+      if(round>=9){ phase='final'; }
+      else { round++; phase='idle'; }
+      renderPips(); renderStage();
+    };
+    if(q('again')) q('again').onclick=reset;
+    if(q('submitTyped')) q('submitTyped').onclick=function(){ finish([q('typed').value]); };
+    if(q('typed')) q('typed').onkeydown=function(e){ if(e.key==='Enter') finish([q('typed').value]); };
+  }
+
+  function draw(){
+    phase='shuffling'; renderPips(); renderStage();
+    var keys=Object.keys(TYPES), ticks=0;
+    var t=setInterval(function(){
+      ticks++;
+      var el=document.getElementById('flick');
+      if(el) el.textContent=TYPES[keys[Math.floor(Math.random()*keys.length)]][0];
+      if(ticks>=10){ clearInterval(t); phase='card'; renderPips(); renderStage(); }
+    },90);
+  }
+
+  function hear(){
+    try{
+      if(!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      var u=new SpeechSynthesisUtterance(cur().n.replace(/[♀♂]/g,''));
+      u.lang='en-US'; u.rate=0.8;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  function norm(s){ return String(s).toLowerCase().replace(/[^a-z]/g,''); }
+  function lev(a,b){
+    var m=a.length,n=b.length,i,j,d=[];
+    for(i=0;i<=m;i++){d[i]=[i];}
+    for(j=0;j<=n;j++){d[0][j]=j;}
+    for(i=1;i<=m;i++){for(j=1;j<=n;j++){
+      d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+    }}
+    return d[m][n];
+  }
+  function sim(a,b){ if(!a||!b) return 0; return 1-lev(a,b)/Math.max(a.length,b.length); }
+  function prefix(a,b){ var i=0; while(i<a.length&&i<b.length&&a[i]===b[i]) i++; return i; }
+  function suffix(a,b){ var i=0; while(i<a.length&&i<b.length&&a[a.length-1-i]===b[b.length-1-i]) i++; return i; }
+
+  function grade(target, alts){
+    var t=norm(target), best=0, partial=false;
+    alts.forEach(function(a){
+      var words=String(a).toLowerCase().split(/\s+/).map(norm).filter(Boolean);
+      [norm(a)].concat(words).forEach(function(w){
+        var s=sim(t,w);
+        if(w.indexOf(t)!==-1) s=1;
+        if(s>best) best=s;
+        if(w.length>=2 && (prefix(t,w)>=3 || suffix(t,w)>=3)) partial=true;
+      });
+    });
+    if(best>=0.85) return 10;
+    if(best>=0.45 || partial) return 5;
+    return 0;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  function finish(alts){
+    var heard=alts.filter(function(a){return a && String(a).trim();});
+    if(!heard.length) return;
+    var p=grade(cur().n, heard);
+    score+=p; results[round]=p; listening=false; phase='result';
+    var msg = p===10?'🎉 Perfect!':p===5?'👍 Almost there!':'🙂 Not quite, good try!';
+    renderPips();
+    renderStage('<div class="res p'+p+'"><b class="pts">+'+p+'</b>'+msg+'<div class="heard">I heard: “'+esc(heard[0])+'”</div></div>');
+  }
+
+  function startListening(){
+    if(!SR || listening) return;
+    try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
+    rec=new SR();
+    rec.lang='en-US'; rec.interimResults=false; rec.maxAlternatives=5; rec.continuous=false;
+    var got=false;
+    rec.onresult=function(e){
+      got=true;
+      var alts=[], r=e.results[0];
+      for(var i=0;i<r.length;i++) alts.push(r[i].transcript);
+      finish(alts);
+    };
+    rec.onerror=function(e){
+      listening=false;
+      var msg='Something went wrong. Tap Say it! to try again.';
+      if(e.error==='no-speech') msg='I did not hear anything. Tap Say it! and try again.';
+      else if(e.error==='not-allowed'||e.error==='service-not-allowed') msg='The microphone is blocked. Allow mic access, or open this page in Chrome in its own tab.';
+      else if(e.error==='audio-capture') msg='No microphone found.';
+      else if(e.error==='network') msg='Speech recognition needs an internet connection.';
+      if(phase==='card') renderStage(msg);
+    };
+    rec.onend=function(){
+      if(!got && listening){ listening=false; if(phase==='card') renderStage('I did not catch that. Tap Say it! and try again.'); }
+    };
+    listening=true; renderStage();
+    try{ rec.start(); }catch(err){ listening=false; renderStage('Could not start the microphone. Tap Say it! again.'); }
+  }
+
+  reset();
+})();
+</script>
+</body>
+</html>
