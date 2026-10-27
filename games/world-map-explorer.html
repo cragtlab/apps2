@@ -45,7 +45,8 @@ svg{display:block;touch-action:none;user-select:none;-webkit-user-select:none;wi
 .land.got{fill-opacity:1}
 .land:hover{fill-opacity:.85}
 .land.sel{stroke:var(--ink);stroke-width:3}
-.land:focus-visible{outline:none;stroke:#ffb703;stroke-width:4}
+.land,.land:focus,.land:focus-visible{outline:none}
+.land:focus-visible{stroke:#ffb703;stroke-width:4}
 .lbl{cursor:pointer;transition:opacity .3s}
 .lbl text{font-weight:700;text-anchor:middle;paint-order:stroke;stroke:var(--card);stroke-linejoin:round;fill:var(--ink)}
 .callout{font-weight:700;text-anchor:middle;paint-order:stroke;stroke:var(--card);stroke-linejoin:round;fill:var(--ink);pointer-events:none}
@@ -80,6 +81,19 @@ svg{display:block;touch-action:none;user-select:none;-webkit-user-select:none;wi
 .msg{min-height:30px;font-size:19px;margin:8px 0 0;line-height:1.3}
 .score{color:var(--muted);font-size:14px;margin-top:4px}
 .small{font:inherit;font-size:13px;color:var(--muted);background:none;border:0;text-decoration:underline;cursor:pointer;align-self:center}
+.topright{display:flex;gap:10px;align-items:stretch;flex:1 1 auto;justify-content:flex-end;min-width:0}
+.gamebar{display:flex;gap:10px;align-items:center;background:var(--card);border:3px solid var(--line);border-radius:16px;padding:8px 12px;box-shadow:4px 4px 0 #2fb67c;flex:1 1 260px;max-width:380px;min-width:0}
+.gamebar[hidden]{display:none}
+.gamebar.idle{background:none;border:0;box-shadow:none;padding:0;flex:0 0 auto}
+.gamebar.idle .btn{height:100%;font-size:18px;line-height:1.2;padding:8px 18px}
+.gamebar .gflag{width:72px;aspect-ratio:3/2;height:auto;border:2px solid var(--line);border-radius:6px;object-fit:cover;flex:none;background:#fff}
+.gamebar .gq{font-size:17px;line-height:1.15;font-weight:700}
+.gamebar .gm{font-size:13px;color:var(--muted);line-height:1.25;margin-top:2px}
+.gamebar .gb{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px}
+.gamebar .gb button{font:inherit;font-size:14px;padding:3px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.gamebar .gb button.go{background:#2fb67c;color:#fff}
+.gamebar .gs{font-size:14px;margin-left:auto}
+@media (max-width:640px){.topright{width:100%;flex-wrap:nowrap;justify-content:stretch}.passport{min-width:0;padding:6px 10px}.passport b{font-size:20px}.passport span{font-size:11px}.gamebar{padding:6px 8px;gap:8px;max-width:none}.gamebar.idle{flex:1;padding:0}.gamebar.idle .btn{width:100%;font-size:17px;padding:6px 8px}.gamebar .gflag{width:54px}.gamebar .gq{font-size:15px}.gamebar .gm{font-size:12px}}
 :focus-visible{outline:4px solid #ffb703;outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition:none!important}}
 </style>
@@ -91,9 +105,12 @@ svg{display:block;touch-action:none;user-select:none;-webkit-user-select:none;wi
       <h1>🌍 My Explorer World Map</h1>
       <p class="sub">Tap a country to meet it! Zoom in (＋) and drag the map to find the tiny ones.</p>
     </div>
-    <div class="passport" aria-live="polite">
-      <b id="count">0 / 195</b><span>stamps collected</span>
-      <div class="bar"><i id="barfill"></i></div>
+    <div class="topright">
+      <div class="passport" aria-live="polite">
+        <b id="count">0 / 195</b><span>stamps collected</span>
+        <div class="bar"><i id="barfill"></i></div>
+      </div>
+      <div class="gamebar idle" id="gamebar"></div>
     </div>
   </header>
 
@@ -555,9 +572,7 @@ function highlight(code) {
 const infoEl = $("info");
 function showPrompt() {
   infoEl.style.setProperty("--c", "#e8505b");
-  infoEl.innerHTML = `<div class="prompt"><b>👆</b>Tap any country on the map to see its flag and capital!<br><br>Or press <b style="display:inline;font-size:inherit">Play</b> to hunt for countries.</div>
-  <div class="btns"><button class="btn play" id="playBtn">🎯 Play: find it!</button></div>`;
-  $("playBtn").onclick = startGame;
+  infoEl.innerHTML = `<div class="prompt"><b>👆</b>Tap any country on the map to see its flag and capital!<br><br>Or press <b style="display:inline;font-size:inherit">Play</b> at the top to hunt for countries!</div>`;
 }
 function showCountry(code) {
   const x = BY[code];
@@ -567,9 +582,8 @@ function showCountry(code) {
   <span class="chip" style="--c:${x.color}">${WORLD[x.key].e} ${WORLD[x.key].name}</span>
   ${FACTS[code] ? `<p class="fact">💡 ${FACTS[code]}</p>` : ""}
   <p class="stampline">⭐ Stamped in your passport!</p>
-  <div class="btns"><button class="btn alt" id="sayBtn">🔊 Say it</button><button class="btn play" id="playBtn">🎯 Play</button></div>`;
+  <div class="btns"><button class="btn alt" id="sayBtn">🔊 Say it</button></div>`;
   $("sayBtn").onclick = () => say(`${x.name}. The capital is ${x.cap}.`);
-  $("playBtn").onclick = startGame;
 }
 function select(code, zoom) {
   if (game.on) return;
@@ -585,25 +599,31 @@ function select(code, zoom) {
 
 // ---------- game ----------
 const game = { on: false, target: null, wrong: 0, score: 0, asked: 0, locked: false, last: null };
+const gamebar = $("gamebar");
 function startGame() {
   game.on = true; game.score = 0; game.asked = 0;
   highlight(null); over.innerHTML = "";
+  infoEl.hidden = true; gamebar.className = "gamebar";
+  window.scrollTo({ top: 0, behavior: "smooth" });
   nextRound();
 }
+function showIdleBar() {
+  gamebar.className = "gamebar idle";
+  gamebar.innerHTML = '<button class="btn play" id="playBtn">🎯 Play!<br>Find the country</button>';
+  $("playBtn").onclick = startGame;
+}
+function endGameUI() { game.on = false; infoEl.hidden = false; showIdleBar(); }
 function stopGame() {
-  game.on = false; over.innerHTML = ""; showPrompt();
+  endGameUI(); over.innerHTML = ""; showPrompt();
 }
 function nextRound() {
   const pool = mode === "all" ? ALL : WORLD[mode].list;
   let t; do { t = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && t.code === game.last);
   game.target = t; game.last = t.code; game.wrong = 0; game.locked = false;
   over.innerHTML = "";
-  const where = mode === "all" ? "the whole world" : WORLD[mode].name;
-  infoEl.style.setProperty("--c", "#2fb67c");
-  infoEl.innerHTML = `${flagImg(t.code, "fimg")}<h2>Where is ${t.name}?</h2>
-  <div class="score">Hunting in ${where} · ⭐ ${game.score} found</div>
-  <div class="msg" id="msg" aria-live="polite">Tap it on the map! 👆</div>
-  <div class="btns"><button class="btn alt" id="hintBtn">💡 Hint</button><button class="btn" id="nextBtn" hidden>Next ➜</button><button class="btn alt" id="stopBtn">✖ Stop</button></div>`;
+  gamebar.innerHTML = `${flagImg(t.code, "gflag")}<div><div class="gq">Where is ${t.name}?</div>
+  <div class="gm" id="msg" aria-live="polite">Tap it on the map! 👆</div>
+  <div class="gb"><button id="hintBtn">💡 Hint</button><button class="go" id="nextBtn" hidden>Next ➜</button><button id="stopBtn" aria-label="Stop game">✖</button><span class="gs" id="gscore">⭐ ${game.score}</span></div></div>`;
   $("hintBtn").onclick = hint; $("nextBtn").onclick = nextRound; $("stopBtn").onclick = stopGame;
   say(`Where is ${t.name}?`);
 }
@@ -611,7 +631,7 @@ function hint() {
   const t = game.target;
   const wr = zoomToCountry(t.code, true);
   mark(t.code, { label: false, hint: true, wrapped: wr });
-  $("msg").textContent = `Look for the blinking circle! It is in ${WORLD[t.key].name}. 👀`;
+  $("msg").textContent = `Look for the blinking circle! 👀 (${WORLD[t.key].name})`;
 }
 function guess(code) {
   if (game.locked) return;
@@ -619,13 +639,13 @@ function guess(code) {
   if (code === t.code) {
     game.locked = true; game.score++; game.asked++;
     stamp(code); highlight(code); mark(code);
-    $("msg").textContent = `🎉 Yes! That's ${t.name}! The capital is ${t.cap}.`;
-    infoEl.querySelector(".score").textContent = `⭐ ${game.score} found`;
+    $("msg").textContent = `🎉 Yes! ${t.name}! Capital: ${t.cap}`;
+    $("gscore").textContent = `⭐ ${game.score}`;
     $("nextBtn").hidden = false; $("hintBtn").hidden = true; $("nextBtn").focus();
     say(`Yes! That is ${t.name}. The capital is ${t.cap}.`);
   } else {
     game.wrong++;
-    $("msg").textContent = `That is ${BY[code].name}. Keep looking! 💪`;
+    $("msg").textContent = `That is ${BY[code].name}. Try again! 💪`;
     say(`That is ${BY[code].name}. Keep looking!`);
     if (game.wrong >= 2) setTimeout(hint, 900);
   }
@@ -657,7 +677,7 @@ sIn.addEventListener("input", () => {
   for (const x of hits) {
     const b = document.createElement("button");
     b.innerHTML = `<img src="${flagSrc(x.code)}" alt=""><span>${x.name}</span>`;
-    b.onclick = () => { sIn.value = ""; sRes.hidden = true; if (game.on) { game.on = false; } select(x.code, true); };
+    b.onclick = () => { sIn.value = ""; sRes.hidden = true; if (game.on) endGameUI(); select(x.code, true); };
     sRes.appendChild(b);
   }
   sRes.hidden = false;
@@ -676,6 +696,7 @@ $("resetBtn").onclick = function () {
 setView(targetView("all"));
 paintStamps();
 showPrompt();
+showIdleBar();
 </script>
 </body>
 </html>
