@@ -2,6 +2,3 @@ video-resizer/ffmpeg.exe
 fastscraper/tmp/
 fastscraper/scrapers
 video_explorer/old/ffmpeg.exe
-node_modules/
-test_masterlist_summary.js
-masterlist_summary_verification.png
