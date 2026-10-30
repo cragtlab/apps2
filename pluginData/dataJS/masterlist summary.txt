@@ -2,6 +2,8 @@
     const title = "masterlist summary";
 
     let isLoaded = false;
+    let isExpandedView = false;
+
     const DEFAULT_ALIASES = [
         { canonical: 'LNW', aliases: 'WMS, LNW Gaming, Light & Wonder, ShuffleMaster, Shuffle Master, SG Gaming, Scientific Games, Bally Technologies, Bally' },
         { canonical: 'Aristocrat',              aliases: 'Aristocrat Technologies' },
@@ -25,9 +27,11 @@
         .masterlist-plugin { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #222; padding: 20px; }
         .masterlist-plugin h1 { text-align: center; font-size: 1.5rem; margin-bottom: 8px; color: #1a1a2e; }
         .masterlist-plugin .subtitle { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 20px; }
-        .masterlist-plugin .controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; align-items: center; }
+        .masterlist-plugin .controls { display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
         .masterlist-plugin button { padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
         .masterlist-plugin .btn-primary { background: #1a1a2e; color: white; }
+        .masterlist-plugin .btn-secondary { background: #4a4e69; color: white; }
+        .masterlist-plugin .btn-secondary:hover { background: #22223b; }
 
         .masterlist-plugin .section-title { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; margin: 32px 0 12px; padding-left: 10px; border-left: 4px solid #c8a84b; }
         .masterlist-plugin table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 8px; }
@@ -48,15 +52,18 @@
         .masterlist-plugin .alias-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
         .masterlist-plugin .alias-row input { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.83rem; flex: 1; }
 
-        .masterlist-plugin .tabs { display: flex; gap: 8px; margin-top: 20px; }
-        .masterlist-plugin .tab-btn { padding: 8px 20px; border: none; border-radius: 8px 8px 0 0; background: #dde; color: #444; font-size: 0.88rem; cursor: pointer; font-weight: 600; }
+        .masterlist-plugin .tabs { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+        .masterlist-plugin .tab-btn { padding: 8px 18px; border: none; border-radius: 8px 8px 0 0; background: #dde; color: #444; font-size: 0.88rem; cursor: pointer; font-weight: 600; }
         .masterlist-plugin .tab-btn.active { background: #1a1a2e; color: white; }
-        .masterlist-plugin .tab-content { display: none; background: white; padding: 20px; border-radius: 0 10px 10px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+        .masterlist-plugin .tab-content { display: none; background: white; padding: 20px; border-radius: 0 10px 10px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 12px; }
         .masterlist-plugin .tab-content.active { display: block; }
 
-        .masterlist-plugin .side-by-side { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
-        .masterlist-plugin .side-by-side > div { flex: 1; min-width: 320px; }
-        .masterlist-plugin .column-title { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+        .masterlist-plugin .tab-content-title { display: none; font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 12px; padding-bottom: 4px; border-bottom: 2px solid #1a1a2e; }
+
+        .masterlist-plugin.expanded-view .tabs { display: none !important; }
+        .masterlist-plugin.expanded-view .tab-content { display: block !important; margin-bottom: 20px; border-radius: 10px; }
+        .masterlist-plugin.expanded-view .tab-content-title { display: block !important; }
+
         .masterlist-plugin table.game-table thead th { text-align: left; }
         .masterlist-plugin table.game-table thead th:last-child { text-align: right; }
         .masterlist-plugin table.game-table tbody td { text-align: left; }
@@ -73,6 +80,7 @@
 
         <div class="controls">
             <span id="loadStatus">Loading data...</span>
+            <button id="toggleViewBtn" class="btn-secondary" style="display:none;">📋 Toggle View: All Expanded</button>
         </div>
 
         <div class="alias-section">
@@ -83,6 +91,18 @@
 
         <div id="outputArea"></div>
     `;
+
+    const toggleBtn = container.querySelector('#toggleViewBtn');
+    toggleBtn.onclick = () => {
+        isExpandedView = !isExpandedView;
+        if (isExpandedView) {
+            container.classList.add('expanded-view');
+            toggleBtn.textContent = '📑 Toggle View: Tabbed View';
+        } else {
+            container.classList.remove('expanded-view');
+            toggleBtn.textContent = '📋 Toggle View: All Expanded';
+        }
+    };
 
     const aliasList = container.querySelector('#alias-list');
     function addAliasRow(canonical = '', aliases = '') {
@@ -151,54 +171,56 @@
         return counts;
     }
 
-    function parseTopGames(rows, aliasMap) {
-        if (!rows || rows.length === 0) return [];
-        let headerIdx = -1;
-        let mfgIdx = -1;
-        let gameIdx = -1;
-        let versionIdx = -1;
+    function parseTopGamesFromSheets(sheetRowsList, aliasMap) {
+        const gameCounts = {};
+        sheetRowsList.forEach(rows => {
+            if (!rows || rows.length === 0) return;
+            let headerIdx = -1;
+            let mfgIdx = -1;
+            let gameIdx = -1;
+            let versionIdx = -1;
 
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const mIdx = row.findIndex(h => ['manufacturer', 'make', 'brand', 'supplier', 'mfr'].some(k => String(h).toLowerCase().includes(k)));
-            if (mIdx >= 0) {
-                headerIdx = i;
-                mfgIdx = mIdx;
-                gameIdx = row.findIndex(h => {
-                    const s = String(h).toLowerCase();
-                    return s.includes('game name') || s.includes('game_name') || s.includes('theme') || s.includes('game title') || s === 'game' || s === 'title';
-                });
-                versionIdx = row.findIndex(h => {
-                    const s = String(h).toLowerCase();
-                    return s.includes('game id') || s.includes('game_id') || s.includes('gameid') || s.includes('version') || s === 'ver' || s.startsWith('ver.') || s.startsWith('ver ');
-                });
-                if (gameIdx < 0) {
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const mIdx = row.findIndex(h => ['manufacturer', 'make', 'brand', 'supplier', 'mfr'].some(k => String(h).toLowerCase().includes(k)));
+                if (mIdx >= 0) {
+                    headerIdx = i;
+                    mfgIdx = mIdx;
                     gameIdx = row.findIndex(h => {
                         const s = String(h).toLowerCase();
-                        return s.includes('game');
+                        return s.includes('game name') || s.includes('game_name') || s.includes('theme') || s.includes('game title') || s === 'game' || s === 'title';
                     });
+                    versionIdx = row.findIndex(h => {
+                        const s = String(h).toLowerCase();
+                        return s.includes('game id') || s.includes('game_id') || s.includes('gameid') || s.includes('version') || s === 'ver' || s.startsWith('ver.') || s.startsWith('ver ');
+                    });
+                    if (gameIdx < 0) {
+                        gameIdx = row.findIndex(h => {
+                            const s = String(h).toLowerCase();
+                            return s.includes('game');
+                        });
+                    }
+                    break;
                 }
-                break;
             }
-        }
-        if (headerIdx < 0 || gameIdx < 0) return [];
+            if (headerIdx < 0 || gameIdx < 0) return;
 
-        const gameCounts = {};
-        rows.slice(headerIdx + 1).forEach(row => {
-            const firstVal = (row[0] != null ? String(row[0]) : '').trim().toLowerCase();
-            if (firstVal === 'total' || firstVal === '' || firstVal === 'no.' || firstVal === 'no' || firstVal === 'undefined') return;
+            rows.slice(headerIdx + 1).forEach(row => {
+                const firstVal = (row[0] != null ? String(row[0]) : '').trim().toLowerCase();
+                if (firstVal === 'total' || firstVal === '' || firstVal === 'no.' || firstVal === 'no' || firstVal === 'undefined') return;
 
-            const gameName = String(row[gameIdx] || '').trim();
-            if (!gameName || gameName === 'undefined') return;
-            const rawMfg = mfgIdx >= 0 ? row[mfgIdx] : '';
-            const mfg = resolveManufacturer(rawMfg, aliasMap);
-            const version = versionIdx >= 0 ? String(row[versionIdx] || '').trim() : '';
+                const gameName = String(row[gameIdx] || '').trim();
+                if (!gameName || gameName === 'undefined') return;
+                const rawMfg = mfgIdx >= 0 ? row[mfgIdx] : '';
+                const mfg = resolveManufacturer(rawMfg, aliasMap);
+                const version = versionIdx >= 0 ? String(row[versionIdx] || '').trim() : '';
 
-            const key = `${mfg} | ${gameName} | ${version}`;
-            if (!gameCounts[key]) {
-                gameCounts[key] = { mfg, gameName, version, count: 0 };
-            }
-            gameCounts[key].count += 1;
+                const key = `${mfg} | ${gameName} | ${version}`;
+                if (!gameCounts[key]) {
+                    gameCounts[key] = { mfg, gameName, version, count: 0 };
+                }
+                gameCounts[key].count += 1;
+            });
         });
 
         const sorted = Object.values(gameCounts).sort((a, b) => b.count - a.count);
@@ -246,9 +268,11 @@
             row.forEach((cell, i) => {
                 const td = tr.insertCell();
                 td.textContent = i === 0 ? cell : (typeof cell === 'number' ? cell.toLocaleString() : cell);
-                if (i === 1) td.className = 'mbs-val';
-                if (i === 2) td.className = 'rws-val';
-                if (i === 3) td.className = 'total-val';
+                if (headers.length === 4) {
+                    if (i === 1) td.className = 'mbs-val';
+                    if (i === 2) td.className = 'rws-val';
+                    if (i === 3) td.className = 'total-val';
+                }
             });
         });
         if (footerRow) {
@@ -257,14 +281,64 @@
             footerRow.forEach((cell, i) => {
                 const td = document.createElement('td');
                 td.textContent = i === 0 ? cell : (typeof cell === 'number' ? cell.toLocaleString() : cell);
-                if (i === 1) td.className = 'mbs-val';
-                if (i === 2) td.className = 'rws-val';
-                if (i === 3) td.className = 'total-val';
+                if (headers.length === 4) {
+                    if (i === 1) td.className = 'mbs-val';
+                    if (i === 2) td.className = 'rws-val';
+                    if (i === 3) td.className = 'total-val';
+                }
                 fr.appendChild(td);
             });
             t.appendChild(tfoot);
         }
         return t;
+    }
+
+    function createTabbedSection(titleText, tabDefs) {
+        const sectionWrapper = document.createElement('div');
+        
+        const divTitle = document.createElement('div');
+        divTitle.className = 'section-title';
+        divTitle.textContent = titleText;
+        sectionWrapper.appendChild(divTitle);
+
+        const tabsContainer = document.createElement('div');
+        tabsContainer.className = 'tabs';
+        const contentContainer = document.createElement('div');
+
+        tabDefs.forEach((def, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+            btn.textContent = def.label;
+            btn.onclick = () => {
+                tabsContainer.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                contentContainer.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                const target = contentContainer.querySelector('#tab-' + def.id);
+                if (target) target.classList.add('active');
+            };
+            tabsContainer.appendChild(btn);
+
+            const c = document.createElement('div');
+            c.id = 'tab-' + def.id;
+            c.className = 'tab-content' + (idx === 0 ? ' active' : '');
+
+            const tabTitle = document.createElement('div');
+            tabTitle.className = 'tab-content-title';
+            tabTitle.textContent = def.label;
+            c.appendChild(tabTitle);
+
+            if (def.element) {
+                c.appendChild(def.element);
+            } else if (def.render) {
+                c.appendChild(def.render());
+            }
+
+            contentContainer.appendChild(c);
+        });
+
+        sectionWrapper.appendChild(tabsContainer);
+        sectionWrapper.appendChild(contentContainer);
+        return sectionWrapper;
     }
 
     async function loadData() {
@@ -280,6 +354,7 @@
             const mbsWB = await PluginAPI.pullData("GRAMBS");
             const rwsWB = await PluginAPI.pullData("GRARWS");
             status.textContent = "✅ Data loaded.";
+            toggleBtn.style.display = "inline-block";
 
             const aliasMap = getAliasMap();
             const EGM_TAB = 'Active EGMs';
@@ -295,15 +370,22 @@
             const rwsEGMTotal = Object.values(rwsEGM).reduce((a,b)=>a+b,0);
             const rwsETGTotal = Object.values(rwsETG).reduce((a,b)=>a+b,0);
 
+            const egmOverallTotal = mbsEGMTotal + rwsEGMTotal;
+            const etgOverallTotal = mbsETGTotal + rwsETGTotal;
+            const grandTotalActive = egmOverallTotal + etgOverallTotal;
+
             // Table 1: Machine Types
-            const div1 = document.createElement('div'); div1.className = 'section-title'; div1.textContent = 'Machine Types'; output.appendChild(div1);
+            const div1 = document.createElement('div');
+            div1.className = 'section-title';
+            div1.textContent = 'Machine Types';
+            output.appendChild(div1);
             output.appendChild(buildTable(
                 ['Type of Machines', 'MBS', 'RWS', 'Total'],
                 [
-                    ['Electronic Gaming Machines (EGMs)', mbsEGMTotal, rwsEGMTotal, mbsEGMTotal + rwsEGMTotal],
-                    ['Electronic Table Games (ETGs)',     mbsETGTotal, rwsETGTotal, mbsETGTotal + rwsETGTotal],
+                    ['Electronic Gaming Machines (EGMs)', mbsEGMTotal, rwsEGMTotal, egmOverallTotal],
+                    ['Electronic Table Games (ETGs)',     mbsETGTotal, rwsETGTotal, etgOverallTotal],
                 ],
-                ['Total', mbsEGMTotal + mbsETGTotal, rwsEGMTotal + rwsETGTotal, mbsEGMTotal + mbsETGTotal + rwsEGMTotal + rwsETGTotal]
+                ['Total', mbsEGMTotal + mbsETGTotal, rwsEGMTotal + rwsETGTotal, grandTotalActive]
             ));
 
             const merge = (m1, m2) => {
@@ -311,112 +393,135 @@
                 return Array.from(keys).map(k => ({ name: k, mbs: m1[k]||0, rws: m2[k]||0, total: (m1[k]||0)+(m2[k]||0) })).sort((a,b)=>b.total-a.total);
             };
 
-            const egmOverallTotal = mbsEGMTotal + rwsEGMTotal;
+            // Section 2: Manufacturer Summary (Tabbed: Overall, EGMs, ETGs)
+            const allMfgMap = {};
+            [mbsEGM, mbsETG, rwsEGM, rwsETG].forEach(m => {
+                for (const [mfg, count] of Object.entries(m)) {
+                    allMfgMap[mfg] = (allMfgMap[mfg] || 0) + count;
+                }
+            });
+            const sortedOverallMfg = Object.entries(allMfgMap).sort((a, b) => b[1] - a[1]);
+            const overallMfgRows = sortedOverallMfg.map(([mfg, count]) => {
+                const pct = grandTotalActive > 0 ? (count / grandTotalActive * 100).toFixed(1) : '0.0';
+                return [mfg, count, `${pct}%`];
+            });
+            const overallMfgTable = buildTable(
+                ['Manufacturer', 'Count', '% of Total Active Machines'],
+                overallMfgRows,
+                ['Total', grandTotalActive, '100.0%']
+            );
+
             const egmMerged = merge(mbsEGM, rwsEGM);
-            const div2 = document.createElement('div'); div2.className = 'section-title'; div2.textContent = 'EGM Manufacturers'; output.appendChild(div2);
             const egmRows = egmMerged.map(r => {
                 const pct = egmOverallTotal > 0 ? (r.total / egmOverallTotal * 100).toFixed(1) : '0.0';
                 return [r.name, r.mbs, r.rws, `${r.total.toLocaleString()} (${pct}%)`];
             });
-            output.appendChild(buildTable(
+            const egmMfgTable = buildTable(
                 ['Manufacturer', 'MBS', 'RWS', 'Total (% of Total Active EGMs)'],
                 egmRows,
                 ['Total', mbsEGMTotal, rwsEGMTotal, `${egmOverallTotal.toLocaleString()} (100.0%)`]
-            ));
+            );
 
-            const etgOverallTotal = mbsETGTotal + rwsETGTotal;
             const etgMerged = merge(mbsETG, rwsETG);
-            const div3 = document.createElement('div'); div3.className = 'section-title'; div3.textContent = 'ETG Manufacturers'; output.appendChild(div3);
             const etgRows = etgMerged.map(r => {
                 const pct = etgOverallTotal > 0 ? (r.total / etgOverallTotal * 100).toFixed(1) : '0.0';
                 return [r.name, r.mbs, r.rws, `${r.total.toLocaleString()} (${pct}%)`];
             });
-            output.appendChild(buildTable(
+            const etgMfgTable = buildTable(
                 ['Manufacturer', 'MBS', 'RWS', 'Total (% of Total Active ETGs)'],
                 etgRows,
                 ['Total', mbsETGTotal, rwsETGTotal, `${etgOverallTotal.toLocaleString()} (100.0%)`]
-            ));
+            );
 
-            const div4 = document.createElement('div'); div4.className = 'section-title'; div4.textContent = 'Per-Casino Breakdown'; output.appendChild(div4);
-            const tabsContainer = document.createElement('div'); tabsContainer.className = 'tabs';
-            const contentContainer = document.createElement('div');
+            const mfgSection = createTabbedSection('Manufacturer Summary', [
+                { id: 'mfg-overall', label: 'Overall', element: overallMfgTable },
+                { id: 'mfg-egms',    label: 'EGMs',    element: egmMfgTable },
+                { id: 'mfg-etgs',    label: 'ETGs',    element: etgMfgTable }
+            ]);
+            output.appendChild(mfgSection);
 
-            const tabDefs = [
-                { id: 'mbs-egm', label: 'MBS - EGMs', data: mbsEGM, total: mbsEGMTotal },
-                { id: 'mbs-etg', label: 'MBS - ETGs', data: mbsETG, total: mbsETGTotal },
-                { id: 'rws-egm', label: 'RWS - EGMs', data: rwsEGM, total: rwsEGMTotal },
-                { id: 'rws-etg', label: 'RWS - ETGs', data: rwsETG, total: rwsETGTotal }
+            // Section 3: Top 10 Games (7 Tabs)
+            const topGamesTabDefs = [
+                {
+                    id: 'top-overall',
+                    label: 'Overall',
+                    sheets: [mbsWB[EGM_TAB], mbsWB[ETG_TAB], rwsWB[EGM_TAB], rwsWB[ETG_TAB]],
+                    totalCategoryCount: grandTotalActive,
+                    colHeader: 'Count (% of Total Active Machines)'
+                },
+                {
+                    id: 'top-overall-egm',
+                    label: 'Overall - EGMs',
+                    sheets: [mbsWB[EGM_TAB], rwsWB[EGM_TAB]],
+                    totalCategoryCount: egmOverallTotal,
+                    colHeader: 'Count (% of Total Active EGMs)'
+                },
+                {
+                    id: 'top-overall-etg',
+                    label: 'Overall - ETGs',
+                    sheets: [mbsWB[ETG_TAB], rwsWB[ETG_TAB]],
+                    totalCategoryCount: etgOverallTotal,
+                    colHeader: 'Count (% of Total Active ETGs)'
+                },
+                {
+                    id: 'top-mbs-egm',
+                    label: 'MBS - EGMs',
+                    sheets: [mbsWB[EGM_TAB]],
+                    totalCategoryCount: mbsEGMTotal,
+                    colHeader: 'Count (% of Total MBS EGMs)'
+                },
+                {
+                    id: 'top-rws-egm',
+                    label: 'RWS - EGMs',
+                    sheets: [rwsWB[EGM_TAB]],
+                    totalCategoryCount: rwsEGMTotal,
+                    colHeader: 'Count (% of Total RWS EGMs)'
+                },
+                {
+                    id: 'top-mbs-etg',
+                    label: 'MBS - ETGs',
+                    sheets: [mbsWB[ETG_TAB]],
+                    totalCategoryCount: mbsETGTotal,
+                    colHeader: 'Count (% of Total MBS ETGs)'
+                },
+                {
+                    id: 'top-rws-etg',
+                    label: 'RWS - ETGs',
+                    sheets: [rwsWB[ETG_TAB]],
+                    totalCategoryCount: rwsETGTotal,
+                    colHeader: 'Count (% of Total RWS ETGs)'
+                }
             ];
 
-            tabDefs.forEach((def, idx) => {
-                const btn = document.createElement('button'); btn.className = 'tab-btn' + (idx===0?' active':''); btn.textContent = def.label;
-                btn.onclick = () => {
-                    tabsContainer.querySelectorAll('button').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
-                    contentContainer.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-                    const target = contentContainer.querySelector('#tab-'+def.id);
-                    if (target) target.classList.add('active');
-                };
-                tabsContainer.appendChild(btn);
-
-                const c = document.createElement('div'); c.id = 'tab-'+def.id; c.className = 'tab-content' + (idx===0?' active':'');
-                const sorted = Object.entries(def.data).sort((a,b)=>b[1]-a[1]);
-                if (sorted.length === 0) c.textContent = "No data.";
-                else {
-                    c.appendChild(buildTable(['Manufacturer', 'Count'], sorted, ['Total', def.total]));
+            const topGamesTabs = topGamesTabDefs.map(def => {
+                const topGames = parseTopGamesFromSheets(def.sheets, aliasMap);
+                let tableElement;
+                if (topGames.length === 0) {
+                    tableElement = document.createElement('div');
+                    tableElement.style.padding = '10px';
+                    tableElement.textContent = 'No game data available.';
+                } else {
+                    const rows = topGames.map(g => {
+                        const pct = def.totalCategoryCount > 0 ? (g.count / def.totalCategoryCount * 100).toFixed(1) : '0.0';
+                        return [g.mfg, g.gameName, g.version || '-', `${g.count.toLocaleString()} (${pct}%)`];
+                    });
+                    const totalTopCount = topGames.reduce((acc, curr) => acc + curr.count, 0);
+                    const totalTopPct = def.totalCategoryCount > 0 ? (totalTopCount / def.totalCategoryCount * 100).toFixed(1) : '0.0';
+                    tableElement = buildGameTable(
+                        ['Manufacturer', 'Game Name', 'Game ID', def.colHeader],
+                        rows,
+                        ['Total (Top Games)', '', '', `${totalTopCount.toLocaleString()} (${totalTopPct}%)`]
+                    );
                 }
-                contentContainer.appendChild(c);
+                return {
+                    id: def.id,
+                    label: def.label,
+                    element: tableElement
+                };
             });
-            output.appendChild(tabsContainer);
-            output.appendChild(contentContainer);
 
-            // Top 10 Active EGMs Games Section (Side-by-Side)
-            const divTopSection = document.createElement('div'); divTopSection.className = 'section-title'; divTopSection.textContent = 'Top 10 Active EGMs Games'; output.appendChild(divTopSection);
-
-            const sideBySideDiv = document.createElement('div'); sideBySideDiv.className = 'side-by-side';
-
-            // MBS Column
-            const mbsCol = document.createElement('div');
-            const mbsTitle = document.createElement('div'); mbsTitle.className = 'column-title'; mbsTitle.textContent = 'MBS'; mbsCol.appendChild(mbsTitle);
-            const mbsTopGames = parseTopGames(mbsWB[EGM_TAB], aliasMap);
-            if (mbsTopGames.length === 0) {
-                const noData = document.createElement('div'); noData.style.padding = '10px'; noData.textContent = 'No game data available.'; mbsCol.appendChild(noData);
-            } else {
-                const rows = mbsTopGames.map(g => {
-                    const pct = mbsEGMTotal > 0 ? (g.count / mbsEGMTotal * 100).toFixed(1) : '0.0';
-                    return [g.mfg, g.gameName, g.version || '-', `${g.count.toLocaleString()} (${pct}%)`];
-                });
-                const totalMBSCount = mbsTopGames.reduce((acc, curr) => acc + curr.count, 0);
-                const totalMBSPct = mbsEGMTotal > 0 ? (totalMBSCount / mbsEGMTotal * 100).toFixed(1) : '0.0';
-                mbsCol.appendChild(buildGameTable(
-                    ['Manufacturer', 'Game Name', 'Game ID', 'Count (% of Total Active EGMs)'],
-                    rows,
-                    ['Total (Top Games)', '', '', `${totalMBSCount.toLocaleString()} (${totalMBSPct}%)`]
-                ));
-            }
-            sideBySideDiv.appendChild(mbsCol);
-
-            // RWS Column
-            const rwsCol = document.createElement('div');
-            const rwsTitle = document.createElement('div'); rwsTitle.className = 'column-title'; rwsTitle.textContent = 'RWS'; rwsCol.appendChild(rwsTitle);
-            const rwsTopGames = parseTopGames(rwsWB[EGM_TAB], aliasMap);
-            if (rwsTopGames.length === 0) {
-                const noData = document.createElement('div'); noData.style.padding = '10px'; noData.textContent = 'No game data available.'; rwsCol.appendChild(noData);
-            } else {
-                const rows = rwsTopGames.map(g => {
-                    const pct = rwsEGMTotal > 0 ? (g.count / rwsEGMTotal * 100).toFixed(1) : '0.0';
-                    return [g.mfg, g.gameName, g.version || '-', `${g.count.toLocaleString()} (${pct}%)`];
-                });
-                const totalRWSCount = rwsTopGames.reduce((acc, curr) => acc + curr.count, 0);
-                const totalRWSPct = rwsEGMTotal > 0 ? (totalRWSCount / rwsEGMTotal * 100).toFixed(1) : '0.0';
-                rwsCol.appendChild(buildGameTable(
-                    ['Manufacturer', 'Game Name', 'Game ID', 'Count (% of Total Active EGMs)'],
-                    rows,
-                    ['Total (Top Games)', '', '', `${totalRWSCount.toLocaleString()} (${totalRWSPct}%)`]
-                ));
-            }
-            sideBySideDiv.appendChild(rwsCol);
-
-            output.appendChild(sideBySideDiv);
+            const topGamesSection = createTabbedSection('Top 10 Active Games', topGamesTabs);
+            output.appendChild(topGamesSection);
 
             isLoaded = true;
         } catch (err) {
