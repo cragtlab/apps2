@@ -21,9 +21,6 @@
             gap: 10px;
         }
         .game-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             padding: 15px;
             background-color: #fff;
             border: 1px solid #ddd;
@@ -37,242 +34,91 @@
         .game-link {
             text-decoration: none;
             color: #0366d6;
-            flex-grow: 1;
+            display: block;
         }
         .game-link:active {
             color: #0256c7;
-        }
-        .game-date {
-            color: #666;
-            font-size: 0.9em;
-            margin-left: 15px;
-            white-space: nowrap;
         }
     </style>
 </head>
 <body>
     <h1>Games Index</h1>
-    <div class="games-list">
-        <div class="game-item">
-            <a href="Say That Pokémon! (1).html" class="game-link">Say That Pokémon! (1)</a>
-            <span class="game-date">2026-10-26</span>
-        </div>
-        <div class="game-item">
-            <a href="Say That Pokémon!.html" class="game-link">Say That Pokémon!</a>
-            <span class="game-date">2026-10-26</span>
-        </div>
-        <div class="game-item">
-            <a href="world-map-explorer.html" class="game-link">World Map Explorer</a>
-            <span class="game-date">2026-10-26</span>
-        </div>
-        <div class="game-item">
-            <a href="Weigh It Out (2).html" class="game-link">Weigh It Out (2)</a>
-            <span class="game-date">2026-10-14</span>
-        </div>
-        <div class="game-item">
-            <a href="learn-our-countries.html" class="game-link">Learn Our Countries</a>
-            <span class="game-date">2026-10-11</span>
-        </div>
-        <div class="game-item">
-            <a href="Abacus.htm" class="game-link">Abacus</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="Chick.htm" class="game-link">Chick</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="Chick2.htm" class="game-link">Chick 2</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="Claw.htm" class="game-link">Claw</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="email.htm" class="game-link">Email</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="Focus.html" class="game-link">Focus</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="GameMemory1.htm" class="game-link">Game Memory 1</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="invader.htm" class="game-link">Invader</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="miniHOMM.html" class="game-link">Mini HOMM</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="monopoly.htm" class="game-link">Monopoly</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="robot1.htm" class="game-link">Robot 1</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="slicer.html" class="game-link">Slicer</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="story.html" class="game-link">Story</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="teeth.html" class="game-link">Teeth</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="TextRPG.html" class="game-link">Text RPG</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="testSpell%20(1).htm" class="game-link">Test Spell</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="testSpellCN.htm" class="game-link">Test Spell CN</a>
-            <span class="game-date">2026-09-21</span>
-        </div>
-        <div class="game-item">
-            <a href="word_scramble_game.html" class="game-link">Word Scramble Game</a>
-            <span class="game-date">2026-09-16</span>
-        </div>
-        <div class="game-item">
-            <a href="ant-trail-5.html" class="game-link">Ant Trail 5</a>
-            <span class="game-date">2026-09-13</span>
-        </div>
-        <div class="game-item">
-            <a href="chicken_escape.html" class="game-link">Chicken Escape</a>
-            <span class="game-date">2026-09-12</span>
-        </div>
-        <div class="game-item">
-            <a href="ant-trail-3.html" class="game-link">Ant Trail 3</a>
-            <span class="game-date">2026-09-11</span>
-        </div>
-        <div class="game-item">
-            <a href="cascadia-2p.html" class="game-link">Cascadia 2P</a>
-            <span class="game-date">2026-09-11</span>
-        </div>
-        <div class="game-item">
-            <a href="isometric-farm.html" class="game-link">Isometric Farm</a>
-            <span class="game-date">2026-09-11</span>
-        </div>
-        <div class="game-item">
-            <a href="tents-and-trees.html" class="game-link">Tents and Trees</a>
-            <span class="game-date">2026-09-09</span>
-        </div>
-        <div class="game-item">
-            <a href="schoolbag-game.html" class="game-link">Schoolbag Game</a>
-            <span class="game-date">2026-09-09</span>
-        </div>
-        <div class="game-item">
-            <a href="tilt-maze-3.html" class="game-link">Tilt Maze 3</a>
-            <span class="game-date">2026-09-06</span>
-        </div>
-        <div class="game-item">
-            <a href="trace-and-draw.html" class="game-link">Trace and Draw</a>
-            <span class="game-date">2026-09-01</span>
-        </div>
-        <div class="game-item">
-            <a href="trace-chinese.html" class="game-link">Trace Chinese</a>
-            <span class="game-date">2026-09-01</span>
-        </div>
-        <div class="game-item">
-            <a href="chinese-sentence-game-1.html" class="game-link">Chinese Sentence Game 1</a>
-            <span class="game-date">2026-08-30</span>
-        </div>
-        <div class="game-item">
-            <a href="chinese-sentence-game.html" class="game-link">Chinese Sentence Game</a>
-            <span class="game-date">2026-08-29</span>
-        </div>
-        <div class="game-item">
-            <a href="ant-trail.html" class="game-link">Ant Trail</a>
-            <span class="game-date">2026-08-27</span>
-        </div>
-        <div class="game-item">
-            <a href="tilt-maze.html" class="game-link">Tilt Maze</a>
-            <span class="game-date">2026-08-23</span>
-        </div>
-        <div class="game-item">
-            <a href="shape-twist.html" class="game-link">Shape Twist</a>
-            <span class="game-date">2026-08-19</span>
-        </div>
-        <div class="game-item">
-            <a href="letter-hunt.html" class="game-link">Letter Hunt</a>
-            <span class="game-date">2026-08-16</span>
-        </div>
-        <div class="game-item">
-            <a href="fingertip-fish-river.html" class="game-link">Fingertip Fish River</a>
-            <span class="game-date">2026-08-16</span>
-        </div>
-        <div class="game-item">
-            <a href="monster-gobblet-tictactoe.html" class="game-link">Monster Gobblet Tic Tac Toe</a>
-            <span class="game-date">2026-08-12</span>
-        </div>
-        <div class="game-item">
-            <a href="mow.htm" class="game-link">Mow</a>
-            <span class="game-date">2026-08-12</span>
-        </div>
-        <div class="game-item">
-            <a href="fog.htm" class="game-link">Fog</a>
-            <span class="game-date">2026-08-11</span>
-        </div>
-        <div class="game-item">
-            <a href="fog2.htm" class="game-link">Fog 2</a>
-            <span class="game-date">2026-08-11</span>
-        </div>
-        <div class="game-item">
-            <a href="arslots.htm" class="game-link">AR Slots</a>
-            <span class="game-date">2026-08-09</span>
-        </div>
-        <div class="game-item">
-            <a href="claw1.htm" class="game-link">Claw 1</a>
-            <span class="game-date">2026-06-29</span>
-        </div>
-        <div class="game-item">
-            <a href="crossing.htm" class="game-link">Crossing</a>
-            <span class="game-date">2026-06-23</span>
-        </div>
-        <div class="game-item">
-            <a href="liubei1.htm" class="game-link">Liubei 1</a>
-            <span class="game-date">2026-06-23</span>
-        </div>
-        <div class="game-item">
-            <a href="liubei_clashroyal.htm" class="game-link">Liubei Clash Royal</a>
-            <span class="game-date">2026-06-23</span>
-        </div>
-        <div class="game-item">
-            <a href="liubei_clashroyalV2.htm" class="game-link">Liubei Clash Royal V2</a>
-            <span class="game-date">2026-06-23</span>
-        </div>
-        <div class="game-item">
-            <a href="liubei_clashroyalV3.htm" class="game-link">Liubei Clash Royal V3</a>
-            <span class="game-date">2026-06-23</span>
-        </div>
-        <div class="game-item">
-            <a href="mario.html" class="game-link">Mario</a>
-            <span class="game-date">2026-06-14</span>
-        </div>
-        <div class="game-item">
-            <a href="tower.htm" class="game-link">Tower</a>
-            <span class="game-date">2026-06-14</span>
-        </div>
-        <div class="game-item">
-            <a href="pizza_game.html" class="game-link">Pizza Game</a>
-            <span class="game-date">2026-06-12</span>
-        </div>
-        <div class="game-item">
-            <a href="maths7.htm" class="game-link">Maths 7</a>
-            <span class="game-date">2026-05-13</span>
-        </div>
-    </div>
+    <div id="gamesList" class="games-list"></div>
+
+    <script>
+        const games = [
+            "Balloon vs Cups.html",
+            "Say That Pokémon! (1).html",
+            "Say That Pokémon!.html",
+            "world-map-explorer.html",
+            "Weigh It Out (2).html",
+            "learn-our-countries.html",
+            "Abacus.htm",
+            "Chick.htm",
+            "Chick2.htm",
+            "Claw.htm",
+            "email.htm",
+            "Focus.html",
+            "GameMemory1.htm",
+            "invader.htm",
+            "miniHOMM.html",
+            "monopoly.htm",
+            "robot1.htm",
+            "slicer.html",
+            "story.html",
+            "teeth.html",
+            "TextRPG.html",
+            "testSpell (1).htm",
+            "testSpellCN.htm",
+            "word_scramble_game.html",
+            "ant-trail-5.html",
+            "chicken_escape.html",
+            "ant-trail-3.html",
+            "cascadia-2p.html",
+            "isometric-farm.html",
+            "tents-and-trees.html",
+            "schoolbag-game.html",
+            "tilt-maze-3.html",
+            "trace-and-draw.html",
+            "trace-chinese.html",
+            "chinese-sentence-game-1.html",
+            "chinese-sentence-game.html",
+            "ant-trail.html",
+            "tilt-maze.html",
+            "shape-twist.html",
+            "letter-hunt.html",
+            "fingertip-fish-river.html",
+            "monster-gobblet-tictactoe.html",
+            "mow.htm",
+            "fog.htm",
+            "fog2.htm",
+            "arslots.htm",
+            "claw1.htm",
+            "crossing.htm",
+            "liubei1.htm",
+            "liubei_clashroyal.htm",
+            "liubei_clashroyalV2.htm",
+            "liubei_clashroyalV3.htm",
+            "mario.html",
+            "tower.htm",
+            "pizza_game.html",
+            "maths7.htm"
+        ];
+
+        const gamesList = document.getElementById('gamesList');
+
+        for (const file of games) {
+            const item = document.createElement('div');
+            item.className = 'game-item';
+
+            const link = document.createElement('a');
+            link.href = file;
+            link.className = 'game-link';
+            link.textContent = file.replace(/\.(htm|html)$/i, '');
+
+            item.appendChild(link);
+            gamesList.appendChild(item);
+        }
+    </script>
 </body>
 </html>
