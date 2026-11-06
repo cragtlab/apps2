@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sudoku for Kids</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#fff8ec;--card:#ffffff;--ink:#2b2a4c;--line:#c9c3e6;--thick:#5b4fcf;--given:#eae6ff;--sel:#ffd96b;--same:#ffeeb0;--bad:#ff6b6b;--good:#2e9e6b;--btn:#5b4fcf;--btntxt:#fff;--user:#d6336c}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1b33;--card:#26254a;--ink:#f2f0ff;--line:#4a4880;--thick:#9d93ff;--given:#34336a;--sel:#b8890f;--same:#5a4a1c;--bad:#c94a4a;--good:#4fd09a;--btn:#8b7fff;--btntxt:#14132b;--user:#ff8fb8}}
+:root[data-theme="dark"]{--bg:#1c1b33;--card:#26254a;--ink:#f2f0ff;--line:#4a4880;--thick:#9d93ff;--given:#34336a;--sel:#b8890f;--same:#5a4a1c;--bad:#c94a4a;--good:#4fd09a;--btn:#8b7fff;--btntxt:#14132b;--user:#ff8fb8}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Comic Sans MS",system-ui,sans-serif}
+.wrap{max-width:460px;margin:0 auto;padding:14px;text-align:center}
+h1{margin:4px 0 10px;font-size:26px}
+.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0}
+button{font:inherit;border:0;border-radius:14px;padding:10px 14px;background:var(--card);color:var(--ink);box-shadow:0 2px 0 var(--line);cursor:pointer}
+button.on{background:var(--btn);color:var(--btntxt)}
+#board{display:grid;margin:12px auto;width:min(92vw,420px);aspect-ratio:1;border:3px solid var(--thick);border-radius:10px;overflow:hidden;background:var(--card)}
+.c{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:0;padding:0;background:var(--card);box-shadow:none;font-weight:bold;color:var(--user);position:relative}
+.c.g{background:var(--given);color:var(--ink)}
+.c.same{background:var(--same)}
+.c.sel{background:var(--sel)}
+.c.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 25%,var(--card))}
+.c.rt{border-right:3px solid var(--thick)}
+.c.bt{border-bottom:3px solid var(--thick)}
+.notes{position:absolute;inset:2px;display:grid;font-size:.38em;font-weight:normal;color:var(--ink);opacity:.8;line-height:1}
+.notes span{display:flex;align-items:center;justify-content:center}
+#pad{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:8px 0}
+#pad button{min-width:44px;height:48px;font-size:22px;font-weight:bold;padding:0 10px;background:var(--btn);color:var(--btntxt);box-shadow:0 3px 0 rgba(0,0,0,.25)}
+#timer{font-size:22px;font-weight:bold;color:var(--thick)}
+#msg{min-height:30px;font-size:20px;font-weight:bold}
+.win{color:var(--good)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🧩 Sudoku</h1>
+<div class="row" id="sizes"><button data-n="4" class="on">4×4</button><button data-n="9">9×9</button></div>
+<div class="row" id="diffs"><button data-d="0" class="on">Easy</button><button data-d="1">Medium</button><button data-d="2">Hard</button></div>
+<div id="timer">⏱ 0:00</div>
+<div id="msg">Tap a square, then a number!</div>
+<div id="board"></div>
+<div id="pad"></div>
+<div class="row">
+<button id="note">✏️ Pencil</button>
+<button id="hint">💡 Hint</button>
+<button id="new">🔄 New</button>
+</div>
+<div style="font-size:14px;opacity:.8">Each row, column and box needs every number once.</div>
+</div>
+<script>
+let N=4,D=0,grid,given,sol,notes,sel=null,pencil=false,won=false;
+const $=s=>document.querySelector(s);
+const dims=()=>N===4?[2,2]:[3,3];
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+function ok(g,r,c,v){const[br,bc]=dims();for(let i=0;i<N;i++){if(i!==c&&g[r][i]===v)return false;if(i!==r&&g[i][c]===v)return false}
+const r0=r-r%br,c0=c-c%bc;for(let i=r0;i<r0+br;i++)for(let j=c0;j<c0+bc;j++)if((i!==r||j!==c)&&g[i][j]===v)return false;return true}
+function fill(g,k){if(k===N*N)return true;const r=Math.floor(k/N),c=k%N;for(const v of shuffle([...Array(N)].map((_,i)=>i+1))){if(ok(g,r,c,v)){g[r][c]=v;if(fill(g,k+1))return true;g[r][c]=0}}return false}
+function newGame(){const g=[...Array(N)].map(()=>Array(N).fill(0));fill(g,0);sol=g.map(r=>[...r]);
+const blanks=N===4?[4,7,9][D]:[34,42,50][D];grid=g.map(r=>[...r]);given=grid.map(r=>r.map(()=>true));
+shuffle([...Array(N*N).keys()]).slice(0,blanks).forEach(k=>{const r=Math.floor(k/N),c=k%N;grid[r][c]=0;given[r][c]=false});
+notes=[...Array(N)].map(()=>[...Array(N)].map(()=>new Set()));sel=null;won=false;msg("Tap a square, then a number!");startTimer();draw()}
+function msg(t,w){const m=$("#msg");m.textContent=t;m.className=w?"win":""}
+function draw(){const b=$("#board"),[br,bc]=dims();b.style.gridTemplateColumns=`repeat(${N},1fr)`;b.style.fontSize=(N===4?44:26)+"px";b.innerHTML="";
+const sv=sel?grid[sel[0]][sel[1]]:0;
+for(let r=0;r<N;r++)for(let c=0;c<N;c++){const e=document.createElement("button");e.className="c";
+if(given[r][c])e.classList.add("g");if((c+1)%bc===0&&c<N-1)e.classList.add("rt");if((r+1)%br===0&&r<N-1)e.classList.add("bt");
+if(sel&&sel[0]===r&&sel[1]===c)e.classList.add("sel");else if(sv&&grid[r][c]===sv)e.classList.add("same");
+const v=grid[r][c];if(v){e.textContent=v;if(!given[r][c]&&!ok(grid,r,c,v))e.classList.add("bad")}
+else if(notes[r][c].size){const n=document.createElement("div");n.className="notes";n.style.gridTemplateColumns=`repeat(${bc},1fr)`;
+for(let i=1;i<=N;i++){const s=document.createElement("span");s.textContent=notes[r][c].has(i)?i:"";n.appendChild(s)}e.appendChild(n)}
+e.onclick=()=>{sel=[r,c];draw()};b.appendChild(e)}}
+function pad(){const p=$("#pad");p.innerHTML="";for(let i=1;i<=N;i++){const b=document.createElement("button");b.textContent=i;b.onclick=()=>put(i);p.appendChild(b)}}
+function put(v){if(!sel||won)return;const[r,c]=sel;if(given[r][c])return;
+if(pencil&&v){if(grid[r][c])return;const s=notes[r][c];s.has(v)?s.delete(v):s.add(v)}
+else{grid[r][c]=v;notes[r][c].clear();if(v)cleanNotes(r,c,v)}
+draw();check()}
+function cleanNotes(r,c,v){const[br,bc]=dims();for(let i=0;i<N;i++){notes[r][i].delete(v);notes[i][c].delete(v)}
+const r0=r-r%br,c0=c-c%bc;for(let i=r0;i<r0+br;i++)for(let j=c0;j<c0+bc;j++)notes[i][j].delete(v)}
+function check(){for(let r=0;r<N;r++)for(let c=0;c<N;c++){if(!grid[r][c]||!ok(grid,r,c,grid[r][c])){if(grid[r][c])msg("Oops! Look at the red number 🔍");else msg("Keep going, you’re doing great!");return}}
+won=true;stopTimer();msg("🎉 You did it in "+fmt(secs)+"! Amazing!",true);confetti()}
+function confetti(){const f=["⭐","🎉","✨","🌟","🎈"];for(let i=0;i<24;i++){const s=document.createElement("div");s.textContent=f[i%5];
+s.style.cssText=`position:fixed;top:-30px;left:${Math.random()*100}vw;font-size:${20+Math.random()*20}px;pointer-events:none;transition:transform ${2+Math.random()*2}s ease-in,opacity 3s;z-index:9`;
+document.body.appendChild(s);requestAnimationFrame(()=>{s.style.transform=`translateY(${innerHeight+60}px) rotate(${Math.random()*540}deg)`;s.style.opacity=0});setTimeout(()=>s.remove(),4500)}}
+let secs=0,tmr=null;
+function fmt(s){return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")}
+function stopTimer(){clearInterval(tmr);tmr=null}
+function startTimer(){stopTimer();secs=0;$("#timer").textContent="⏱ 0:00";tmr=setInterval(()=>{secs++;$("#timer").textContent="⏱ "+fmt(secs)},1000)}
+$("#note").onclick=e=>{pencil=!pencil;e.currentTarget.classList.toggle("on",pencil)};
+$("#hint").onclick=()=>{if(!sel||won){msg("Tap an empty square first 👆");return}const[r,c]=sel;if(given[r][c])return;grid[r][c]=sol[r][c];notes[r][c].clear();cleanNotes(r,c,sol[r][c]);draw();check()};
+$("#new").onclick=newGame;
+document.querySelectorAll("#sizes button").forEach(b=>b.onclick=()=>{N=+b.dataset.n;document.querySelectorAll("#sizes button").forEach(x=>x.classList.toggle("on",x===b));pad();newGame()});
+document.querySelectorAll("#diffs button").forEach(b=>b.onclick=()=>{D=+b.dataset.d;document.querySelectorAll("#diffs button").forEach(x=>x.classList.toggle("on",x===b));newGame()});
+pad();newGame();
+</script>
+</body>
+</html>
